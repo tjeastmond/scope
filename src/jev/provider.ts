@@ -22,6 +22,9 @@ export interface JevProviderOptions {
   deadlineMs?: number;
 }
 
+const question = (ref: string) =>
+  `Is the code in \`candidates.${ref}\` needed to complete the task described in \`task\`?`;
+
 const CRITERIA = {
   true: "The code must be read or changed to complete the task, or defines something that code doing so depends on.",
   false: "The code is unrelated to the task, or only shares words with it.",
@@ -48,17 +51,26 @@ function describe(chunk: CodeChunk) {
   };
 }
 
-/** Greedily groups candidates so each request's estimated tokens stay within the budget. */
-function batch(candidates: readonly CodeChunk[], budget: number): CodeChunk[][] {
+const estimate = (value: unknown) => charsPerTokenEstimator.count(JSON.stringify(value));
+
+/** Estimated cost of one candidate: its serialized state entry plus its question and criteria. */
+const candidateCost = (chunk: CodeChunk) => estimate(describe(chunk)) + estimate([question("c00"), CRITERIA]);
+
+/** Greedily groups candidates so each request (task included) stays within the estimated token budget. */
+function batch(task: string, candidates: readonly CodeChunk[], budget: number): CodeChunk[][] {
+  const available = budget - estimate(task);
+  if (candidates.length > 0 && available <= 0) {
+    throw new JevRequestError("The task description is too large to send to Jev with any candidate.");
+  }
   const batches: CodeChunk[][] = [];
   let current: CodeChunk[] = [];
   let used = 0;
   for (const chunk of candidates) {
-    const cost = charsPerTokenEstimator.count(chunk.content) + 100;
-    if (cost > budget) {
+    const cost = candidateCost(chunk);
+    if (cost > available) {
       throw new JevRequestError(`${chunk.file}:${chunk.startLine} is too large to send to Jev (~${cost} tokens).`);
     }
-    if (current.length > 0 && used + cost > budget) {
+    if (current.length > 0 && used + cost > available) {
       batches.push(current);
       current = [];
       used = 0;
@@ -74,12 +86,9 @@ function failure(error: unknown, signal: AbortSignal): JevUnavailableError {
   if (signal.aborted) return new JevUnavailableError("Jev did not complete: the request was cancelled or timed out.");
   const status = (error as { status?: unknown } | null)?.status;
   const name = error instanceof Error ? error.name : "Error";
-  // Deliberately omit the SDK message and body: they can echo request content.
+  // Deliberately omit the SDK message, body and `cause`: they can echo request content and credentials.
   return new JevUnavailableError(
     `Jev request failed (${name}${typeof status === "number" ? `, HTTP ${status}` : ""}).`,
-    {
-      cause: error,
-    },
   );
 }
 
@@ -105,15 +114,10 @@ export class JevDecisionProvider implements DecisionProvider {
 
     // Question IDs are not sent to the model, so each question names its candidate by state path.
     let ordinal = 0;
-    for (const group of batch(candidates, this.batchTokenBudget)) {
+    for (const group of batch(task, candidates, this.batchTokenBudget)) {
       const refs = group.map(() => `c${ordinal++}`);
       const state = { task, candidates: Object.fromEntries(group.map((chunk, i) => [refs[i], describe(chunk)])) };
-      const questions = Object.fromEntries(
-        refs.map((ref) => [
-          ref,
-          noul(`Is the code in \`candidates.${ref}\` needed to complete the task described in \`task\`?`, CRITERIA),
-        ]),
-      );
+      const questions = Object.fromEntries(refs.map((ref) => [ref, noul(question(ref), CRITERIA)]));
       let response;
       try {
         response = await this.client.systemOne({ state, questions }, { signal: combined });

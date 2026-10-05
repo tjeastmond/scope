@@ -1,3 +1,4 @@
+import { inspect } from "node:util";
 import { afterEach, expect, test } from "bun:test";
 import { JevRequestError, JevResponseError, JevUnavailableError } from "../src/jev/errors.ts";
 import { createJevClient, JevDecisionProvider, type JevClient } from "../src/jev/provider.ts";
@@ -70,6 +71,15 @@ test("refuses to send a candidate too large for any request", async () => {
   expect(calls).toHaveLength(0);
 });
 
+test("rejects an oversized task before sending anything", async () => {
+  const { client, calls } = fakeClient();
+  const provider = new JevDecisionProvider({ client, batchTokenBudget: 500 });
+  await expect(provider.decide({ task: "x".repeat(4000), candidates: [chunk("a")] })).rejects.toThrow(
+    /task description/,
+  );
+  expect(calls).toHaveLength(0);
+});
+
 test("fails with JevResponseError on an untrustworthy answer instead of using it", async () => {
   const { client } = fakeClient(() => 1.5);
   await expect(new JevDecisionProvider({ client }).decide({ task: "t", candidates: [chunk("a")] })).rejects.toThrow(
@@ -92,6 +102,7 @@ test("wraps SDK failures without echoing their message, and does not retry on it
   expect(error).toBeInstanceOf(JevUnavailableError);
   expect((error as Error).message).toContain("HTTP 503");
   expect((error as Error).message).not.toContain("secret-key-abc");
+  expect(inspect(error)).not.toContain("secret-key-abc");
   expect(attempts).toBe(1);
 });
 
