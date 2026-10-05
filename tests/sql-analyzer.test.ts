@@ -301,6 +301,13 @@ test("routine keywords inside column definitions do not make a CREATE TABLE a ro
   expect(inventory(chunks)).toEqual(["table:u@1-1", "query:select@2-2"]);
 });
 
+test("the routine keyword search stops at a plain object keyword or an opening parenthesis", async () => {
+  const lineRanges = async (source: string) =>
+    (await analyze("a.sql", source)).chunks.map(({ startLine, endLine }) => `${startLine}-${endLine}`);
+  expect(await lineRanges("CREATE VIEW v AS SELECT 1 AS function, 2 AS begin;\nSELECT 1;\n")).toEqual(["1-1", "2-2"]);
+  expect(await lineRanges("CREATE COLLATION c (function int, x begin int);\nSELECT 1;\n")).toEqual(["1-1", "2-2"]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);
