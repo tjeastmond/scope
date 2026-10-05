@@ -74,6 +74,15 @@ test("symlinks inside the repository are skipped, so an alias cannot dodge the e
   expect(skipped).toContainEqual({ path: "broken", reason: "unreadable" });
 });
 
+test("a symlinked .gitignore contributes no rules", async () => {
+  const outside = await makeDir({ rules: "*.ts\n" });
+  const root = await makeDir({ "app.ts": code });
+  await symlink(join(outside, "rules"), join(root, ".gitignore"));
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual(["app.ts"]);
+  expect(skipped).toEqual([{ path: ".gitignore", reason: "symlink-outside-repository" }]);
+});
+
 test("a symlink to the parent of the root, to its own directory or to an ancestor is never followed", async () => {
   const holder = await makeDir({ "repo/lib/util.ts": code });
   const root = join(holder, "repo");

@@ -166,13 +166,10 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
     const skipDirectory = (reason: SkipReason) => skipped.push({ path: `${directory}/`, reason });
     const entries = await readdir(join(root, directory), { withFileTypes: true }).catch(() => undefined);
     if (!entries) return skipDirectory("unreadable");
-    const gitignore = await readFile(join(root, directory, ".gitignore"), "utf8").catch(
-      (error: NodeJS.ErrnoException) => {
-        // Only a missing file means "no rules"; any other failure must not silently widen what is read.
-        if (error.code === "ENOENT") return "";
-        throw error;
-      },
-    );
+    // Only a regular `.gitignore` counts: a symlinked one could pull in rules from outside the repository.
+    const gitignore = entries.some((entry) => entry.name === ".gitignore" && entry.isFile())
+      ? await readFile(join(root, directory, ".gitignore"), "utf8")
+      : "";
     const rules = gitignore ? [...inherited, { base: directory, matcher: ignore().add(gitignore) }] : inherited;
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
