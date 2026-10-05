@@ -55,11 +55,21 @@ test("asks one Noul per candidate that names the candidate, and maps answers bac
 test("splits candidates across requests within the token budget and sums usage", async () => {
   const { client, calls } = fakeClient();
   const candidates = [chunk("a", "x".repeat(400)), chunk("b", "x".repeat(400)), chunk("c", "x".repeat(400))];
-  const result = await new JevDecisionProvider({ client, batchTokenBudget: 450 }).decide({ task: "t", candidates });
+  const result = await new JevDecisionProvider({ client, batchTokenBudget: 550 }).decide({ task: "t", candidates });
 
   expect(calls.map((call) => Object.keys(call.questions))).toEqual([["c0", "c1"], ["c2"]]);
   expect(result.judgments.map((j) => j.chunkId)).toEqual(["a", "b", "c"]);
   expect(result.usage).toEqual({ inputTokens: 20, outputTokens: 4 });
+});
+
+test("every emitted request fits the configured budget", async () => {
+  const { client, calls } = fakeClient();
+  const budget = 400;
+  const candidates = Array.from({ length: 12 }, (_unused, i) => chunk(`k${i}`, "y".repeat(100 + i * 20)));
+  await new JevDecisionProvider({ client, batchTokenBudget: budget }).decide({ task: "t", candidates });
+
+  expect(calls.length).toBeGreaterThan(1);
+  for (const call of calls) expect(Math.ceil(JSON.stringify(call).length / 4)).toBeLessThanOrEqual(budget);
 });
 
 test("refuses to send a candidate too large for any request", async () => {
@@ -75,7 +85,7 @@ test("rejects an oversized task before sending anything", async () => {
   const { client, calls } = fakeClient();
   const provider = new JevDecisionProvider({ client, batchTokenBudget: 500 });
   await expect(provider.decide({ task: "x".repeat(4000), candidates: [chunk("a")] })).rejects.toThrow(
-    /task description/,
+    /too large to send/,
   );
   expect(calls).toHaveLength(0);
 });

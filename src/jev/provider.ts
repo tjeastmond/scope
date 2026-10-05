@@ -51,34 +51,43 @@ function describe(chunk: CodeChunk) {
   };
 }
 
-const estimate = (value: unknown) => charsPerTokenEstimator.count(JSON.stringify(value));
+interface Batch {
+  chunks: CodeChunk[];
+  refs: string[];
+  request: Parameters<JevClient["systemOne"]>[0];
+}
 
-/** Estimated cost of one candidate: its serialized state entry plus its question and criteria. */
-const candidateCost = (chunk: CodeChunk) => estimate(describe(chunk)) + estimate([question("c00"), CRITERIA]);
+/** One request for a group of candidates. Question IDs are not sent to the model, so each question names its
+ * candidate by its state path; `first` keeps refs unique across batches. */
+function buildBatch(task: string, chunks: CodeChunk[], first: number): Batch {
+  const refs = chunks.map((_chunk, i) => `c${first + i}`);
+  const state = { task, candidates: Object.fromEntries(chunks.map((chunk, i) => [refs[i], describe(chunk)])) };
+  const questions = Object.fromEntries(refs.map((ref) => [ref, noul(question(ref), CRITERIA)]));
+  return { chunks, refs, request: { state, questions } };
+}
 
-/** Greedily groups candidates so each request (task included) stays within the estimated token budget. */
-function batch(task: string, candidates: readonly CodeChunk[], budget: number): CodeChunk[][] {
-  const available = budget - estimate(task);
-  if (candidates.length > 0 && available <= 0) {
-    throw new JevRequestError("The task description is too large to send to Jev with any candidate.");
-  }
-  const batches: CodeChunk[][] = [];
+const requestTokens = (batch: Batch) => charsPerTokenEstimator.count(JSON.stringify(batch.request));
+
+/** Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). */
+function planBatches(task: string, candidates: readonly CodeChunk[], budget: number): Batch[] {
+  const batches: Batch[] = [];
   let current: CodeChunk[] = [];
-  let used = 0;
+  let first = 0;
   for (const chunk of candidates) {
-    const cost = candidateCost(chunk);
-    if (cost > available) {
-      throw new JevRequestError(`${chunk.file}:${chunk.startLine} is too large to send to Jev (~${cost} tokens).`);
-    }
-    if (current.length > 0 && used + cost > available) {
-      batches.push(current);
+    if (current.length > 0 && requestTokens(buildBatch(task, [...current, chunk], first)) > budget) {
+      batches.push(buildBatch(task, current, first));
+      first += current.length;
       current = [];
-      used = 0;
     }
     current.push(chunk);
-    used += cost;
+    const tokens = requestTokens(buildBatch(task, current, first));
+    if (current.length === 1 && tokens > budget) {
+      throw new JevRequestError(
+        `${chunk.file}:${chunk.startLine} with the task is too large to send to Jev (~${tokens} tokens).`,
+      );
+    }
   }
-  if (current.length > 0) batches.push(current);
+  if (current.length > 0) batches.push(buildBatch(task, current, first));
   return batches;
 }
 
@@ -112,22 +121,17 @@ export class JevDecisionProvider implements DecisionProvider {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    // Question IDs are not sent to the model, so each question names its candidate by state path.
-    let ordinal = 0;
-    for (const group of batch(task, candidates, this.batchTokenBudget)) {
-      const refs = group.map(() => `c${ordinal++}`);
-      const state = { task, candidates: Object.fromEntries(group.map((chunk, i) => [refs[i], describe(chunk)])) };
-      const questions = Object.fromEntries(refs.map((ref) => [ref, noul(question(ref), CRITERIA)]));
+    for (const { chunks, refs, request } of planBatches(task, candidates, this.batchTokenBudget)) {
       let response;
       try {
-        response = await this.client.systemOne({ state, questions }, { signal: combined });
+        response = await this.client.systemOne(request, { signal: combined });
       } catch (error) {
         throw failure(error, combined);
       }
       inputTokens += response.usage.input_tokens;
       outputTokens += response.usage.output_tokens;
       validateRelevance(refs, response.answers).forEach((judgment, i) => {
-        judgments.push({ ...judgment, chunkId: group[i]!.id });
+        judgments.push({ ...judgment, chunkId: chunks[i]!.id });
       });
     }
 
