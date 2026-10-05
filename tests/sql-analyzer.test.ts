@@ -278,6 +278,29 @@ test("BEGIN TRANSACTION and BEGIN TRY do not open a counted block", async () => 
   expect(inventory((await analyze("a.sql", tryCatch)).chunks)).toEqual(["function:p@1-8", "query:select@9-9"]);
 });
 
+test("begin used as an identifier does not open a block", async () => {
+  const fragments = [
+    "a + t.begin + 1",
+    "f(1, begin + 1)",
+    "(begin + 1)",
+    "1 + begin = 1",
+    "(1 + begin)",
+    "1 + begin.x",
+    "1 + begin, 2",
+    "1 + begin FROM u",
+    ...["SELECT", "SET", "WHERE", "AND", "OR", "BY", "ON"].map((word) => `${word} begin + 1`),
+  ];
+  for (const fragment of fragments) {
+    const source = `CREATE TRIGGER t AFTER INSERT ON u BEGIN\n  ${fragment};\nEND;\nSELECT 1;\n`;
+    expect(inventory((await analyze("a.sql", source)).chunks)).toEqual(["function:t@1-3", "query:select@4-4"]);
+  }
+});
+
+test("routine keywords inside column definitions do not make a CREATE TABLE a routine", async () => {
+  const { chunks } = await analyze("a.sql", "CREATE TABLE u (function int, begin int);\nSELECT 1;\n");
+  expect(inventory(chunks)).toEqual(["table:u@1-1", "query:select@2-2"]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);

@@ -96,6 +96,32 @@ const upper = (token: Token | undefined): string => (token?.type === "word" ? to
 const isName = (token: Token | undefined): token is Token => token?.type === "word" || token?.type === "ident";
 
 const ROUTINE_OBJECTS = new Set(["TRIGGER", "PROCEDURE", "FUNCTION"]);
+/** Objects whose CREATE header ends the search for a routine keyword (`CREATE TABLE t (function int)`). */
+const PLAIN_OBJECTS = new Set([
+  "TABLE",
+  "VIEW",
+  "INDEX",
+  "TYPE",
+  "SCHEMA",
+  "SEQUENCE",
+  "DATABASE",
+  "EXTENSION",
+  "DOMAIN",
+]);
+/** Words around which `begin` or `end` can only be a column name (`SELECT begin FROM t`, `SET end = 1`). */
+const BEFORE_COLUMN = new Set(["SELECT", "SET", "WHERE", "AND", "OR", "BY", "ON"]);
+const AFTER_COLUMN = new Set(["FROM"]);
+
+/** A `begin`/`end` word used as an identifier: qualified, in a list, after a clause keyword, or compared. */
+function isColumn(tokens: Token[], i: number): boolean {
+  const [before, after] = [tokens[i - 1], tokens[i + 1]];
+  return (
+    (before?.type === "punct" && [".", ",", "("].includes(before.text)) ||
+    (after?.type === "punct" && [".", ",", ")", "="].includes(after.text)) ||
+    BEFORE_COLUMN.has(upper(before)) ||
+    AFTER_COLUMN.has(upper(after))
+  );
+}
 const BLOCK_CLOSERS = new Set(["IF", "LOOP", "WHILE", "REPEAT", "FOR", "CASE", "TRY", "CATCH"]);
 /** `BEGIN` followed by one of these starts a transaction or a `TRY`/`CATCH` section, not a counted block. */
 const NOT_A_BLOCK = new Set(["TRANSACTION", "TRAN", "WORK", "DEFERRED", "IMMEDIATE", "EXCLUSIVE", "TRY", "CATCH"]);
@@ -103,19 +129,24 @@ const NOT_A_BLOCK = new Set(["TRANSACTION", "TRAN", "WORK", "DEFERRED", "IMMEDIA
 /**
  * Change in BEGIN...END nesting at token `i`. Only routine bodies need it (`CREATE TRIGGER ... BEGIN a; b; END;`).
  * A block-closing `END` always follows a `;` (or an empty `BEGIN`), which tells it apart from `CASE ... END`
- * expressions and from a column named `end`. `END IF`, `END LOOP` and `END CASE` close constructs that are never
+ * expressions and from a column named `end`; a column named `begin` is excluded by `isColumn`. `END IF`, `END LOOP` and `END CASE` close constructs that are never
  * counted as openers. T-SQL bodies that omit the `;` before their closing `END` are not recognized.
  */
 function blockDelta(tokens: Token[], i: number): number {
   const word = upper(tokens[i]);
-  if (word === "BEGIN") return NOT_A_BLOCK.has(upper(tokens[i + 1])) ? 0 : 1;
+  if (word === "BEGIN") return NOT_A_BLOCK.has(upper(tokens[i + 1])) || isColumn(tokens, i) ? 0 : 1;
   if (word !== "END" || BLOCK_CLOSERS.has(upper(tokens[i + 1]))) return 0;
   const before = tokens[i - 1];
   return upper(before) === "BEGIN" || (before?.type === "punct" && before.text === ";") ? -1 : 0;
 }
 
 function isRoutineDefinition(head: Token[]): boolean {
-  return upper(head[0]) === "CREATE" && head.slice(1, 13).some((token) => ROUTINE_OBJECTS.has(upper(token)));
+  if (upper(head[0]) !== "CREATE") return false;
+  for (const token of head.slice(1, 13)) {
+    if (ROUTINE_OBJECTS.has(upper(token))) return true;
+    if (PLAIN_OBJECTS.has(upper(token)) || token.text === "(") return false;
+  }
+  return false;
 }
 
 /** Splits at top-level `;`, ignoring semicolons inside BEGIN...END bodies of routines. */
