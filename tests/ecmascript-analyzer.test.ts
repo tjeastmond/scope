@@ -405,9 +405,14 @@ test("static and instance overloads, wrapped default exports and chained test mo
     (await extractEcmascript(path, source, charsPerTokenEstimator)).chunks.map((c) => `${c.kind}:${c.name}`);
   expect(await names("a.ts", "declare class C { static m(a: string): void; m(a: number): void; }")).toEqual([
     "class:C",
-    "method:C.m",
+    "method:C.static m",
     "method:C.m",
   ]);
+  expect(await names("a.ts", "declare function Factory(): void;\ninterface Factory {}")).toEqual([
+    "function:Factory",
+    "type:Factory",
+  ]);
+  expect(await names("a.tsx", "export default function page() { return <main />; }")).toEqual(["component:page"]);
   expect(await names("a.tsx", "export default (() => <div />);")).toEqual(["component:default"]);
   expect(await names("a.ts", "export default (class { m() {} });")).toEqual(["class:default", "method:default.m"]);
   expect(await names("a.test.ts", 'test.concurrent.only("x", () => {});')).toEqual(["function:test: x"]);

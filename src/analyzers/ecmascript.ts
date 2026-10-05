@@ -50,7 +50,7 @@ interface Found {
   name: string;
   /** A body-less overload or abstract signature; merged into the implementation that follows it. */
   signature?: boolean;
-  /** Static and instance members with one name are different symbols, so they never merge. */
+  /** Marks a static class member so it can be told apart from an instance member of the same name. */
   isStatic?: boolean;
 }
 
@@ -69,9 +69,9 @@ function hasJsx(node: Node): boolean {
 }
 
 /** A function or arrow is a component when it is named like one (or default-exported) and renders JSX or is `FC`-typed. */
-function functionKind(node: Node, name: string, typeAnnotation?: Node | null): ChunkKind {
+function functionKind(node: Node, name: string, typeAnnotation?: Node | null, isDefaultExport = false): ChunkKind {
   if (node.type === "function_signature") return "function";
-  const componentName = name === "default" || /^[A-Z]/.test(name);
+  const componentName = isDefaultExport || name === "default" || /^[A-Z]/.test(name);
   const typed = typeAnnotation !== undefined && typeAnnotation !== null && COMPONENT_TYPE.test(typeAnnotation.text);
   return componentName && (typed || hasJsx(node)) ? "component" : "function";
 }
@@ -112,7 +112,13 @@ function classMembers(classNode: Node, className: string): (Found | undefined)[]
       isStatic: member.children.some((child) => child?.type === "static"),
     });
   }
-  return entries;
+  // A static and an instance member can share a name; keep their chunk identities distinct.
+  const instanceNames = new Set(entries.flatMap((entry) => (entry && !entry.isStatic ? [entry.name] : [])));
+  return entries.map((entry) =>
+    entry?.isStatic && instanceNames.has(entry.name)
+      ? { ...entry, name: `${className}.static ${entry.name.slice(className.length + 1)}` }
+      : entry,
+  );
 }
 
 /** `class` chunk plus its members. */
@@ -160,6 +166,7 @@ function statementEntries(statement: Node): (Found | undefined)[] {
     : statement;
   if (inner?.type === "ambient_declaration") inner = namedChildren(inner)[0] ?? null;
   const isDefault = exported && statement.childForFieldName("value") !== null;
+  const isDefaultExport = exported && statement.children.some((child) => child?.type === "default");
   if (isDefault) inner = unwrapValue(inner);
   if (!inner) return [];
   const spec = { start: statement, end: statement };
@@ -168,7 +175,14 @@ function statementEntries(statement: Node): (Found | undefined)[] {
   if (CLASS_TYPES.has(inner.type)) return name ? classEntries(inner, name, statement) : [];
   if (FUNCTION_TYPES.has(inner.type))
     return name
-      ? [{ ...spec, kind: functionKind(inner, name), name, signature: inner.type === "function_signature" }]
+      ? [
+          {
+            ...spec,
+            kind: functionKind(inner, name, undefined, isDefaultExport),
+            name,
+            signature: inner.type === "function_signature",
+          },
+        ]
       : [];
   const kind = SIMPLE_KINDS[inner.type];
   if (kind) return name ? [{ ...spec, kind, name }] : [];
@@ -199,12 +213,12 @@ function mergeOverloads(entries: (Found | undefined)[]): Found[] {
   for (const entry of entries) {
     if (!entry) flush();
     else if (entry.signature) {
-      if (run?.name === entry.name && run.isStatic === entry.isStatic) run = { ...run, end: entry.end };
+      if (run?.name === entry.name && run.kind === entry.kind) run = { ...run, end: entry.end };
       else {
         flush();
         run = entry;
       }
-    } else if (run?.name === entry.name && run.isStatic === entry.isStatic) {
+    } else if (run?.name === entry.name && run.kind === entry.kind) {
       found.push({ ...entry, start: run.start });
       run = undefined;
     } else {
