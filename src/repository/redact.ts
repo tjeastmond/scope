@@ -8,8 +8,8 @@ const PATTERNS: RegExp[] = [
   /\bgh[pousr]_[A-Za-z0-9]{30,}\b/g,
   /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  // A quoted literal assigned to a credential-like name: apiKey = "...", "password": "...".
-  /(?<=(?:api[_-]?key|secret|token|passw(?:or)?d|credential)s?["']?\s*[:=]\s*["'])[^"'\n]{8,}(?=["'])/gi,
+  // A quoted literal assigned to a credential-like name: apiKey = "...", apiKey: string = `...`, "password": "...".
+  /(?<=(?:api[_-]?key|secret|token|passw(?:or)?d|credential)s?["']?\s*(?::\s*[\w<>[\]| ]+?\s*)?[:=]\s*["'`])[^"'`\n]{8,}(?=["'`])/gi,
 ];
 
 /**

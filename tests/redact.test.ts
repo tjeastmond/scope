@@ -5,6 +5,8 @@ const PEM = "-----BEGIN RSA PRIVATE KEY-----\nabc\ndef\n-----END RSA PRIVATE KEY
 
 test.each([
   ['const apiKey = "abcd1234efgh5678";', "abcd1234efgh5678"],
+  ['const apiKey: string = "abcd1234efgh5678";', "abcd1234efgh5678"],
+  ["const token = `abcd1234efgh5678`;", "abcd1234efgh5678"],
   ['{ "password": "hunter2hunter2" }', "hunter2hunter2"],
   ['const k = "sk-proj-abcdefghijklmnopqrstuv";', "abcdefghijklmnopqrstuv"],
   ["const id = AKIAABCDEFGHIJKLMNOP;", "AKIAABCDEFGHIJKLMNOP"],
