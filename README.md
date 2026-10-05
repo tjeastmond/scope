@@ -27,7 +27,7 @@ code plus metadata: repository-relative path, symbol name, kind and line range. 
 sent.
 
 **What is never sent.** Files matched by `.gitignore` (root and nested), dependency and build directories, and files
-with secret-looking names (`.env*`, `*.pem`, `*.key`, `*secret*`, `*credential*`) are never read. Files containing
+with secret-looking names (`.env`, `.env.*`, `*.pem`, `*.key`, `*secret*`, `*credential*`) are never read. Files containing
 binary data are never parsed or sent. Credential-looking text inside source (private key blocks, common API token
 shapes, quoted values assigned to `apiKey`/`secret`/`token`/`password`) is replaced with `[REDACTED]` before parsing.
 Redaction is best-effort: do not rely on it to protect secrets you have committed to source.
