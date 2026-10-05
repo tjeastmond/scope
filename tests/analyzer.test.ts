@@ -6,7 +6,7 @@ const SOURCE = "export function a() {\n  return 1;\n}\n\nexport function b() {\n
 
 test("the registry resolves known languages and returns undefined for others", () => {
   expect(analyzerFor("typescript")?.languages).toContain("typescript");
-  expect(analyzerFor("python")).toBeUndefined();
+  expect(analyzerFor("go")).toBeUndefined();
 });
 
 test("analyzeFile returns chunks and a warnings array", async () => {
@@ -16,7 +16,7 @@ test("analyzeFile returns chunks and a warnings array", async () => {
 });
 
 test("analyzeFile fails clearly for a language without an analyzer", async () => {
-  await expect(analyzeFile({ path: "x.py", source: "" }, "python", charsPerTokenEstimator)).rejects.toThrow(/python/);
+  await expect(analyzeFile({ path: "x.go", source: "" }, "go", charsPerTokenEstimator)).rejects.toThrow(/go/);
 });
 
 test("CRLF files give the same ranges and ids as LF, and content keeps the original text", async () => {
