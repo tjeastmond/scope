@@ -239,6 +239,13 @@ test("a stray END before any BEGIN does not unbalance a routine and swallow the 
   expect(inventory(chunks)).toEqual(["function:f@1-1", "query:select@2-2"]);
 });
 
+test("an unquoted column named end does not close a trigger body", async () => {
+  const source =
+    "CREATE TRIGGER t AFTER INSERT ON users BEGIN\n  UPDATE users SET end = 1;\n  INSERT INTO log (a, end) VALUES (1, 2);\n  SELECT users.end, x FROM users WHERE end = 3;\nEND;\nSELECT 1;\n";
+  const { chunks } = await analyze("a.sql", source);
+  expect(inventory(chunks)).toEqual(["function:t@1-5", "query:select@6-6"]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);

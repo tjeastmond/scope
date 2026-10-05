@@ -97,6 +97,19 @@ const isName = (token: Token | undefined): token is Token => token?.type === "wo
 
 const ROUTINE_OBJECTS = new Set(["TRIGGER", "PROCEDURE", "FUNCTION"]);
 const BLOCK_CLOSERS = new Set(["IF", "LOOP", "WHILE", "REPEAT", "FOR"]);
+/** Words after which `end` can only be a column name (`SET end = 1`, `SELECT end FROM`), never a block closer. */
+const BEFORE_COLUMN = new Set(["SET", "SELECT", "WHERE", "AND", "OR", "BY", "ON"]);
+
+/** `end` used as an identifier: qualified, in a list, after a clause keyword, or assigned/compared. */
+function isColumnEnd(tokens: Token[], i: number): boolean {
+  const before = tokens[i - 1];
+  const after = tokens[i + 1];
+  return (
+    (before?.type === "punct" && [".", ",", "("].includes(before.text)) ||
+    BEFORE_COLUMN.has(upper(before)) ||
+    (after?.type === "punct" && after.text === "=")
+  );
+}
 
 /**
  * Change in BEGIN...END nesting at token `i`. Only routine bodies need it (`CREATE TRIGGER ... BEGIN a; b; END;`):
@@ -107,7 +120,7 @@ function blockDelta(tokens: Token[], i: number): number {
   const word = upper(tokens[i]);
   if (word === "BEGIN") return 1;
   if (word === "CASE") return upper(tokens[i - 1]) === "END" ? 0 : 1;
-  if (word === "END") return BLOCK_CLOSERS.has(upper(tokens[i + 1])) ? 0 : -1;
+  if (word === "END") return BLOCK_CLOSERS.has(upper(tokens[i + 1])) || isColumnEnd(tokens, i) ? 0 : -1;
   return 0;
 }
 
