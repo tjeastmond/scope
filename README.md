@@ -22,14 +22,15 @@ candidate**, through the official `@typesafe-ai/sdk`. TypeScript then applies co
 ## Credentials and data transmission
 
 **What is sent.** The ordinary command (`scope "<task>"`) sends two things to TypeSafe/Jev through the official SDK:
-the task text and the source of the shortlisted candidate chunks (at most 30 functions, classes, methods, types). It
-sends nothing else from your repository.
+the task text and, for each shortlisted candidate chunk (at most 30 functions, classes, methods, types), its source
+code plus metadata: repository-relative path, symbol name, kind and line range. Nothing else from your repository is
+sent.
 
-**What is never sent.** Files matched by `.gitignore` (root and nested), dependency and build directories, files with
-secret-looking names (`.env*`, `*.pem`, `*.key`, `*secret*`, `*credential*`), and files containing binary data are
-never read. Credential-looking text inside source (private key blocks, common API token shapes, quoted values assigned
-to `apiKey`/`secret`/`token`/`password`) is replaced with `[REDACTED]` before parsing. Redaction is best-effort: do not
-rely on it to protect secrets you have committed to source.
+**What is never sent.** Files matched by `.gitignore` (root and nested), dependency and build directories, and files
+with secret-looking names (`.env*`, `*.pem`, `*.key`, `*secret*`, `*credential*`) are never read. Files containing
+binary data are never parsed or sent. Credential-looking text inside source (private key blocks, common API token
+shapes, quoted values assigned to `apiKey`/`secret`/`token`/`password`) is replaced with `[REDACTED]` before parsing.
+Redaction is best-effort: do not rely on it to protect secrets you have committed to source.
 
 **Credentials.** Set `TYPESAFE_API_KEY` in the environment. Scope reads it only to create the SDK client. It is never
 printed, logged, written to disk or included in error messages.
