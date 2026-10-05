@@ -27,7 +27,10 @@ function applyContainerPolicy(
 ): { region: Region; endLine: number }[] {
   const children = new Map<Region, Region[]>();
   for (const region of regions) {
-    if (region.parent) children.set(region.parent, [...(children.get(region.parent) ?? []), region]);
+    if (!region.parent) continue;
+    const siblings = children.get(region.parent);
+    if (siblings) siblings.push(region);
+    else children.set(region.parent, [region]);
   }
   const dropped = new Set<Region>();
   const headerEnds = new Map<Region, number>();
