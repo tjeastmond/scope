@@ -44,7 +44,9 @@ function isMainGuard(node: Node): boolean {
   if (condition?.type !== "comparison_operator" || condition.children.every((child) => child?.text !== "==")) {
     return false;
   }
-  const operands = namedChildren(condition).map((child) => child.text);
+  const operands = namedChildren(condition)
+    .filter((child) => child.type !== "comment")
+    .map((child) => child.text);
   return operands.length === 2 && operands.includes("__name__") && operands.some((text) => MAIN_LITERAL.test(text));
 }
 

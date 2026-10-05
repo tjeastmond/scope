@@ -189,6 +189,7 @@ test("main guard detection reads operands, not whitespace", async () => {
     (await extractPythonChunks("a.py", source, charsPerTokenEstimator)).chunks.map((c) => c.name);
   expect(await names('if (__name__ == "__main__"):\n    run()\n')).toEqual(["__main__"]);
   expect(await names("if '__main__' == __name__:\n    run()\n")).toEqual(["__main__"]);
+  expect(await names('if (__name__ ==  # entry point\n    "__main__"):\n    run()\n')).toEqual(["__main__"]);
   expect(await names('if __name__ == "__ main__":\n    run()\n')).toEqual([]);
 });
 
