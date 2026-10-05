@@ -7,6 +7,8 @@ interface Found {
   node: Node;
   kind: ChunkKind;
   name: string;
+  /** The class this declaration is a member of; see the container policy in `assemble.ts`. */
+  parent?: Found;
 }
 
 const CONSTANT_NAME = /^_*[A-Z][A-Z0-9_]*$/;
@@ -89,7 +91,7 @@ function controlFlowBody(statement: Node): Node[] {
  * guard; in a class body it is methods and nested classes. Function bodies are never entered, so nested functions
  * stay part of their parent chunk.
  */
-function collect(scope: Node[], owner: string | undefined, found: Found[]): void {
+function collect(scope: Node[], owner: Found | undefined, found: Found[]): void {
   for (const statement of scope) {
     const decorated = statement.type === "decorated_definition" ? statement : undefined;
     const definition = decorated ? decorated.childForFieldName("definition") : statement;
@@ -100,9 +102,17 @@ function collect(scope: Node[], owner: string | undefined, found: Found[]): void
       entry =
         owner === undefined
           ? { node: statement, kind: "function", name }
-          : { node: statement, kind: "method", name: `${owner}.${accessorName(decorated) ?? name}` };
+          : {
+              node: statement,
+              kind: "method",
+              name: `${owner.name}.${accessorName(decorated) ?? name}`,
+              parent: owner,
+            };
     } else if (definition.type === "class_definition" && name) {
-      entry = { node: statement, kind: "class", name: owner === undefined ? name : `${owner}.${name}` };
+      entry =
+        owner === undefined
+          ? { node: statement, kind: "class", name }
+          : { node: statement, kind: "class", name: `${owner.name}.${name}`, parent: owner };
     } else if (owner === undefined && isMainGuard(definition)) {
       entry = { node: statement, kind: "section", name: "__main__" };
     } else if (owner === undefined) {
@@ -116,7 +126,7 @@ function collect(scope: Node[], owner: string | undefined, found: Found[]): void
     if (!entry || isBroken(statement)) continue;
     found.push(entry);
     if (entry.kind === "class") {
-      collect(namedChildren(definition.childForFieldName("body") ?? definition), entry.name, found);
+      collect(namedChildren(definition.childForFieldName("body") ?? definition), entry, found);
     }
   }
 }
@@ -137,12 +147,18 @@ export async function extractPythonChunks(
   try {
     const found: Found[] = [];
     collect(namedChildren(tree.rootNode), undefined, found);
-    const regions = found.map(({ node, kind, name }): Region => ({
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      kind,
-      name,
-    }));
+    const byFound = new Map<Found, Region>();
+    const regions = found.map((entry): Region => {
+      const region: Region = {
+        startLine: entry.node.startPosition.row + 1,
+        endLine: entry.node.endPosition.row + 1,
+        kind: entry.kind,
+        name: entry.name,
+        parent: entry.parent ? byFound.get(entry.parent) : undefined,
+      };
+      byFound.set(entry, region);
+      return region;
+    });
     // A blank file can still report an error (a lone stray token); only a file with content warns.
     return assembleChunks(
       file,

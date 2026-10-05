@@ -69,6 +69,10 @@ export interface CodeChunk {
   content: string;
   references: Reference[];
   estimatedTokens: number;
+  /** Id of the container (class or namespace header) chunk this chunk belongs to; see docs/chunk-model.md. */
+  parentId?: string;
+  /** Name of that container. Present exactly when `parentId` is. */
+  containerName?: string;
 }
 
 export interface TokenEstimator {

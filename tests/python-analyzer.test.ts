@@ -99,9 +99,8 @@ test("golden inventory for a Python worker module", async () => {
     "config:DEFAULT_QUEUE@7-7",
     "config:_PRIVATE_LIMIT@8-8",
     "config:counter@9-9",
-    "class:Job@14-54",
+    "class:Job@14-16",
     "class:Job.Meta@18-22",
-    "method:Job.Meta.label@21-22",
     "method:Job.__init__@24-25",
     "method:Job.make@27-29",
     "method:Job.from_dict@31-33",
@@ -161,6 +160,9 @@ test("declarations inside control flow keep the enclosing scope", async () => {
     "    import json",
     "except ImportError:",
     "    class Fallback:",
+    "        a = 1",
+    "        b = 2",
+    "        c = 3",
     "        if True:",
     "            def m(self):",
     "                pass",
@@ -229,13 +231,8 @@ class Fine:
 LIMIT = 4
 `;
   const { chunks, warnings } = await analyze("bad.py", source);
-  expect(inventory(chunks)).toEqual([
-    "function:good@1-2",
-    "class:Fine@9-11",
-    "method:Fine.ok@10-11",
-    "config:LIMIT@14-14",
-  ]);
-  expect(warnings).toEqual(["bad.py: syntax errors; extracted 4 declarations from the parseable regions"]);
+  expect(inventory(chunks)).toEqual(["function:good@1-2", "class:Fine@9-11", "config:LIMIT@14-14"]);
+  expect(warnings).toEqual(["bad.py: syntax errors; extracted 3 declarations from the parseable regions"]);
 });
 
 test("a non-empty file with nothing extractable returns only the warning", async () => {
@@ -265,7 +262,7 @@ class Reader:
   expect(warnings).toEqual([]);
   expect(inventory(chunks)).toEqual([
     "function:load@3-3",
-    "class:Reader@5-10",
+    "class:Reader@5-5",
     "method:Reader.read@6-6",
     "method:Reader.seek@7-8",
     "method:Reader.seek@9-10",

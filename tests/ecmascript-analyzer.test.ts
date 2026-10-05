@@ -33,7 +33,7 @@ test("extracts the expected chunk inventory from the fixture", async () => {
     "src/email/format.ts#function:format@1-3",
     "src/email/sender.ts#function:sendWithRetry@4-16",
     "src/email/sender.ts#function:deliver@18-26",
-    "src/logger.ts#class:Logger@1-15",
+    "src/logger.ts#class:Logger@1-2",
     "src/logger.ts#method:Logger.info@4-6",
     "src/logger.ts#method:Logger.warn@8-10",
     "src/logger.ts#method:Logger.error@12-14",
@@ -98,8 +98,11 @@ test.skipIf(!built)(
   },
 );
 
-test("gives a getter and setter on one line distinct names and IDs", async () => {
-  const chunks = await chunksOf("a.ts", "class C { get x() { return 1; } set x(v: number) {} }");
+test("gives a getter and setter distinct names and IDs", async () => {
+  const chunks = await chunksOf(
+    "a.ts",
+    lines("class C {", "  y = 1;", "  z = 2;", "  get x() { return 1; }", "  set x(v: number) {}", "}"),
+  );
   const accessors = chunks.filter((chunk) => chunk.kind === "method");
   expect(accessors.map((chunk) => chunk.name)).toEqual(["C.get x", "C.set x"]);
   expect(new Set(chunks.map((chunk) => chunk.id)).size).toBe(chunks.length);
@@ -160,18 +163,19 @@ test("TypeScript: functions, bindings, classes, methods, types and enums", async
     "a.ts#function:expr@4-4",
     "a.ts#function:old@5-5",
     "a.ts#function:other@5-5",
-    "a.ts#class:Base@6-14",
+    "a.ts#class:Base@6-6",
     "a.ts#method:Base.create@7-7",
     "a.ts#method:Base.get size@8-8",
     "a.ts#method:Base.set size@9-9",
     "a.ts#method:Base.#secret@10-10",
     "a.ts#method:Base.handler@11-11",
     "a.ts#class:Made@15-15",
-    "a.ts#method:Made.run@15-15",
     "a.ts#interface:Opts@16-16",
     "a.ts#type:Id@17-17",
     "a.ts#type:Color@18-18",
     "a.ts#type:Size@19-19",
+    "a.ts#section:Ns@20-20",
+    "a.ts#section:m@21-21",
     "a.ts#config:LIMIT@22-22",
   ]);
 });
@@ -195,15 +199,13 @@ test("JavaScript and JSX parse with the javascript grammar", async () => {
     "a.jsx#component:Card@4-4",
     "a.jsx#function:helper@5-5",
     "a.jsx#class:Store@6-10",
-    "a.jsx#method:Store.#add@8-8",
-    "a.jsx#method:Store.of@9-9",
   ]);
   expect(await inv("a.mjs", "export const f = () => 1;\nexport default async function () {}\n")).toEqual([
     "a.mjs#function:f@1-1",
     "a.mjs#function:default@2-2",
   ]);
   expect(await inv("a.cjs", "function f() {}\n")).toEqual(["a.cjs#function:f@1-1"]);
-  expect(await inv("a.js", "class A { m() {} }\n")).toEqual(["a.js#class:A@1-1", "a.js#method:A.m@1-1"]);
+  expect(await inv("a.js", "class A { m() {} }\n")).toEqual(["a.js#class:A@1-1"]);
 });
 
 test("TSX: components by JSX, by FC typing, and by default export", async () => {
@@ -234,10 +236,7 @@ test("TSX: components by JSX, by FC typing, and by default export", async () => 
 test("export default forms", async () => {
   expect(await inv("a.ts", "export default function () {}\n")).toEqual(["a.ts#function:default@1-1"]);
   expect(await inv("a.ts", "export default function named() {}\n")).toEqual(["a.ts#function:named@1-1"]);
-  expect(await inv("a.ts", "export default class {\n  m() {}\n}\n")).toEqual([
-    "a.ts#class:default@1-3",
-    "a.ts#method:default.m@2-2",
-  ]);
+  expect(await inv("a.ts", "export default class {\n  m() {}\n}\n")).toEqual(["a.ts#class:default@1-3"]);
   expect(await inv("a.ts", "export default class Named {}\n")).toEqual(["a.ts#class:Named@1-1"]);
   expect(await inv("a.ts", "export default { a: 1 };\n")).toEqual(["a.ts#config:default@1-1"]);
   expect(await inv("a.ts", "const x = 1;\nexport default x;\n")).toEqual([]);
@@ -258,7 +257,7 @@ test("decorators are part of class and method ranges", async () => {
     "export @Late class Late {}", // 11
   );
   expect(await inv("a.ts", source)).toEqual([
-    "a.ts#class:Svc@1-8",
+    "a.ts#class:Svc@1-2",
     "a.ts#method:Svc.name@3-5",
     "a.ts#method:Svc.run@6-7",
     "a.ts#class:Bare@9-10",
@@ -291,7 +290,7 @@ test("overloads merge into the implementation that follows them", async () => {
     "a.ts#function:g@7-7",
     "a.ts#function:g@9-9",
     "a.ts#function:h@10-11",
-    "a.ts#class:C@12-17",
+    "a.ts#class:C@12-12",
     "a.ts#method:C.m@13-15",
     "a.ts#method:C.z@16-16",
   ]);
@@ -334,16 +333,19 @@ test("Unicode names and strings, and CRLF files give the same ranges and IDs as 
   const source = lines(
     "export const grüße = () => 'héllo 日本語';", // 1
     "class Café {", // 2
-    "  naïve() {}", // 3
-    "}", // 4
-    "describe('日本語 😀', () => {});", // 5
+    "  ünï = 1;", // 3
+    "  naïve() {}", // 4
+    "  été() {}", // 5
+    "  ça() {}", // 6
+    "}", // 7
+    "describe('日本語 😀', () => {});", // 8
   );
   const lf = await chunksOf("u.ts", source);
-  expect(lf.map((c) => c.name)).toEqual(["grüße", "Café", "Café.naïve", "describe: 日本語 😀"]);
+  expect(lf.map((c) => c.name)).toEqual(["grüße", "Café", "Café.naïve", "Café.été", "Café.ça", "describe: 日本語 😀"]);
   const crlf = await chunksOf("u.ts", source.replaceAll("\n", "\r\n"));
   expect(crlf.map((c) => c.id)).toEqual(lf.map((c) => c.id));
   expect(inventory(crlf)).toEqual(inventory(lf));
-  expect(crlf[1]?.content).toBe("class Café {\r\n  naïve() {}\r\n}\r");
+  expect(crlf[1]?.content).toBe("class Café {\r\n  ünï = 1;\r");
 });
 
 test("duplicate and same-line names get distinct IDs", async () => {
@@ -369,7 +371,6 @@ test("declaration files: ambient declarations are chunks", async () => {
     "a.d.ts#function:f@1-1",
     "a.d.ts#config:VERSION@2-2",
     "a.d.ts#class:K@3-3",
-    "a.d.ts#method:K.m@3-3",
     "a.d.ts#interface:I@4-4",
   ]);
 });
@@ -403,18 +404,19 @@ test("syntax errors with nothing extractable give a warning and no chunks; clean
 test("static and instance overloads, wrapped default exports and chained test modifiers", async () => {
   const names = async (path: string, source: string) =>
     (await extractEcmascript(path, source, charsPerTokenEstimator)).chunks.map((c) => `${c.kind}:${c.name}`);
-  expect(await names("a.ts", "declare class C { static m(a: string): void; m(a: number): void; }")).toEqual([
-    "class:C",
-    "method:C.static m",
-    "method:C.m",
-  ]);
+  expect(
+    await names(
+      "a.ts",
+      "declare class C {\n  a: number;\n  b: number;\n  static m(a: string): void;\n  m(a: number): void;\n}",
+    ),
+  ).toEqual(["class:C", "method:C.static m", "method:C.m"]);
   expect(await names("a.ts", "declare function Factory(): void;\ninterface Factory {}")).toEqual([
     "function:Factory",
     "interface:Factory",
   ]);
   expect(await names("a.tsx", "export default function page() { return <main />; }")).toEqual(["component:page"]);
   expect(await names("a.tsx", "export default (() => <div />);")).toEqual(["component:default"]);
-  expect(await names("a.ts", "export default (class { m() {} });")).toEqual(["class:default", "method:default.m"]);
+  expect(await names("a.ts", "export default (class { m() {} });")).toEqual(["class:default"]);
   expect(await names("a.test.ts", 'test.concurrent.only("x", () => {});')).toEqual(["function:test: x"]);
 });
 
@@ -422,6 +424,6 @@ test("identical same-line declarations yield one chunk", async () => {
   const names = async (path: string, source: string) =>
     (await extractEcmascript(path, source, charsPerTokenEstimator)).chunks.map((c) => c.name);
   expect(await names("a.test.ts", "it('works', () => {}); it('works', () => {});")).toEqual(["test: works"]);
-  expect(await names("a.ts", "class A { m() {} m() {} }")).toEqual(["A", "A.m"]);
+  expect(await names("a.ts", "class A { m() {} m() {} }")).toEqual(["A"]);
   expect(await names("a.ts", "const a = () => 1, a = () => 2;")).toEqual(["a"]);
 });

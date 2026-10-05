@@ -43,6 +43,8 @@ interface Found {
   signature?: boolean;
   /** Marks a static class member so it can be told apart from an instance member of the same name. */
   isStatic?: boolean;
+  /** The class or namespace this declaration is a member of; see the container policy in `assemble.ts`. */
+  parent?: Found;
 }
 
 function namedChildren(node: Node): Node[] {
@@ -74,7 +76,7 @@ function accessorPrefix(member: Node): string {
 }
 
 /** Class members as `Class.member` method chunks. Overload signatures are merged by the caller. */
-function classMembers(classNode: Node, className: string): (Found | undefined)[] {
+function classMembers(classNode: Node, className: string, parent: Found): (Found | undefined)[] {
   const body = classNode.childForFieldName("body");
   const entries: (Found | undefined)[] = [];
   // Method decorators are siblings of the method inside the class body, so they are folded into its range here.
@@ -98,6 +100,7 @@ function classMembers(classNode: Node, className: string): (Found | undefined)[]
       start,
       end: member,
       kind: "method",
+      parent,
       name: `${className}.${accessorPrefix(member)}${name}`,
       signature: METHOD_SIGNATURES.has(member.type),
       isStatic: member.children.some((child) => child?.type === "static"),
@@ -114,7 +117,8 @@ function classMembers(classNode: Node, className: string): (Found | undefined)[]
 
 /** `class` chunk plus its members. */
 function classEntries(classNode: Node, name: string, range: Node): (Found | undefined)[] {
-  return [{ start: range, end: range, kind: "class", name }, ...classMembers(classNode, name)];
+  const header: Found = { start: range, end: range, kind: "class", name };
+  return [header, ...classMembers(classNode, name, header)];
 }
 
 /** `const f = () => ...`, `const C = class {}` and exported constants, one per identifier declarator. */
@@ -149,6 +153,31 @@ function testCall(statement: Node): { callee: string; title: string } | undefine
   return { callee: callee.text, title: quoted ? first.text.slice(1, -1) : first.text };
 }
 
+/**
+ * A `namespace`/`module` is a `section` container named by its path (`A.B`, or the string without quotes), and the
+ * declarations in its body are members named `Namespace.member`. Declarations without a body, and `declare global`,
+ * give nothing.
+ */
+function namespaceEntries(node: Node, range: Node): (Found | undefined)[] {
+  const body = node.childForFieldName("body");
+  const nameNode = node.childForFieldName("name");
+  if (!body || !nameNode) return [];
+  const name = nameNode.type === "string" ? nameNode.text.slice(1, -1) : nameNode.text;
+  const container: Found = { start: range, end: range, kind: "section", name };
+  const members: (Found | undefined)[] = [];
+  for (const statement of namedChildren(body)) {
+    const found = statement.hasError ? [] : statementEntries(statement);
+    for (const entry of found) {
+      if (entry) {
+        entry.parent ??= container;
+        entry.name = `${name}.${entry.name}`;
+      }
+    }
+    members.push(...(found.length > 0 ? found : [undefined]));
+  }
+  return [container, ...members];
+}
+
 /** The declarations of one top-level statement. Statements that declare nothing give an empty array. */
 function statementEntries(statement: Node): (Found | undefined)[] {
   const exported = statement.type === "export_statement";
@@ -162,6 +191,11 @@ function statementEntries(statement: Node): (Found | undefined)[] {
   if (!inner) return [];
   const spec = { start: statement, end: statement };
   const name = inner.childForFieldName("name")?.text ?? (isDefault ? "default" : undefined);
+
+  if (!isDefault && inner.type === "expression_statement" && namedChildren(inner)[0]?.type === "internal_module") {
+    inner = namedChildren(inner)[0] ?? inner;
+  }
+  if (inner.type === "internal_module" || inner.type === "module") return namespaceEntries(inner, statement);
 
   if (CLASS_TYPES.has(inner.type)) return name ? classEntries(inner, name, statement) : [];
   if (FUNCTION_TYPES.has(inner.type))
@@ -241,12 +275,18 @@ export async function extractEcmascript(
       return found.length > 0 ? found : [undefined];
     });
     const found = mergeOverloads(entries);
-    const regions = found.map(({ start, end, kind, name }): Region => ({
-      startLine: start.startPosition.row + 1,
-      endLine: end.endPosition.row + 1,
-      kind,
-      name,
-    }));
+    const byFound = new Map<Found, Region>();
+    const regions = found.map((entry): Region => {
+      const region: Region = {
+        startLine: entry.start.startPosition.row + 1,
+        endLine: entry.end.endPosition.row + 1,
+        kind: entry.kind,
+        name: entry.name,
+        parent: entry.parent ? byFound.get(entry.parent) : undefined,
+      };
+      byFound.set(entry, region);
+      return region;
+    });
     return assembleChunks(path, source, language, regions, tree.rootNode.hasError, estimator, "declarations");
   } finally {
     tree.delete();
