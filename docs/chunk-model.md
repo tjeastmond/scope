@@ -105,10 +105,13 @@ Choices:
 - **Anonymous default exports** are named `default` (`export default function () {}`, `export default class {}`,
   `export default () => ...`, `export default {...}`). `export default someIdentifier` has no chunk.
 - **Not chunks:** nested functions and classes (they stay inside their parent), namespaces/modules (`namespace`,
-  `declare module`, with their contents), `export { a, b }` and `export ... from` re-exports, imports, and unexported
-  non-function constants.
-- **Test blocks:** `.only`/`.skip`/`.todo`/`.concurrent` variants count. Tests nested in a `describe` are covered by the
-  describe chunk. Non-string titles use the argument's source text. Only top-level calls are recognized.
+  `declare module`, with their contents), `export { a, b }` and `export ... from` re-exports, imports, unexported
+  non-function constants, destructured exports (`export const { a } = obj`), and CommonJS or `export =` assignments
+  (`module.exports = ...`, `exports.x = ...`).
+- **Test blocks:** `.only`/`.skip`/`.todo`/`.concurrent`/`.failing` variants count (also chained, as in `test.concurrent.only`);
+  `.each(...)(...)` tables and `test.describe` are not recognized. Tests nested in a `describe` are covered by the
+  describe chunk. Non-string titles use the argument's source text. Only top-level calls are recognized. Identical same-line
+  declarations collapse to one chunk so ids stay unique.
 - **Overloads:** a run of directly adjacent same-name signatures (functions, or class methods) is merged with the
   implementation that follows into one chunk spanning the first signature to the end of the implementation. Signatures
   with no following implementation (`declare function`, abstract methods, `.d.ts`) merge with each other into one chunk;

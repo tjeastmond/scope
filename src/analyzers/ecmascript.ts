@@ -250,7 +250,7 @@ export async function extractEcmascript(
     });
     const found = mergeOverloads(entries);
     const lines = source.split("\n");
-    const chunks = found.map(({ start, end, kind, name }): CodeChunk => {
+    const all = found.map(({ start, end, kind, name }): CodeChunk => {
       const startLine = start.startPosition.row + 1;
       const endLine = end.endPosition.row + 1;
       const content = lines.slice(startLine - 1, endLine).join("\n");
@@ -267,6 +267,8 @@ export async function extractEcmascript(
         estimatedTokens: estimator.count(content),
       };
     });
+    // Same-name declarations on one line (`it("a", f); it("a", f);`) share a range, hence an id; keep the first.
+    const chunks = [...new Map(all.map((chunk) => [chunk.id, chunk])).values()];
     const warnings = tree.rootNode.hasError
       ? [`${path}: syntax errors; extracted ${chunks.length} declarations from the parseable regions`]
       : [];

@@ -417,3 +417,11 @@ test("static and instance overloads, wrapped default exports and chained test mo
   expect(await names("a.ts", "export default (class { m() {} });")).toEqual(["class:default", "method:default.m"]);
   expect(await names("a.test.ts", 'test.concurrent.only("x", () => {});')).toEqual(["function:test: x"]);
 });
+
+test("identical same-line declarations yield one chunk", async () => {
+  const names = async (path: string, source: string) =>
+    (await extractEcmascript(path, source, charsPerTokenEstimator)).chunks.map((c) => c.name);
+  expect(await names("a.test.ts", "it('works', () => {}); it('works', () => {});")).toEqual(["test: works"]);
+  expect(await names("a.ts", "class A { m() {} m() {} }")).toEqual(["A", "A.m"]);
+  expect(await names("a.ts", "const a = () => 1, a = () => 2;")).toEqual(["a"]);
+});
