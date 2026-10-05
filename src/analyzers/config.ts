@@ -29,7 +29,8 @@ function keyName(key: Node): string {
   const text = key.text.replace(/\s+/g, " ").trim();
   if (text.startsWith('"')) {
     try {
-      return JSON.parse(text) || text;
+      const parsed: string = JSON.parse(text);
+      return parsed === "" ? text : parsed;
     } catch {
       return text;
     }
@@ -52,15 +53,19 @@ const findJson: Finder = (root) => {
 };
 
 const YAML_MAPPINGS = ["block_mapping", "flow_mapping"];
+const YAML_NON_BODY = ["comment", "yaml_directive", "tag_directive", "reserved_directive"];
 const YAML_PAIRS = ["block_mapping_pair", "flow_pair"];
 
 const findYaml: Finder = (root) => {
-  const documents = entries(root, ["document"]);
+  const documents = entries(root, ["document"]).map((document) =>
+    namedChildren(document).find((child) => !YAML_NON_BODY.includes(child.type)),
+  );
   const found = keyedEntries(entries(root, YAML_PAIRS));
-  documents.forEach((document, index) => {
-    const body = namedChildren(document).find((child) => child.type !== "comment");
+  // Empty documents give no chunks and do not count toward the `doc[N]` prefix; N stays the position in the file.
+  const filled = documents.filter(Boolean).length;
+  documents.forEach((body, index) => {
     if (!body) return;
-    const label = documents.length > 1 ? `doc[${index}]` : undefined;
+    const label = filled > 1 ? `doc[${index}]` : undefined;
     const mapping = namedChildren(body).find((child) => YAML_MAPPINGS.includes(child.type));
     if (mapping) found.push(...keyedEntries(entries(mapping, YAML_PAIRS), label && `${label}.`));
     else found.push({ node: body, kind: "file", name: label });
@@ -118,12 +123,20 @@ export async function extractConfigChunks(
   if (!tree) throw new Error(`Tree-sitter could not parse ${file}`);
   try {
     const lines = source.split("\n");
-    const chunks = find(tree.rootNode).map(({ node, last = node, kind, name }): CodeChunk => {
+    const found = find(tree.rootNode).map(({ node, last = node, kind, name }) => {
       const { startPosition: start } = node;
       const { endPosition: end } = last;
-      const startLine = start.row + 1;
       // A node that ends at column 0 (a block scalar keeps its trailing newline) stops on the line before.
       const endLine = end.column === 0 && end.row > start.row ? end.row : end.row + 1;
+      return { startLine: start.row + 1, endLine, kind, name };
+    });
+    // Entries sharing a line range (minified JSON, flow YAML) would each repeat the whole line, so they collapse into
+    // one `file` chunk for that range.
+    const perRange = Map.groupBy(found, ({ startLine, endLine }) => `${startLine}-${endLine}`);
+    const unique = [...perRange.values()].map((group) =>
+      group.length > 1 ? { ...group[0]!, kind: "file" as const, name: undefined } : group[0]!,
+    );
+    const chunks = unique.map(({ startLine, endLine, kind, name }): CodeChunk => {
       const content = lines.slice(startLine - 1, endLine).join("\n");
       return {
         id: makeChunkId({ file, startLine, endLine, kind, name }),
@@ -138,16 +151,14 @@ export async function extractConfigChunks(
         estimatedTokens: estimator.count(content),
       };
     });
-    // `{"a": 1, "a": 2}` on one line yields two identical entries; keep one so chunk ids stay unique.
-    const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
     const warnings: string[] = [];
     if (tree.rootNode.hasError) {
-      warnings.push(`${file}: syntax errors; extracted ${unique.length} entries from the parseable regions`);
+      warnings.push(`${file}: syntax errors; extracted ${chunks.length} entries from the parseable regions`);
     }
     if (grammar === "json" && tree.rootNode.descendantsOfType("comment").length > 0) {
       warnings.push(`${file}: contains comments (JSONC); parsed leniently`);
     }
-    return { chunks: unique, warnings };
+    return { chunks, warnings };
   } finally {
     tree.delete();
   }

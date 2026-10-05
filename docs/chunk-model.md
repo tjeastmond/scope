@@ -168,6 +168,8 @@ Choices:
   Leading comments above an entry, and the blank lines and comments between a TOML table and the next header, are not
   included. TOML sub-tables (`[a]`, `[a.b]`) are siblings, not nested. Anchors (`&x`), tags and block scalars are part of
   their entry; aliases are not resolved. `<<` merge keys are chunks named `<<`.
+- **One-line files:** entries that share a line range (minified JSON, flow YAML) collapse into one `file` chunk for that
+  range rather than repeating the whole line once per key. YAML directives (`%YAML`, `%TAG`) are not content.
 - **Large files:** the scanner's size limits decide what is parsed at all; this analyzer parses whatever it is given.
 - **JSONC:** comments are accepted and add the warning `<path>: contains comments (JSONC); parsed leniently`. Trailing
   commas are syntax errors (below).

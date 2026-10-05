@@ -219,14 +219,22 @@ test("a non-empty file with nothing extractable returns only the warning", async
   expect(warnings).toEqual(["a.toml: syntax errors; extracted 0 entries from the parseable regions"]);
 });
 
-test("identical same-line entries yield one chunk", async () => {
-  const { chunks } = await analyze("a.json", '{"a": 1, "a": 2, "b": 3}');
-  expect(chunks.map((c) => c.name)).toEqual(["a", "b"]);
+test("entries sharing a line range collapse into one file chunk instead of repeating the line", async () => {
+  expect(inventory((await analyze("a.json", '{"a": 1, "a": 2, "b": 3}')).chunks)).toEqual(["file:undefined@1-1"]);
+  expect(inventory((await analyze("a.json", '{"a":{"x":1},"b":[1,2]}')).chunks)).toEqual(["file:undefined@1-1"]);
+  expect(inventory((await analyze("a.json", '{"a": 1,\n"b": 2, "c": 3}')).chunks)).toEqual([
+    "config:a@1-1",
+    "file:undefined@2-2",
+  ]);
 });
 
-test("minified JSON keeps one chunk per key on the same line", async () => {
-  const { chunks } = await analyze("a.json", '{"a":{"x":1},"b":[1,2]}');
-  expect(inventory(chunks)).toEqual(["config:a@1-1", "config:b@1-1"]);
+test("YAML directives are not document bodies", async () => {
+  expect(inventory((await analyze("a.yaml", "%YAML 1.2\n---\na: 1\n")).chunks)).toEqual(["config:a@3-3"]);
+  expect(inventory((await analyze("a.yaml", "%TAG ! tag:x,2000:\n---\na: 1\n")).chunks)).toEqual(["config:a@3-3"]);
+});
+
+test("a trailing empty YAML document does not turn names into doc[N]", async () => {
+  expect(inventory((await analyze("a.yaml", "a: 1\n---\n")).chunks)).toEqual(["config:a@1-1"]);
 });
 
 test("CRLF and a missing trailing newline give the same inventory and IDs as LF", async () => {
