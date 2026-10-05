@@ -1,19 +1,30 @@
 import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
+import { statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { renderResult } from "./output/text.ts";
 import { runScope, UsageError } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
 
-const HELP = `Usage: scope "<task>" [--repo <path>] [--budget <tokens>] [--no-jev]
+export const FORMATS = ["text", "markdown", "json"] as const;
+export type OutputFormat = (typeof FORMATS)[number];
+
+const HELP = `Usage: scope "<task>" [--repo <path>] [--budget <tokens>] [--format text|markdown|json]
+             [--output <path>] [--no-jev] [--explain]
 
 Select the smallest useful code context for a task.
 
 Options:
   --repo <path>      Repository to analyze (default: current directory)
-  --budget <tokens>  Estimated token budget (default: ${DEFAULT_BUDGET})
+  --budget <tokens>  Estimated token budget, a positive integer (default: ${DEFAULT_BUDGET})
+  --format <format>  Output format: ${FORMATS.join(", ")} (default: text)
+  --output <path>    Write the result to a file instead of stdout (default: stdout)
+  --explain          Include selection evidence in the output (default: off)
   --no-jev           Skip Jev and use the offline baseline (no credentials or network)
   -h, --help         Show this help
+
+Not yet implemented: output is always text on stdout. --format, --output and --explain are accepted and
+validated, but have no effect yet.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
 `;
@@ -25,22 +36,72 @@ export interface Io {
   provider?: DecisionProvider;
 }
 
-function parse(argv: string[]) {
+export interface CliOptions {
+  help: boolean;
+  task: string;
+  repo: string;
+  budget: number;
+  format: OutputFormat;
+  /** Destination file; undefined means stdout. */
+  output?: string;
+  noJev: boolean;
+  explain: boolean;
+}
+
+/** Parses and validates every flag in one place, before anything is scanned. Throws UsageError. */
+export function parseCli(argv: string[]): CliOptions {
+  let parsed;
   try {
-    const { values, positionals } = parseArgs({
+    parsed = parseArgs({
       args: argv,
       allowPositionals: true,
       options: {
         repo: { type: "string" },
         budget: { type: "string" },
+        format: { type: "string" },
+        output: { type: "string" },
+        explain: { type: "boolean" },
         "no-jev": { type: "boolean" },
         help: { type: "boolean", short: "h" },
       },
     });
-    return { values, positionals };
   } catch (error) {
     throw new UsageError((error as Error).message);
   }
+  const { values, positionals } = parsed;
+  const base = { noJev: values["no-jev"] ?? false, explain: values.explain ?? false };
+  if (values.help || argv.length === 0) {
+    return { ...base, help: true, task: "", repo: ".", budget: DEFAULT_BUDGET, format: "text" };
+  }
+  if (positionals.length !== 1)
+    throw new UsageError('Expected exactly one task description, in quotes: scope "<task>"');
+  const task = positionals[0]!;
+  if (!task.trim()) throw new UsageError('The task description is empty. Pass it in quotes: scope "<task>"');
+
+  const format = values.format ?? "text";
+  if (!(FORMATS as readonly string[]).includes(format))
+    throw new UsageError(`--format must be one of ${FORMATS.join(", ")}: got "${format}"`);
+
+  let budget = DEFAULT_BUDGET;
+  if (values.budget !== undefined) {
+    budget = /^\d+$/.test(values.budget) ? Number(values.budget) : 0;
+    if (!Number.isSafeInteger(budget) || budget <= 0)
+      throw new UsageError(`--budget must be a positive integer (digits only): got "${values.budget}"`);
+  }
+
+  const repo = values.repo ?? ".";
+  if (!repo.trim()) throw new UsageError("--repo requires a path");
+  let info;
+  try {
+    info = statSync(repo);
+  } catch {
+    throw new UsageError(`--repo does not exist or is not accessible: ${repo}`);
+  }
+  if (!info.isDirectory()) throw new UsageError(`--repo is not a directory: ${repo}`);
+
+  if (values.output !== undefined && !values.output.trim()) throw new UsageError("--output requires a path");
+
+  return { ...base, help: false, task, repo, budget, format: format as OutputFormat, output: values.output };
 }
 
 const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
@@ -59,18 +120,16 @@ function describeError(error: unknown): string {
 /** Runs the CLI and returns the exit code. Results go to stdout only on success; everything else to stderr. */
 export async function main(argv: string[], io: Io): Promise<number> {
   try {
-    const { values, positionals } = parse(argv);
-    if (values.help || argv.length === 0) {
+    const options = parseCli(argv);
+    if (options.help) {
       io.stdout(HELP);
       return 0;
     }
-    if (positionals.length !== 1)
-      throw new UsageError('Expected exactly one task description, in quotes: scope "<task>"');
     const { result, decision } = await runScope({
-      task: positionals[0]!,
-      repo: values.repo,
-      budget: values.budget === undefined ? undefined : Number(values.budget),
-      noJev: values["no-jev"],
+      task: options.task,
+      repo: options.repo,
+      budget: options.budget,
+      noJev: options.noJev,
       provider: io.provider,
     });
     for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
