@@ -1,10 +1,20 @@
-import { open, readdir, readFile } from "node:fs/promises";
-import { join, posix } from "node:path";
+import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
+import { join, posix, relative, sep } from "node:path";
 import ignore, { type Ignore } from "ignore";
+import { MAX_FILE_BYTES, MAX_SCAN_BYTES, MAX_SCAN_DEPTH, MAX_SCAN_FILES } from "../config.ts";
 
 /** Why a path was left out of the scan. Add members here as new eligibility rules arrive. */
 export type SkipReason =
-  "gitignored" | "secret" | "binary" | "unreadable" | "lockfile" | "minified" | "dependency-or-build-directory";
+  | "gitignored"
+  | "secret"
+  | "binary"
+  | "unreadable"
+  | "lockfile"
+  | "minified"
+  | "dependency-or-build-directory"
+  | "too-large"
+  | "symlink-outside-repository"
+  | "symlink-loop";
 
 export interface SkippedPath {
   /** Repository-relative; directories skipped as a whole end in `/` and are not recursed into. */
@@ -16,7 +26,23 @@ export interface ScanResult {
   /** Repository-relative, `/`-separated paths of eligible files, sorted. */
   files: string[];
   skipped: SkippedPath[];
+  /** One message per limit that truncated the scan; surfaced in `ScopeResult.warnings`. */
+  warnings: string[];
 }
+
+export interface ScanLimits {
+  maxFileBytes: number;
+  maxFiles: number;
+  maxDepth: number;
+  maxTotalBytes: number;
+}
+
+const DEFAULT_LIMITS: ScanLimits = {
+  maxFileBytes: MAX_FILE_BYTES,
+  maxFiles: MAX_SCAN_FILES,
+  maxDepth: MAX_SCAN_DEPTH,
+  maxTotalBytes: MAX_SCAN_BYTES,
+};
 
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
@@ -109,15 +135,35 @@ function nameSkipReason(name: string, path: string): SkipReason | undefined {
   return undefined;
 }
 
+const isInside = (root: string, path: string) => {
+  const rel = relative(root, path);
+  return rel !== ".." && !rel.startsWith(`..${sep}`);
+};
+
 /**
  * Walks the repository and decides which files are eligible to be read and sent. Dependency and build directories
  * are never entered, `.gitignore` rules apply on the way down (a negation never re-includes secrets or the
- * built-in exclusions), and every excluded path is reported with a reason. Only binary sniffing reads file content.
+ * built-in exclusions), and every excluded path is reported with a reason. Entries are visited in sorted order, so a
+ * limit truncates the same way on every run. Symlinks are followed only to targets inside the real root, and a
+ * symlinked directory that points at one of its own ancestors is a loop. Only binary sniffing reads file content.
  */
-export async function scanRepository(root: string): Promise<ScanResult> {
+export async function scanRepository(root: string, overrides: Partial<ScanLimits> = {}): Promise<ScanResult> {
+  const limits = { ...DEFAULT_LIMITS, ...overrides };
+  const realRoot = await realpath(root);
   const files: string[] = [];
   const skipped: SkippedPath[] = [];
-  const walk = async (directory: string, inherited: readonly Rules[]): Promise<void> => {
+  const warnings: string[] = [];
+  let totalBytes = 0;
+  let stopped = false;
+  let tooDeep: string | undefined;
+  const stop = (message: string) => {
+    stopped = true;
+    warnings.push(message);
+  };
+  const walk = async (directory: string, ancestors: readonly string[], inherited: readonly Rules[]) => {
+    const skipDirectory = (reason: SkipReason) => skipped.push({ path: `${directory}/`, reason });
+    const entries = await readdir(join(root, directory), { withFileTypes: true }).catch(() => undefined);
+    if (!entries) return skipDirectory("unreadable");
     const gitignore = await readFile(join(root, directory, ".gitignore"), "utf8").catch(
       (error: NodeJS.ErrnoException) => {
         // Only a missing file means "no rules"; any other failure must not silently widen what is read.
@@ -126,30 +172,70 @@ export async function scanRepository(root: string): Promise<ScanResult> {
       },
     );
     const rules = gitignore ? [...inherited, { base: directory, matcher: ignore().add(gitignore) }] : inherited;
-    for (const entry of await readdir(join(root, directory), { withFileTypes: true })) {
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const entry of entries) {
+      if (stopped) return;
       const path = directory ? `${directory}/${entry.name}` : entry.name;
-      const skip = (reason: SkipReason) => skipped.push({ path: entry.isDirectory() ? `${path}/` : path, reason });
-      if (entry.isDirectory()) {
+      let isDirectory = entry.isDirectory();
+      let isFile = entry.isFile();
+      let real = join(ancestors.at(-1) as string, entry.name);
+      const skip = (reason: SkipReason) => skipped.push({ path: isDirectory ? `${path}/` : path, reason });
+      if (entry.isSymbolicLink()) {
+        const resolved = await Promise.all([realpath(join(root, path)), stat(join(root, path))]).catch(() => undefined);
+        if (!resolved) {
+          skip("unreadable");
+          continue;
+        }
+        const [target, info] = resolved;
+        isDirectory = info.isDirectory();
+        isFile = info.isFile();
+        real = target;
+        if (!isInside(realRoot, target)) {
+          skip("symlink-outside-repository");
+          continue;
+        }
+        if (isDirectory && ancestors.includes(target)) {
+          skip("symlink-loop");
+          continue;
+        }
+      }
+      if (isDirectory) {
         if (SKIPPED_DIRECTORIES.has(entry.name)) skip("dependency-or-build-directory");
         else if (secrets.ignores(path)) skip("secret");
         else if (isIgnored(rules, `${path}/`)) skip("gitignored");
-        else await walk(path, rules);
+        else if (path.split("/").length > limits.maxDepth) tooDeep ??= path;
+        else await walk(path, [...ancestors, real], rules);
       } else if (entry.name === ".git") {
         // Worktrees and submodules keep a regular `.git` metadata file.
         skip("dependency-or-build-directory");
-      } else if (entry.isFile()) {
+      } else if (isFile) {
         const reason = nameSkipReason(entry.name, path);
         if (reason) skip(reason);
         else if (isIgnored(rules, path)) skip("gitignored");
         else {
-          const unusable = await sniff(join(root, path));
+          const size = (await stat(join(root, path)).catch(() => undefined))?.size;
+          const unusable =
+            size === undefined
+              ? "unreadable"
+              : size > limits.maxFileBytes
+                ? "too-large"
+                : await sniff(join(root, path));
           if (unusable) skip(unusable);
-          else files.push(path);
+          else if (files.length >= limits.maxFiles)
+            stop(`Scan stopped at ${limits.maxFiles} files; the rest were not scanned.`);
+          else if (totalBytes + (size ?? 0) > limits.maxTotalBytes)
+            stop(`Scan stopped at ${limits.maxTotalBytes} bytes of source; the rest was not scanned.`);
+          else {
+            totalBytes += size ?? 0;
+            files.push(path);
+          }
         }
       }
     }
   };
-  await walk("", []);
+  await walk("", [realRoot], []);
+  if (tooDeep)
+    warnings.push(`Directories nested deeper than ${limits.maxDepth} levels were not scanned (first: ${tooDeep}/).`);
   const byPath = (a: { path: string }, b: { path: string }) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-  return { files: files.sort(), skipped: skipped.sort(byPath) };
+  return { files: files.sort(), skipped: skipped.sort(byPath), warnings };
 }

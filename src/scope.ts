@@ -38,10 +38,10 @@ export { UsageError };
 /** How much of a file the classifier sees, enough for a shebang line and a text check. */
 const HEAD_CHARS = 1024;
 
-async function loadChunks(repo: string): Promise<CodeChunk[]> {
+async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
-  const { files } = await scanRepository(root);
+  const { files, warnings } = await scanRepository(root);
   for (const file of files) {
     // A file of a known type with no analyzer is skipped without being read; unknown types need their head checked.
     const known = classifyFile(file).language;
@@ -56,7 +56,7 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
     const source = redactSecrets(text);
     chunks.push(...(await analyzeFile({ path: file, source }, language, charsPerTokenEstimator)).chunks);
   }
-  return chunks;
+  return { chunks, warnings };
 }
 
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
@@ -65,7 +65,8 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   if (!task.trim()) throw new UsageError("A task description is required.");
   if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
-  const candidates = selectCandidates(await loadChunks(repo));
+  const { chunks, warnings: scanWarnings } = await loadChunks(repo);
+  const candidates = selectCandidates(chunks);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   const decision = noJev
@@ -84,6 +85,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     };
   });
 
-  const result = selectWithinBudget(scored, { task, mode, budget, estimator: charsPerTokenEstimator });
+  const selected = selectWithinBudget(scored, { task, mode, budget, estimator: charsPerTokenEstimator });
+  const result = { ...selected, warnings: [...scanWarnings, ...selected.warnings] };
   return { result, decision };
 }

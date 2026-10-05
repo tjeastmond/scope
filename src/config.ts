@@ -15,3 +15,15 @@ export const MIN_RELEVANCE = 0.5;
 
 /** Default output budget in estimated tokens. */
 export const DEFAULT_BUDGET = 8000;
+
+/** Files larger than this are skipped (`too-large`) and never read or sent. */
+export const MAX_FILE_BYTES = 1_000_000;
+
+/** The scan stops after this many eligible files and warns. */
+export const MAX_SCAN_FILES = 10_000;
+
+/** Directories nested deeper than this (the root is depth 0) are not entered; the scan warns. */
+export const MAX_SCAN_DEPTH = 32;
+
+/** The scan stops once the eligible files total this many bytes and warns. */
+export const MAX_SCAN_BYTES = 50_000_000;
