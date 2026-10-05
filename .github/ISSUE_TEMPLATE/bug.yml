@@ -1,0 +1,31 @@
+name: Bug
+description: Something behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Command, task text, repository or fixture, flags. Do not include API keys or private source.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Scope version or commit, Node version, OS, whether Jev or --no-jev was used.
+    validations:
+      required: true

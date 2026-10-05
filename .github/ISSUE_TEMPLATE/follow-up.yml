@@ -1,0 +1,21 @@
+name: Follow-up or handoff
+description: Work discovered during another task, or notes to hand off
+body:
+  - type: input
+    id: origin
+    attributes:
+      label: Originating issue or PR
+      placeholder: "#N"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What remains
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Paths, commands run and their results, commit SHAs.
