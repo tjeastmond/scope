@@ -46,8 +46,10 @@ export interface Reference {
   kind: "import" | "call" | "type" | "extends" | "implements" | "style" | "test";
   /** Where the reference occurs. */
   from: SourceLocation;
-  /** Name as written in source. */
+  /** Name as written in source. For imports: see "References" in docs/chunk-model.md. */
   name: string;
+  /** Raw module specifier of an import as written (`"./retry.ts"`, `"..pkg"`); never resolved. Absent when dynamic. */
+  specifier?: string;
   /** Chunk the reference resolves to, when known. */
   targetChunkId?: string;
   /** Absent means no resolution was attempted; consumers treat that like "unresolved". */

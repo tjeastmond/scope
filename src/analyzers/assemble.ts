@@ -1,5 +1,5 @@
 import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, ChunkKind, CodeChunk, Language, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, ChunkKind, CodeChunk, Language, Reference, TokenEstimator } from "../types.ts";
 
 /** A container (class, namespace) of at most this many lines stays one chunk and its members are not chunks. */
 export const SMALL_CONTAINER_LINES = 5;
@@ -12,6 +12,27 @@ export interface Region {
   name?: string | undefined;
   /** The container this region is a member of. It must be another region of the same call, listed before this one. */
   parent?: Region | undefined;
+}
+
+/** A reference an extractor found: a `Reference` whose location is just a 1-based line in the file being analyzed. */
+export type RawReference = Omit<Reference, "from" | "targetChunkId"> & { line: number };
+
+/**
+ * A reference belongs to every chunk whose line range contains its line. One that lies in no chunk (a top-level
+ * `import` or `export ... from`, a `require` in a top-level statement that declares nothing) is file-level context
+ * and is attached to every chunk of the file; see docs/chunk-model.md, "References".
+ */
+function referencesFor(
+  file: string,
+  startLine: number,
+  endLine: number,
+  references: readonly RawReference[],
+  ranges: readonly { startLine: number; endLine: number }[],
+): Reference[] {
+  const covered = (line: number) => ranges.some((range) => range.startLine <= line && line <= range.endLine);
+  return references
+    .filter(({ line }) => (startLine <= line && line <= endLine) || !covered(line))
+    .map(({ line, ...rest }) => ({ ...rest, from: { file, line } }));
 }
 
 /**
@@ -66,7 +87,7 @@ function applyContainerPolicy(
  * Turns regions into chunks: `content` is the exact source lines of each range (split on `\n` only), identical
  * regions (for example two `<nav></nav>` on one line) collapse to one so chunk ids stay unique, and `broken` adds the
  * syntax-error warning, which counts the extracted `unit`s. Regions with a `parent` follow the container policy and
- * their chunks carry `parentId` and `containerName`.
+ * their chunks carry `parentId` and `containerName`. `references` are attached by line (see `referencesFor`).
  */
 export function assembleChunks(
   file: string,
@@ -76,10 +97,13 @@ export function assembleChunks(
   broken: boolean,
   estimator: TokenEstimator,
   unit = "chunks",
+  references: readonly RawReference[] = [],
 ): AnalysisResult {
   const lines = source.split("\n");
   const ids = new Map<Region, string>();
-  const chunks = applyContainerPolicy(regions, lines).map(({ region, endLine }): CodeChunk => {
+  const placed = applyContainerPolicy(regions, lines);
+  const ranges = placed.map(({ region, endLine }) => ({ startLine: region.startLine, endLine }));
+  const chunks = placed.map(({ region, endLine }): CodeChunk => {
     const { startLine, kind, name } = region;
     const content = lines.slice(startLine - 1, endLine).join("\n");
     const id = makeChunkId({ file, startLine, endLine, kind, name });
@@ -94,7 +118,7 @@ export function assembleChunks(
       startLine,
       endLine,
       content,
-      references: [],
+      references: referencesFor(file, startLine, endLine, references, ranges),
       estimatedTokens: estimator.count(content),
       ...(parentId === undefined || region.parent === undefined
         ? {}
