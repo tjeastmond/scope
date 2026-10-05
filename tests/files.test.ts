@@ -76,3 +76,17 @@ test("fails instead of ignoring an unreadable .gitignore", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("a nested directory rule excludes the directory even when a deeper .gitignore negates its files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "scope-files-"));
+  try {
+    await mkdir(join(root, "src/private"), { recursive: true });
+    await writeFile(join(root, "src/.gitignore"), "private/\n");
+    await writeFile(join(root, "src/private/.gitignore"), "!hidden.ts\n");
+    await writeFile(join(root, "src/private/hidden.ts"), "");
+    await writeFile(join(root, "src/ok.ts"), "");
+    expect(await listFiles(root, [".ts"])).toEqual(["src/ok.ts"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

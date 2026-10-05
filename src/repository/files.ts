@@ -22,11 +22,14 @@ interface Rules {
   matcher: Ignore;
 }
 
+/** `posix.relative` drops the trailing slash that marks a directory, which `dir/` rules need to match. */
+const relativeTo = (base: string, path: string) => posix.relative(base, path) + (path.endsWith("/") ? "/" : "");
+
 /** Git precedence: rules from deeper `.gitignore` files override shallower ones; the last matching rule wins. */
 function isIgnored(rules: readonly Rules[], path: string): boolean {
   let ignored = false;
   for (const { base, matcher } of rules) {
-    const { ignored: hit, unignored } = matcher.test(base ? posix.relative(base, path) : path);
+    const { ignored: hit, unignored } = matcher.test(base ? relativeTo(base, path) : path);
     if (hit) ignored = true;
     else if (unignored) ignored = false;
   }
