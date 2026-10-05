@@ -39,6 +39,12 @@ test("includes the best score-per-token first and never exceeds the budget", () 
   expect(result.warnings[0]).toContain("1 relevant chunk(s)");
 });
 
+test("ranks by score per token, not by raw score, when only one candidate fits", () => {
+  const candidates = [item("long", 0.9, body(200)), item("short", 0.6, body(40))];
+  const result = selectWithinBudget(candidates, { ...base, budget: 80 });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["short"]);
+});
+
 test("the measured full output fits the budget and matches the reported estimate", () => {
   const candidates = Array.from({ length: 10 }, (_unused, i) => item(`c${i}`, 0.6 + i / 100, body(60 + i * 7)));
   const result = selectWithinBudget(candidates, { ...base, budget: 150 });
