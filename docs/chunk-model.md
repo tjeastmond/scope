@@ -18,20 +18,48 @@ Every analyzer (`src/analyzers/`) implements `Analyzer` from `src/types.ts` and 
 
 - Declarations are chunks of kind `function`, `class`, `interface`, `type`, and so on (see `ChunkKind`).
 - Nested symbols are separate chunks. A method is a `method` chunk named `Class.method` (accessors are
-  `Class.get name` / `Class.set name`); the `class` chunk still covers the whole class, so the two ranges overlap.
-  How overlap is handled during selection is refined in issue #33.
+  `Class.get name` / `Class.set name`). How a class and its methods are split is the container policy below.
 - The `file` kind is for whole-file chunks: the fallback for files with no recognized structure (plain text, or
   formats where the file is the natural unit). Its range is the entire file and it usually has no `name`.
+
+## Containers: classes, namespaces and their members
+
+A class (JavaScript, TypeScript, Python, including nested classes) and a TypeScript `namespace`/`module` are
+**containers**. Their members would otherwise be double-charged (a whole-class chunk plus a chunk per method), so
+`assembleChunks` (`src/analyzers/assemble.ts`) applies one policy to every analyzer that gives a `Region` a `parent`:
+
+- **Split.** The container becomes a **header chunk** and each member keeps its own chunk. The header runs from the
+  container's first line (decorators and `export` included) to the last non-blank line before its first member chunk,
+  so it holds the signature, decorators, docstring, fields and a constructor placed before the first method, never a
+  method body. Its kind and name are the container's (`class` named `Cart`; `section` named `Shapes` for a namespace).
+  Members are `method` chunks (`Cart.add`) and, in a namespace, the declarations in its body named
+  `Namespace.member` (`Shapes.area`, `Shapes.Box.size`); a class or namespace inside a container is itself split the
+  same way.
+- **Links.** Every member chunk carries `parentId` (the header chunk's id) and `containerName` (its name). A header
+  nested in another container carries them too, so the chain up to the outermost header can be followed. Top-level
+  chunks have neither field.
+- **Small containers stay whole.** A container of at most `SMALL_CONTAINER_LINES` (5) lines is one chunk spanning
+  all of it, with no member chunks and no links. The same happens when splitting cannot keep ranges apart: the first
+  member starts on the container's first line (`class A { m() {} }` spread over several lines), or two members share a
+  line.
+- **Invariant.** Within a file no two chunks overlap. The only permitted overlap would be a chunk and an ancestor reached
+  through `parentId`; headers are cut short precisely so that it never occurs. M4's overlap merge can rely on both.
+- **Known limit.** Non-method members after the first method (fields, a constructor, a static block) are in no chunk,
+  because a header is one contiguous range. Functions and methods are never containers: functions nested in them stay
+  inside their chunk (as before), so nothing overlaps.
+- Ids still hash `file:startLine-endLine:kind:name`, so a header's id differs from the id the whole class had.
 
 ## Python
 
 `src/analyzers/python.ts` handles `.py` and `.pyi`. It extracts boundaries and names only (`references` is empty;
-imports and calls are issue #27, class/method overlap is issue #33).
+imports and calls are issue #27; classes follow the container policy above).
 
 - Module-level `def` and `async def` are `function` chunks; methods (including `async`, `@staticmethod`,
   `@classmethod`, `@property`) are `method` chunks named `Class.method`. Stub signatures (`def f(): ...`) are ordinary
   functions or methods.
-- A class chunk covers the whole class. Nested classes are `class` chunks named `Outer.Inner`, their methods
+- A class larger than the small-container limit is a header chunk (decorators, `class` line, docstring and class-level
+  statements before the first method or nested class) with its methods and nested classes as separate chunks; see
+  Containers. A small class is one chunk covering all of it. Nested classes are `class` chunks named `Outer.Inner`, their methods
   `Outer.Inner.method`. Functions nested in functions, and classes defined inside function bodies, are not separate
   chunks; the parent covers them.
 - Decorators and docstrings are inside the range: ranges come from the `decorated_definition` node.
@@ -212,12 +240,15 @@ Choices:
 
 - **Ranges** include the `export`/`declare` wrapper and any decorators (class decorators, and method/field decorators,
   which Tree-sitter places as siblings of the member). Leading comments are not included.
-- **Classes and methods** overlap as described above (class chunk covers the whole class; issue #33 owns the policy).
-  Constructors and non-function fields are not chunks.
+- **Classes and methods** follow the container policy above (header chunk plus method chunks, or one chunk for a small
+  class). Constructors and non-function fields are not chunks of their own; they belong to the header when they come
+  before the first method.
 - **Anonymous default exports** are named `default` (`export default function () {}`, `export default class {}`,
   `export default () => ...`, `export default {...}`). `export default someIdentifier` has no chunk.
-- **Not chunks:** nested functions and classes (they stay inside their parent), namespaces/modules (`namespace`,
-  `declare module`, with their contents), `export { a, b }` and `export ... from` re-exports, imports, unexported
+- **Namespaces:** `namespace A.B {}`, `module X {}` and `declare module "x" {}` are containers: a `section` chunk
+  named `A.B`/`X`/`x` (header only when split) and the declarations in the body, named `A.B.member`. `declare global`
+  and body-less `declare module "x";` give nothing.
+- **Not chunks:** nested functions and classes (they stay inside their parent), `export { a, b }` and `export ... from` re-exports, imports, unexported
   non-function constants, destructured exports (`export const { a } = obj`), and CommonJS or `export =` assignments
   (`module.exports = ...`, `exports.x = ...`).
 - **Test blocks:** `.only`/`.skip`/`.todo`/`.concurrent`/`.failing` variants count (also chained, as in `test.concurrent.only`);
