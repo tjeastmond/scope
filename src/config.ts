@@ -9,3 +9,9 @@ export const JEV_DEADLINE_MS = 90_000;
 
 /** Per-attempt SDK timeout. */
 export const JEV_ATTEMPT_TIMEOUT_MS = 30_000;
+
+/** Candidates scoring below this are never selected. */
+export const MIN_RELEVANCE = 0.5;
+
+/** Default output budget in estimated tokens. */
+export const DEFAULT_BUDGET = 8000;
