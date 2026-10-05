@@ -308,6 +308,17 @@ test("the routine keyword search stops at a plain object keyword or an opening p
   expect(await lineRanges("CREATE COLLATION c (function int, x begin int);\nSELECT 1;\n")).toEqual(["1-1", "2-2"]);
 });
 
+test("semicolons inside parentheses, such as a CREATE RULE action list, do not split", async () => {
+  const rule = "CREATE RULE r AS ON INSERT TO t DO ALSO (\n  INSERT INTO log VALUES (1);\n  NOTIFY c\n);\nSELECT 1;\n";
+  const { chunks } = await analyze("a.sql", rule);
+  expect(chunks.map(({ startLine, endLine }) => `${startLine}-${endLine}`)).toEqual(["1-4", "5-5"]);
+});
+
+test("a stray closing parenthesis does not stop later statements from splitting", async () => {
+  const { chunks } = await analyze("a.sql", "SELECT 1);\nSELECT 2;\n");
+  expect(chunks.map(({ startLine }) => startLine)).toEqual([1, 2]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);

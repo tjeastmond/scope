@@ -149,18 +149,20 @@ function isRoutineDefinition(head: Token[]): boolean {
   return false;
 }
 
-/** Splits at top-level `;`, ignoring semicolons inside BEGIN...END bodies of routines. */
+/** Splits at top-level `;`, ignoring semicolons inside parentheses and inside BEGIN...END bodies of routines. */
 function splitStatements(tokens: Token[]): Statement[] {
   const statements: Statement[] = [];
   let current: Token[] = [];
   let depth = 0;
+  let parens = 0;
   tokens.forEach((token, index) => {
-    if (token.type === "punct" && token.text === ";" && depth === 0) {
+    if (token.type === "punct" && token.text === ";" && depth === 0 && parens === 0) {
       statements.push({ tokens: current, terminator: token });
       current = [];
       return;
     }
     current.push(token);
+    if (token.type === "punct") parens = Math.max(0, parens + (token.text === "(" ? 1 : token.text === ")" ? -1 : 0));
     if (isRoutineDefinition(current)) depth += blockDelta(tokens, index);
   });
   if (current.length > 0) statements.push({ tokens: current });
