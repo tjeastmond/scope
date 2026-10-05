@@ -75,6 +75,42 @@ statement splitter. `references` is empty.
   `warnings` gets one `<path>: unterminated ...` entry. T-SQL `[bracket]` identifiers and MySQL `#` comments are not
   recognized.
 
+## HTML
+
+`src/analyzers/markup.ts` handles `.html` and `.htm` with the Tree-sitter `html` grammar (`references` is empty).
+
+- Chunks are the **top-level landmarks**: `header`, `main`, `nav`, `section`, `form`, `template`, `article`, `aside`,
+  `footer`. `<template>` is a `template` chunk; the others are `section`. Other elements (`html`, `body`, `div`, ...) are
+  looked through, so a landmark inside a plain `div` is found. Anything inside a landmark stays in it: no nested chunks.
+- Inline `<script>` is a `section` chunk and inline `<style>` a `style` chunk (there is no `script` kind). The range
+  runs from the opening-tag line to the closing-tag line, so offsets are the real file lines. Blocks with no content
+  (`<script src="x"></script>`, `<style></style>`) are not chunks. Scripts and styles inside a landmark are part of it.
+- Names: `tag#id`, else `tag "aria-label"`, else `tag.first-class`, else `tag "first heading text"` (landmarks only
+  contain headings), else the bare tag (`script`, `style`). Whitespace is collapsed.
+- Syntax errors: the parser recovers around unclosed elements. Error nodes are looked through, so landmarks before and
+  after the damage are kept; an unclosed landmark whose end tag is missing is not a chunk. The warning is
+  `<path>: syntax errors; extracted N chunks from the parseable regions`. Unclosed `<html>`/`<body>`/`<p>` are valid
+  HTML and do not warn. A file with no landmarks or blocks has no chunks (text fallback: issue #32).
+
+## CSS and SCSS
+
+`src/analyzers/style.ts` handles `.css` (Tree-sitter `css` grammar) and `.scss` (no grammar exists, see
+`docs/grammars.md`: a brace-depth scanner). Both produce the same shape; `language` is `scss` for `.scss`, else `css`.
+
+- One chunk per **top-level** statement. A rule or at-rule with a `{ }` body is a `style` chunk named by its prelude
+  with whitespace collapsed: the selector list (`a, b > c`), or the at-rule (`@media (min-width: 1px)`,
+  `@keyframes spin`, `@mixin bp($n)`, `@include bp(10px)`). `@media`/`@supports`/`@layer {}` blocks are single chunks
+  with their nested rules inside; SCSS nesting stays inside its parent rule.
+- A top-level statement without a body is a `config` chunk: `@charset`, `@import`, `@use`, `@forward`, `@namespace`,
+  `@layer a, b;`, `@include foo;`, and variables. Variables (`$var: ...`, `--custom: ...`) are named by the variable
+  alone; other statements by their text without the `;`.
+- The SCSS scanner skips strings, `/* */` and `//` comments, `#{ }` interpolation (nested braces included) and
+  unquoted `url(...)` when counting braces and looking for `;`. Comments between statements belong to no chunk.
+- Syntax errors: an unclosed `{` keeps the statement up to the end of the file; a stray `}`, an unterminated
+  string, comment or interpolation is skipped or ends at the file end. Each adds the warning
+  `<path>: syntax errors; extracted N chunks from the parseable regions`. A top-level statement at end of file with no
+  `;` is kept. Empty or comment-only files have no chunks and no warning.
+
 ## Paths
 
 Every chunk `file` is a repository-relative path produced by `toRepoPath` (`src/repository/root.ts`): `/` separators, no

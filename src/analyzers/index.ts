@@ -2,8 +2,10 @@ import type { AnalysisResult, Analyzer, Language, SourceFile, TokenEstimator } f
 import { configAnalyzer } from "./config.ts";
 import { ecmascriptAnalyzer } from "./ecmascript.ts";
 import { markdownAnalyzer } from "./markdown.ts";
+import { markupAnalyzer } from "./markup.ts";
 import { pythonAnalyzer } from "./python.ts";
 import { sqlAnalyzer } from "./sql.ts";
+import { styleAnalyzer } from "./style.ts";
 
 const ANALYZERS: readonly Analyzer[] = [
   ecmascriptAnalyzer,
@@ -11,6 +13,8 @@ const ANALYZERS: readonly Analyzer[] = [
   markdownAnalyzer,
   configAnalyzer,
   sqlAnalyzer,
+  markupAnalyzer,
+  styleAnalyzer,
 ];
 
 const byLanguage = new Map<Language, Analyzer>(
