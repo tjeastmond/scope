@@ -41,7 +41,10 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
   const { files } = await scanRepository(root);
   // Issue #20 replaces this extension filter with language classification.
   for (const file of files.filter((f) => TYPESCRIPT_EXTENSIONS.some((ext) => f.endsWith(ext)))) {
-    const source = redactSecrets(await readFile(join(root, file), "utf8"));
+    const bytes = await readFile(join(root, file));
+    // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which is never parsed or sent.
+    if (bytes.includes(0)) continue;
+    const source = redactSecrets(bytes.toString("utf8"));
     chunks.push(...(await analyzeFile({ path: file, source }, "typescript", charsPerTokenEstimator)).chunks);
   }
   return chunks;

@@ -203,3 +203,10 @@ test("secret files never reach a Jev candidate or the rendered output, even with
   expect(seen.map((chunk) => chunk.file)).toEqual(["src/app.ts"]);
   expect(JSON.stringify(seen)).not.toContain(token);
 });
+
+test("a source file whose first NUL byte is past the sniffed prefix is still never parsed or sent", async () => {
+  const late = `export function lateBinary() {}\n${"// padding\n".repeat(900)}\0export function afterNul() {}\n`;
+  const repo = await makeRepo({ "src/late.ts": late, "src/ok.ts": "export function fine() {}\n" });
+  const { result } = await runScope({ task: "anything", repo, noJev: true });
+  expect(result.chunks.map((c) => c.chunk.name)).toEqual(["fine"]);
+});
