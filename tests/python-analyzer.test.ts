@@ -148,6 +148,38 @@ test("same-named redefinitions get distinct IDs", async () => {
   expect(first && second && first.id !== second.id).toBe(true);
 });
 
+test("declarations inside control flow keep the enclosing scope", async () => {
+  const source = [
+    "import sys",
+    "if sys.platform == 'win32':",
+    "    def f():",
+    "        pass",
+    "else:",
+    "    def g():",
+    "        pass",
+    "try:",
+    "    import json",
+    "except ImportError:",
+    "    class Fallback:",
+    "        if True:",
+    "            def m(self):",
+    "                pass",
+    "",
+  ].join("\n");
+  const { chunks } = await extractPythonChunks("a.py", source, charsPerTokenEstimator);
+  expect(chunks.map((c) => `${c.kind}:${c.name}`)).toEqual([
+    "function:f",
+    "function:g",
+    "class:Fallback",
+    "method:Fallback.m",
+  ]);
+});
+
+test("identical same-line declarations yield one chunk", async () => {
+  const { chunks } = await extractPythonChunks("a.py", "A = 1; A = 2\n", charsPerTokenEstimator);
+  expect(chunks.map((c) => c.name)).toEqual(["A"]);
+});
+
 test("CRLF source gives the same inventory and IDs as LF", async () => {
   const lf = await analyze("worker/jobs.py", WORKER);
   const crlf = await analyze("worker/jobs.py", WORKER.replaceAll("\n", "\r\n"));

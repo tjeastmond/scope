@@ -55,6 +55,28 @@ function constantName(statement: Node): string | undefined {
   return annotated || CONSTANT_NAME.test(left.text) ? left.text : undefined;
 }
 
+const CONTROL_FLOW = new Set([
+  "if_statement",
+  "elif_clause",
+  "else_clause",
+  "for_statement",
+  "while_statement",
+  "try_statement",
+  "except_clause",
+  "except_group_clause",
+  "finally_clause",
+  "with_statement",
+  "match_statement",
+  "case_clause",
+]);
+
+/** The statements inside a control-flow construct: Python blocks do not introduce a scope. */
+function controlFlowBody(statement: Node): Node[] {
+  return namedChildren(statement).flatMap((child) =>
+    child.type === "block" ? namedChildren(child) : CONTROL_FLOW.has(child.type) ? [child] : [],
+  );
+}
+
 /**
  * Collects the definitions in one scope. At module level that is functions, classes, constants and the `__main__`
  * guard; in a class body it is methods and nested classes. Function bodies are never entered, so nested functions
@@ -79,6 +101,10 @@ function collect(scope: Node[], owner: string | undefined, found: Found[]): void
     } else if (owner === undefined) {
       const constant = constantName(definition);
       if (constant) entry = { node: statement, kind: "config", name: constant };
+    }
+    if (!entry && CONTROL_FLOW.has(definition.type) && !isBroken(statement)) {
+      collect(controlFlowBody(definition), owner, found);
+      continue;
     }
     if (!entry || isBroken(statement)) continue;
     found.push(entry);
@@ -122,11 +148,13 @@ export async function extractPythonChunks(
         estimatedTokens: estimator.count(content),
       };
     });
+    // `A = 1; A = 2` on one line yields two identical declarations; keep one so chunk ids stay unique.
+    const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
     const warnings =
       tree.rootNode.hasError && source.trim() !== ""
-        ? [`${file}: syntax errors; extracted ${chunks.length} declarations from the parseable regions`]
+        ? [`${file}: syntax errors; extracted ${unique.length} declarations from the parseable regions`]
         : [];
-    return { chunks, warnings };
+    return { chunks: unique, warnings };
   } finally {
     tree.delete();
   }
