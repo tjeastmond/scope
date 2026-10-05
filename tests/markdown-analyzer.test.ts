@@ -190,3 +190,7 @@ test("registered for markdown and callable through analyzeFile", async () => {
   expect(inventory(result.chunks)).toEqual(["Hi@1-1"]);
   expect(result.chunks[0]!.estimatedTokens).toBe(charsPerTokenEstimator.count("# Hi"));
 });
+
+test("a thematic break is not the first line of a setext paragraph", () => {
+  expect(names("***\n---\ntext\n")).toEqual(["preamble@1-3"]);
+});
