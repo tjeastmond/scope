@@ -24,6 +24,7 @@
     "validate": "bun run check && bun run build && bun run test"
   },
   "dependencies": {
+    "@tree-sitter-grammars/tree-sitter-yaml": "0.7.1",
     "@typesafe-ai/sdk": "^0.6.0",
     "ignore": "^7.0.12",
     "tree-sitter-wasms": "0.1.13",

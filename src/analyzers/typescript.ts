@@ -1,27 +1,9 @@
-import { createRequire } from "node:module";
-import { Language, Parser, type Node } from "web-tree-sitter";
+import type { Node } from "web-tree-sitter";
 import { makeChunkId } from "../chunk-id.ts";
 import type { Analyzer, ChunkKind, CodeChunk, TokenEstimator } from "../types.ts";
+import { parserFor } from "./parser.ts";
 
 export const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx"] as const;
-
-const require = createRequire(import.meta.url);
-let initialized: Promise<void> | undefined;
-const parsers = new Map<"typescript" | "tsx", Promise<Parser>>();
-
-function parserFor(grammar: "typescript" | "tsx"): Promise<Parser> {
-  let parser = parsers.get(grammar);
-  if (!parser) {
-    parser = (async () => {
-      await (initialized ??= Parser.init());
-      const instance = new Parser();
-      instance.setLanguage(await Language.load(require.resolve(`tree-sitter-wasms/out/tree-sitter-${grammar}.wasm`)));
-      return instance;
-    })();
-    parsers.set(grammar, parser);
-  }
-  return parser;
-}
 
 const DECLARATION_KINDS: Record<string, ChunkKind> = {
   function_declaration: "function",
