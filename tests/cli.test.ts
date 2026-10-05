@@ -119,19 +119,65 @@ test.each([
   expect(run.stderr()).not.toContain(KEY);
 });
 
-test("usage errors exit 2 with a message and no stdout", async () => {
-  for (const argv of [
-    [TASK, "--repo", "/nonexistent/dir"],
-    [TASK, "--budget", "abc"],
-    ["a", "b"],
-    [TASK, "--bogus"],
-  ]) {
-    const run = capture();
-    expect(await main(argv, run.io)).toBe(2);
-    expect(run.stdout()).toBe("");
-    expect(run.stderr()).toStartWith("scope: ");
-  }
+const EMPTY = 'The task description is empty. Pass it in quotes: scope "<task>"';
+const FORMAT = "--format must be one of text, markdown, json";
+const budgetMsg = (got: string) => `--budget must be a positive integer (digits only): got "${got}"`;
+const NOT_DIR = join(FIXTURE, "TASK.md");
+test.each([
+  [[""], EMPTY],
+  [["   "], EMPTY],
+  [[TASK, "--format", "xml"], `${FORMAT}: got "xml"`],
+  [[TASK, "--format", ""], `${FORMAT}: got ""`],
+  [[TASK, "--budget", "abc"], budgetMsg("abc")],
+  [[TASK, "--budget", ""], budgetMsg("")],
+  [[TASK, "--budget", "0"], budgetMsg("0")],
+  [[TASK, "--budget=-5"], budgetMsg("-5")],
+  [[TASK, "--budget", "1.5"], budgetMsg("1.5")],
+  [[TASK, "--budget", "1e3"], budgetMsg("1e3")],
+  [[TASK, "--budget", "NaN"], budgetMsg("NaN")],
+  [[TASK, "--repo", ""], "--repo requires a path"],
+  [[TASK, "--repo", "/nonexistent/dir"], "--repo does not exist or is not accessible: /nonexistent/dir"],
+  [[TASK, "--repo", NOT_DIR], `--repo is not a directory: ${NOT_DIR}`],
+  [[TASK, "--output", ""], "--output requires a path"],
+  [["a", "b"], 'Expected exactly one task description, in quotes: scope "<task>"'],
+])("usage error %j exits 2 with an exact message and no stdout", async (argv, message) => {
+  const run = capture();
+  expect(await main(argv, run.io)).toBe(2);
+  expect(run.stdout()).toBe("");
+  expect(run.stderr()).toBe(`scope: ${message}\n`);
 });
+
+test("an unknown flag exits 2 on stderr", async () => {
+  const run = capture();
+  expect(await main([TASK, "--bogus"], run.io)).toBe(2);
+  expect(run.stdout()).toBe("");
+  expect(run.stderr()).toStartWith("scope: ");
+});
+
+test("--help documents every flag with its default and says the output flags are not implemented", async () => {
+  const run = capture();
+  expect(await main(["--help"], run.io)).toBe(0);
+  const help = run.stdout();
+  for (const flag of ["--repo", "--budget", "--format", "--output", "--explain", "--no-jev", "--help"])
+    expect(help).toContain(flag);
+  expect(help).toContain("(default: current directory)");
+  expect(help).toContain("(default: 8000)");
+  expect(help).toContain("(default: text)");
+  expect(help).toContain("(default: stdout)");
+  expect(help).toContain("(default: off)");
+  expect(help).toContain("Not yet implemented: output is always text");
+});
+
+test.each([[["--format", "markdown"]], [["--format", "json"]], [["--output", "out.txt"]], [["--explain"]]])(
+  "accepted but not yet implemented flags %j still produce text output",
+  async (flags) => {
+    const baseline = capture();
+    await main([TASK, "--repo", FIXTURE, "--no-jev"], baseline.io);
+    const run = capture();
+    expect(await main([TASK, "--repo", FIXTURE, "--no-jev", ...flags], run.io)).toBe(0);
+    expect(run.stdout()).toBe(baseline.stdout());
+  },
+);
 
 test("no arguments prints help", async () => {
   const run = capture();
