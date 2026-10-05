@@ -96,32 +96,20 @@ const upper = (token: Token | undefined): string => (token?.type === "word" ? to
 const isName = (token: Token | undefined): token is Token => token?.type === "word" || token?.type === "ident";
 
 const ROUTINE_OBJECTS = new Set(["TRIGGER", "PROCEDURE", "FUNCTION"]);
-const BLOCK_CLOSERS = new Set(["IF", "LOOP", "WHILE", "REPEAT", "FOR"]);
-/** Words after which `end` can only be a column name (`SET end = 1`, `SELECT end FROM`), never a block closer. */
-const BEFORE_COLUMN = new Set(["SET", "SELECT", "WHERE", "AND", "OR", "BY", "ON"]);
-
-/** `end` used as an identifier: qualified, in a list, after a clause keyword, or assigned/compared. */
-function isColumnEnd(tokens: Token[], i: number): boolean {
-  const before = tokens[i - 1];
-  const after = tokens[i + 1];
-  return (
-    (before?.type === "punct" && [".", ",", "("].includes(before.text)) ||
-    BEFORE_COLUMN.has(upper(before)) ||
-    (after?.type === "punct" && after.text === "=")
-  );
-}
+const BLOCK_CLOSERS = new Set(["IF", "LOOP", "WHILE", "REPEAT", "FOR", "CASE"]);
 
 /**
- * Change in BEGIN...END nesting at token `i`. Only routine bodies need it (`CREATE TRIGGER ... BEGIN a; b; END;`):
- * `CASE`/`END` pairs balance, `END IF`/`END LOOP` close constructs that are never counted as openers, and
- * `END CASE` closes a `CASE` that is counted.
+ * Change in BEGIN...END nesting at token `i`. Only routine bodies need it (`CREATE TRIGGER ... BEGIN a; b; END;`).
+ * A block-closing `END` always follows a `;` (or an empty `BEGIN`), which tells it apart from `CASE ... END`
+ * expressions and from a column named `end`. `END IF`, `END LOOP` and `END CASE` close constructs that are never
+ * counted as openers.
  */
 function blockDelta(tokens: Token[], i: number): number {
   const word = upper(tokens[i]);
   if (word === "BEGIN") return 1;
-  if (word === "CASE") return upper(tokens[i - 1]) === "END" ? 0 : 1;
-  if (word === "END") return BLOCK_CLOSERS.has(upper(tokens[i + 1])) || isColumnEnd(tokens, i) ? 0 : -1;
-  return 0;
+  if (word !== "END" || BLOCK_CLOSERS.has(upper(tokens[i + 1]))) return 0;
+  const before = tokens[i - 1];
+  return upper(before) === "BEGIN" || (before?.type === "punct" && before.text === ";") ? -1 : 0;
 }
 
 function isRoutineDefinition(head: Token[]): boolean {
@@ -140,7 +128,7 @@ function splitStatements(tokens: Token[]): Statement[] {
       return;
     }
     current.push(token);
-    if (isRoutineDefinition(current)) depth = Math.max(0, depth + blockDelta(tokens, index));
+    if (isRoutineDefinition(current)) depth += blockDelta(tokens, index);
   });
   if (current.length > 0) statements.push({ tokens: current });
   return statements;

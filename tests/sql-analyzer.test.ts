@@ -254,6 +254,22 @@ test("end after a clause keyword or before = is a column, not a closer", async (
   expect(inventory((await analyze("a.sql", beforeEquals)).chunks)).toEqual(["function:t@1-4", "query:select@5-5"]);
 });
 
+test("end inside an expression never closes a routine body", async () => {
+  const head = "CREATE TRIGGER t AFTER INSERT ON u BEGIN\n";
+  const tail = "  b;\nEND;\nSELECT 1;\n";
+  for (const body of ["  SELECT 1 + end FROM u;\n", "  SELECT CASE WHEN x THEN end ELSE 0 END FROM u;\n"]) {
+    const { chunks } = await analyze("a.sql", head + body + tail);
+    expect(inventory(chunks)).toEqual(["function:t@1-4", "query:select@5-5"]);
+  }
+});
+
+test("an empty BEGIN END block and a trailing END CASE statement balance", async () => {
+  const empty = "CREATE PROCEDURE p() BEGIN END;\nSELECT 1;\n";
+  expect(inventory((await analyze("a.sql", empty)).chunks)).toEqual(["function:p@1-1", "query:select@2-2"]);
+  const caseStatement = "CREATE PROCEDURE p() BEGIN\n  CASE x WHEN 1 THEN a; END CASE;\n  b;\nEND;\nSELECT 1;\n";
+  expect(inventory((await analyze("a.sql", caseStatement)).chunks)).toEqual(["function:p@1-4", "query:select@5-5"]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);
