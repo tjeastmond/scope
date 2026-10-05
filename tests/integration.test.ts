@@ -45,11 +45,12 @@ test("analyzes every file whose language has an analyzer, found by extension or 
     await writeFile(join(repo, "a.py"), "def from_py():\n    pass\n");
     await writeFile(join(repo, "b.mjs"), "export function fromMjs() {}\n");
     await writeFile(join(repo, "bin/tool"), "#!/usr/bin/env python3\ndef from_shebang():\n    pass\n");
-    await writeFile(join(repo, "notes.md"), "# Notes\n");
+    await writeFile(join(repo, "bin/node-tool"), "#!/usr/bin/env node\nfunction fromNode(a) { return a; }\n");
     await writeFile(join(repo, "main.go"), "package main\nfunc fromGo() {}\n");
     await writeFile(join(repo, "mystery"), "def not_python():\n");
     const { result } = await runScope({ task: "anything", repo, noJev: true });
-    expect(result.chunks.map((s) => s.chunk.name).sort()).toEqual(["fromMjs", "from_py", "from_shebang"]);
+    expect(result.chunks.map((s) => s.chunk.name).sort()).toEqual(["fromMjs", "fromNode", "from_py", "from_shebang"]);
+    expect(result.chunks.find((s) => s.chunk.name === "fromNode")?.chunk.language).toBe("javascript");
   } finally {
     await rm(repo, { recursive: true, force: true });
   }

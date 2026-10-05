@@ -82,11 +82,11 @@ const byInterpreter = indexBy("interpreters");
 
 /** Control characters other than tab, newline, vertical tab and carriage return, or a replacement character. */
 // eslint-disable-next-line no-control-regex
-const NOT_TEXT = /[\u0000-\u0008\u000e-\u001f�]/;
+const NOT_TEXT = /[\u0000-\u0008\u000e-\u001f\uFFFD]/;
 
 /** The interpreter named by a shebang line, with `env` and version suffixes resolved: `#!/usr/bin/env -S python3.12`. */
 function interpreterOf(head: string): string | undefined {
-  const line = head.split(/\r?\n/, 1)[0] ?? "";
+  const line = head.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] ?? "";
   if (!line.startsWith("#!")) return undefined;
   const words = line.slice(2).trim().split(/\s+/);
   let command = posix.basename(words.shift() ?? "");

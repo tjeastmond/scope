@@ -92,7 +92,8 @@ export interface AnalysisResult {
 /** Turns one source file into normalized chunks. Async because Tree-sitter initialization is. */
 export interface Analyzer {
   readonly languages: readonly Language[];
-  analyze(file: SourceFile, estimator: TokenEstimator): Promise<AnalysisResult>;
+  /** `language` is the one the dispatcher resolved, which can differ from the path alone (a shebang script). */
+  analyze(file: SourceFile, estimator: TokenEstimator, language: Language): Promise<AnalysisResult>;
 }
 
 export interface JevUsage {

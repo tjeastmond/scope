@@ -54,6 +54,8 @@ const cases: [string, string | undefined, string | undefined, string][] = [
   ["bin/tool", "#!/usr/bin/env tsx\n", "typescript", "semantic"],
   ["bin/tool", "#!/bin/bash\n", "text", "text"],
   ["bin/tool", "#!/usr/bin/env FOO=1 python\n", "python", "semantic"],
+  ["bin/tool", "\uFEFF#!/usr/bin/env python3\n", "python", "semantic"],
+  ["blob", "\u001b[31mred\n", undefined, "skip"],
   ["bin/tool", "#!/usr/bin/env lolcode\n", "text", "text"],
   ["script.weird", "#!/usr/bin/env python\n", "python", "semantic"],
   // Unknown files are text only when the content looks like text.
@@ -65,7 +67,7 @@ const cases: [string, string | undefined, string | undefined, string][] = [
   ["data.xyz", undefined, undefined, "skip"],
   ["blob.bin", "abc\u0000def", undefined, "skip"],
   ["blob.bin", "abc\u0001def", undefined, "skip"],
-  ["blob.bin", "abc�def", undefined, "skip"],
+  ["blob.bin", "abc\uFFFDdef", undefined, "skip"],
   ["trailing.", "words", "text", "text"],
   [".bashrc", undefined, undefined, "skip"],
   [".bashrc", "export A=1\n", "text", "text"],

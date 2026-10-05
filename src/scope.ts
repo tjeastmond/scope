@@ -43,6 +43,9 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
   const chunks: CodeChunk[] = [];
   const { files } = await scanRepository(root);
   for (const file of files) {
+    // A file of a known type with no analyzer is skipped without being read; unknown types need their head checked.
+    const known = classifyFile(file).language;
+    if (known && !analyzerFor(known)) continue;
     const bytes = await readFile(join(root, file));
     // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which is never parsed or sent.
     if (bytes.includes(0)) continue;
