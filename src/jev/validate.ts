@@ -1,4 +1,4 @@
-import type { RelevanceJudgment } from "../types.ts";
+import type { CodeChunk, RelevanceJudgment } from "../types.ts";
 import { JevResponseError } from "./errors.ts";
 
 /**
@@ -23,4 +23,27 @@ export function validateRelevance(
     }
     return { chunkId: id, relevance: value, raw: answer };
   });
+}
+
+/**
+ * Checks any provider's judgments against the candidates they must cover: exactly one finite relevance in [0, 1]
+ * per candidate, none unknown or repeated. Returns relevance by chunk ID.
+ */
+export function validateJudgments(
+  candidates: readonly CodeChunk[],
+  judgments: readonly RelevanceJudgment[],
+): Map<string, number> {
+  const known = new Set(candidates.map((chunk) => chunk.id));
+  const relevance = new Map<string, number>();
+  for (const { chunkId, relevance: value } of judgments) {
+    if (!known.has(chunkId)) throw new JevResponseError(`Judgment for unknown candidate ${chunkId}.`);
+    if (relevance.has(chunkId)) throw new JevResponseError(`Duplicate judgment for candidate ${chunkId}.`);
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+      throw new JevResponseError(`Invalid relevance for candidate ${chunkId}: ${value}.`);
+    }
+    relevance.set(chunkId, value);
+  }
+  const missing = candidates.filter((chunk) => !relevance.has(chunk.id));
+  if (missing.length > 0) throw new JevResponseError(`Missing judgments for ${missing.length} candidate(s).`);
+  return relevance;
 }

@@ -16,3 +16,24 @@ test("lists matching files sorted, with / separators, skipping excluded director
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("excludes .gitignore matches and secret-looking files so they are never read or sent", async () => {
+  const root = await mkdtemp(join(tmpdir(), "scope-files-"));
+  try {
+    for (const dir of ["src", "private", "keys"]) await mkdir(join(root, dir), { recursive: true });
+    await writeFile(join(root, ".gitignore"), "private/\n*.generated.ts\n");
+    for (const file of [
+      "src/ok.ts",
+      "src/api.generated.ts",
+      "private/internal.ts",
+      "src/credentials.ts",
+      "keys/server.key",
+      "src/secrets.ts",
+    ]) {
+      await writeFile(join(root, file), "");
+    }
+    expect(await listFiles(root, [".ts", ".key"])).toEqual(["src/ok.ts"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

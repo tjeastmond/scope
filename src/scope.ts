@@ -5,6 +5,7 @@ import { DEFAULT_BUDGET } from "./config.ts";
 import { selectWithinBudget } from "./context/select.ts";
 import { charsPerTokenEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
+import { validateJudgments } from "./jev/validate.ts";
 import { listFiles } from "./repository/files.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import type { CodeChunk, DecisionProvider, DecisionResult, ScopeResult, SelectedChunk } from "./types.ts";
@@ -60,7 +61,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     ? undefined
     : await (options.provider ?? new JevDecisionProvider()).decide({ task, candidates, signal });
 
-  const relevance = new Map(decision?.judgments.map((judgment) => [judgment.chunkId, judgment.relevance]));
+  const relevance = decision ? validateJudgments(candidates, decision.judgments) : new Map<string, number>();
   const scored: SelectedChunk[] = candidates.map((chunk) => {
     const value = relevance.get(chunk.id);
     return {

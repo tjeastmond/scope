@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, type Io } from "../src/main.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
@@ -54,6 +56,41 @@ test("the default path without a key fails with guidance and prints nothing to s
   expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(1);
   expect(run.stdout()).toBe("");
   expect(run.stderr()).toMatch(/TYPESAFE_API_KEY is not set.*--no-jev/);
+});
+
+test("an incomplete provider response fails instead of becoming offline-style results", async () => {
+  const run = capture({ decide: async () => ({ judgments: [], usage: {}, latencyMs: 1 }) });
+  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(1);
+  expect(run.stdout()).toBe("");
+  expect(run.stderr()).toContain("Missing judgments");
+});
+
+test("ignored and secret-looking files never reach the provider", async () => {
+  const root = await mkdtemp(join(tmpdir(), "scope-cli-"));
+  try {
+    await mkdir(join(root, "private"), { recursive: true });
+    await writeFile(join(root, ".gitignore"), "private/\n");
+    await writeFile(join(root, "ok.ts"), "export function ok() {}\n");
+    await writeFile(join(root, "private/hidden.ts"), "export function hiddenIgnored() {}\n");
+    await writeFile(join(root, "credentials.ts"), "export function hiddenSecret() {}\n");
+    const seen: string[] = [];
+    const spy: DecisionProvider = {
+      async decide({ candidates }) {
+        seen.push(...candidates.map((chunk) => chunk.content));
+        return {
+          judgments: candidates.map((chunk) => ({ chunkId: chunk.id, relevance: 0.9 })),
+          usage: {},
+          latencyMs: 1,
+        };
+      },
+    };
+    const run = capture(spy);
+    expect(await main([TASK, "--repo", root], run.io)).toBe(0);
+    expect(seen.join("\n")).toContain("ok");
+    expect(seen.join("\n")).not.toMatch(/hiddenIgnored|hiddenSecret/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("usage errors exit 2 with a message and no stdout", async () => {
