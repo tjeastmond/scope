@@ -46,6 +46,35 @@ imports and calls are issue #27, class/method overlap is issue #33).
   `warnings` gets `<path>: syntax errors; extracted N declarations from the parseable regions`. A non-empty file with
   nothing extractable returns that warning and no chunks (the text fallback is issue #32).
 
+## SQL
+
+`src/analyzers/sql.ts` handles SQL. No WASM grammar loads for SQL (`docs/grammars.md`), so it is a small lexer plus a
+statement splitter. `references` is empty.
+
+- One chunk per top-level statement, split on `;`. Single-quoted strings, double-quoted and backtick identifiers
+  (doubled quote = escape), `--` and `/* */` comments (not nested) and dollar-quoted bodies (`$$...$$`, `$tag$...$tag$`)
+  never split. Backslash is not an escape. Semicolons inside parentheses (`CREATE RULE ... DO ALSO (a; b)`) do not split either. For
+  `CREATE ... TRIGGER|PROCEDURE|FUNCTION`, semicolons inside a
+  `BEGIN ... END` body do not split either. A block-closing `END` is one that follows a `;` or `BEGIN`, which keeps `CASE ... END`
+  expressions and a column named `end` from closing it; `BEGIN TRANSACTION` and `BEGIN TRY` open nothing. Known limit: a
+  T-SQL body that omits the `;` before its closing `END` is not recognized and runs to the end of the file's statements.
+- Range: starts at the statement's first token, extended upward over comment-only lines directly above it (a blank line
+  detaches them, and lines of the previous statement's terminating line are never claimed); ends at the line of the
+  terminating `;`, or at the last token for a final statement without one (trailing comments and blank lines are not
+  included). Statements on one line share that line as their content; identical duplicates collapse to one chunk.
+- Kinds: `table` for `CREATE [TEMP|UNLOGGED|...] TABLE` and for views and materialized views (named relations);
+  `function` for functions, procedures and triggers; `type` for `CREATE TYPE`/`DOMAIN`; `query` for `SELECT`, `INSERT`,
+  `UPDATE`, `DELETE`, `MERGE`, `REPLACE`, `VALUES`, `WITH` and parenthesized queries; `config` for everything else
+  (indexes, sequences, extensions, `ALTER`, `DROP`, `SET`, `PRAGMA`, `BEGIN`/`COMMIT`, ...).
+- Names are derived from the statement, never from an index. Definitions use the object name as written, qualified
+  (`app.accounts`, `"app"."users"`). Queries are `insert into users`, `update users`, `delete from sessions`,
+  `merge into stock`, `select from users` (first top-level `FROM` with a table), `with a, b` (CTE names), or the bare
+  verb (`select`, `values`; `query` for a parenthesized query). Config statements are the lowercase verb, object and
+  name (`create index idx_users_email`, `alter table users`, `set search_path`, `commit`).
+- Unterminated string, identifier, comment or dollar-quoted body: the construct runs to the end of the file and
+  `warnings` gets one `<path>: unterminated ...` entry. T-SQL `[bracket]` identifiers and MySQL `#` comments are not
+  recognized.
+
 ## Paths
 
 Every chunk `file` is a repository-relative path produced by `toRepoPath` (`src/repository/root.ts`): `/` separators, no
