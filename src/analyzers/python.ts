@@ -1,6 +1,6 @@
 import type { Node } from "web-tree-sitter";
-import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, Analyzer, ChunkKind, CodeChunk, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, ChunkKind, TokenEstimator } from "../types.ts";
+import { assembleChunks, type Region } from "./assemble.ts";
 import { parserFor } from "./parser.ts";
 
 interface Found {
@@ -137,31 +137,22 @@ export async function extractPythonChunks(
   try {
     const found: Found[] = [];
     collect(namedChildren(tree.rootNode), undefined, found);
-    const lines = source.split("\n");
-    const chunks = found.map(({ node, kind, name }): CodeChunk => {
-      const startLine = node.startPosition.row + 1;
-      const endLine = node.endPosition.row + 1;
-      const content = lines.slice(startLine - 1, endLine).join("\n");
-      return {
-        id: makeChunkId({ file, startLine, endLine, kind, name }),
-        file,
-        language: "python",
-        kind,
-        name,
-        startLine,
-        endLine,
-        content,
-        references: [],
-        estimatedTokens: estimator.count(content),
-      };
-    });
-    // `A = 1; A = 2` on one line yields two identical declarations; keep one so chunk ids stay unique.
-    const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
-    const warnings =
-      tree.rootNode.hasError && source.trim() !== ""
-        ? [`${file}: syntax errors; extracted ${unique.length} declarations from the parseable regions`]
-        : [];
-    return { chunks: unique, warnings };
+    const regions = found.map(({ node, kind, name }): Region => ({
+      startLine: node.startPosition.row + 1,
+      endLine: node.endPosition.row + 1,
+      kind,
+      name,
+    }));
+    // A blank file can still report an error (a lone stray token); only a file with content warns.
+    return assembleChunks(
+      file,
+      source,
+      "python",
+      regions,
+      tree.rootNode.hasError && source.trim() !== "",
+      estimator,
+      "declarations",
+    );
   } finally {
     tree.delete();
   }

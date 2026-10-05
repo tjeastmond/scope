@@ -1,5 +1,5 @@
-import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, Analyzer, CodeChunk, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, TokenEstimator } from "../types.ts";
+import { assembleChunks, type Region } from "./assemble.ts";
 
 export const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".mdx"] as const;
 
@@ -112,22 +112,13 @@ export function extractMarkdownChunks(file: string, source: string, estimator: T
     const next = headings.slice(index + 1).find((other) => other.level <= heading.level);
     sections.push({ name: names.join(" > "), start: heading.start, end: next?.start ?? lines.length });
   });
-  const chunks = sections.map(({ name, start, end }): CodeChunk => {
-    const content = lines.slice(start, end).join("\n");
-    return {
-      id: makeChunkId({ file, startLine: start + 1, endLine: end, kind: "section", name }),
-      file,
-      language: "markdown",
-      kind: "section",
-      name,
-      startLine: start + 1,
-      endLine: end,
-      content,
-      references: [],
-      estimatedTokens: estimator.count(content),
-    };
-  });
-  return { chunks, warnings: [] };
+  const regions = sections.map(({ name, start, end }): Region => ({
+    startLine: start + 1,
+    endLine: end,
+    kind: "section",
+    name,
+  }));
+  return assembleChunks(file, source, "markdown", regions, false, estimator);
 }
 
 export const markdownAnalyzer: Analyzer = {

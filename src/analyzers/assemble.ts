@@ -12,7 +12,7 @@ export interface Region {
 /**
  * Turns regions into chunks: `content` is the exact source lines of each range (split on `\n` only), identical
  * regions (for example two `<nav></nav>` on one line) collapse to one so chunk ids stay unique, and `broken` adds the
- * syntax-error warning.
+ * syntax-error warning, which counts the extracted `unit`s.
  */
 export function assembleChunks(
   file: string,
@@ -21,6 +21,7 @@ export function assembleChunks(
   regions: readonly Region[],
   broken: boolean,
   estimator: TokenEstimator,
+  unit = "chunks",
 ): AnalysisResult {
   const lines = source.split("\n");
   const chunks = regions.map(({ startLine, endLine, kind, name }): CodeChunk => {
@@ -40,7 +41,7 @@ export function assembleChunks(
   });
   const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
   const warnings = broken
-    ? [`${file}: syntax errors; extracted ${unique.length} chunks from the parseable regions`]
+    ? [`${file}: syntax errors; extracted ${unique.length} ${unit} from the parseable regions`]
     : [];
   return { chunks: unique, warnings };
 }
