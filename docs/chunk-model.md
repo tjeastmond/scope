@@ -122,3 +122,20 @@ Choices:
   anywhere inside is skipped whole). The rest are extracted and `warnings` gets
   `<path>: syntax errors; extracted N declarations from the parseable regions`. A file with nothing extractable returns
   only the warning and no chunks; the whole-file text fallback is issue #32.
+
+## Markdown
+
+`src/analyzers/markdown.ts` is a line scanner, because no Markdown WASM grammar loads (docs/grammars.md). `references`
+is empty.
+
+- Every chunk is a `section`. Content before the first heading is a `preamble` section (omitted when blank); YAML front
+  matter (a leading `---` block closed by `---` or `...`) belongs to it.
+- ATX headings (`#` to `######`, up to three spaces of indent, optional closing hashes) and setext headings (a paragraph
+  over `===` or `---`, the heading starting at the paragraph's first line) each start a section. Text in fenced code
+  blocks (``` or `~~~`, closed by the same character at least as long; an unclosed fence runs to the end of the file) is
+  never a heading, and `---`, `***` and `___` thematic breaks are not headings.
+- A section runs to the line before the next heading of the same or a higher level, so a parent's range covers its
+  children (as a class covers its methods). Its `name` is the heading path, `Parent > Child`, from the nearest
+  shallower heading at each step: an h3 directly under an h1 is `H1 > H3`. Heading text is kept as written (inline
+  formatting included) minus closing hashes; an empty heading is `(empty heading)`.
+- Headings with the same path are told apart by range, hence by ID.
