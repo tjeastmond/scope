@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "validate": "bun run format:check && bun run typecheck && bun run test"
   },
   "dependencies": {
     "@typesafe-ai/sdk": "^0.6.0"
