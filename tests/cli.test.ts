@@ -94,6 +94,15 @@ test("ignored and secret-looking files never reach the provider", async () => {
   }
 });
 
+test("reports Jev metrics only when the provider supplies them", async () => {
+  const run = capture({
+    decide: async ({ candidates }) => ({ judgments: candidates.map((c) => ({ chunkId: c.id, relevance: 0.9 })) }),
+  });
+  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(0);
+  expect(run.stderr()).toContain("Jev usage not reported");
+  expect(run.stderr()).not.toContain("undefined");
+});
+
 test("usage errors exit 2 with a message and no stdout", async () => {
   for (const argv of [
     [TASK, "--repo", "/nonexistent/dir"],

@@ -62,7 +62,13 @@ export async function main(argv: string[], io: Io): Promise<number> {
     for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
     if (decision) {
       const { inputTokens, outputTokens } = decision.usage ?? {};
-      io.stderr(`scope: Jev ${decision.latencyMs}ms, ${inputTokens} input / ${outputTokens} output tokens\n`);
+      const metrics = [
+        decision.latencyMs === undefined ? undefined : `${decision.latencyMs}ms`,
+        inputTokens === undefined || outputTokens === undefined
+          ? undefined
+          : `${inputTokens} input / ${outputTokens} output tokens`,
+      ].filter((metric) => metric !== undefined);
+      io.stderr(`scope: Jev ${metrics.length > 0 ? metrics.join(", ") : "usage not reported"}\n`);
     }
     io.stdout(renderResult(result));
     return 0;
