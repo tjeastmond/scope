@@ -115,6 +115,14 @@ test("a binary-looking tail past the scanner's sniff window is skipped with a wa
   expect(run.result.warnings).toEqual(["blob.zzz: binary content (NUL byte); skipped"]);
 });
 
+test("a NUL inside a credential-like literal still marks the file binary", async () => {
+  const source = `${"export const a = 1;\n".repeat(600)}password = "abcdefgh\0ijklmnop"\n`;
+  const repo = await makeRepo({ "cfg.ts": Buffer.from(source) });
+  const run = await runScope({ task: "anything", repo, noJev: true });
+  expect(run.result.chunks).toEqual([]);
+  expect(run.result.warnings).toEqual(["cfg.ts: binary content (NUL byte); skipped"]);
+});
+
 test("long files without blank lines split at exactly the target size and cover every line", async () => {
   const total = TEXT_WINDOW_LINES * 3 + 7;
   const source = Array.from({ length: total }, (_, i) => `line ${i + 1}`).join("\n");

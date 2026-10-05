@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { analyzeFile } from "./analyzers/index.ts";
+import { analyzeFile, binaryWarning } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { selectWithinBudget } from "./context/select.ts";
@@ -44,8 +44,12 @@ async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings
   const { files, warnings } = await scanRepository(root);
   for (const file of files) {
     const bytes = await readFile(join(root, file));
-    // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which analyzeFile skips with a
-    // warning. Files that do not look like text have no language and are left out here.
+    // The scanner only sniffs the start of a file; a NUL anywhere means binary content. Check the raw bytes, because
+    // redaction could remove a NUL inside a credential-like literal. Files that do not look like text have no language.
+    if (bytes.includes(0)) {
+      warnings.push(binaryWarning(file));
+      continue;
+    }
     const text = bytes.toString("utf8");
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;

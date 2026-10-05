@@ -33,6 +33,9 @@ function briefly(error: unknown): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
+/** The warning for a file with a NUL byte, which is never analyzed or sent. */
+export const binaryWarning = (path: string): string => `${path}: binary content (NUL byte); skipped`;
+
 /**
  * Analyzes a file with the analyzer for its language and guarantees usable chunks anyway. A file with a NUL byte is
  * binary: it is not analyzed, gets no chunks and a warning. A language with no analyzer, an analyzer that throws, or
@@ -44,7 +47,7 @@ export async function analyzeFile(
   language: Language,
   estimator: TokenEstimator,
 ): Promise<AnalysisResult> {
-  if (file.source.includes("\0")) return { chunks: [], warnings: [`${file.path}: binary content (NUL byte); skipped`] };
+  if (file.source.includes("\0")) return { chunks: [], warnings: [binaryWarning(file.path)] };
   const analyzer = analyzerFor(language);
   const fallback = (reason: string, covered: readonly CodeChunk[] = []) =>
     textFallback(file.path, file.source, language, estimator, reason, covered);
