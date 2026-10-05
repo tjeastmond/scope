@@ -142,3 +142,36 @@ is empty.
   shallower heading at each step: an h3 directly under an h1 is `H1 > H3`. Heading text is kept as written (inline
   formatting included) minus closing hashes; an empty heading is `(empty heading)`.
 - Headings with the same path are told apart by range, hence by ID.
+
+## JSON, YAML and TOML
+
+One analyzer (`src/analyzers/config.ts`) serves the three config languages. The format comes from the file extension
+(`.json`, `.yaml`/`.yml`, `.toml`; anything else is read as JSON). Each top-level entry is one `config` chunk named after
+its key, with the exact source lines it spans; `references` is empty. Chunks are flat: nothing nested inside an entry is
+a chunk, so `package.json` `scripts` and `dependencies` are each one chunk (named `scripts`, `dependencies`), not one
+per script or package.
+
+| Format | Chunk                                         | Name                                                                            |
+| ------ | --------------------------------------------- | ------------------------------------------------------------------------------- |
+| JSON   | each key of the top-level object              | the key, unquoted and unescaped (an empty key is `""`)                          |
+| YAML   | each key of each document's top-level mapping | the key, unquoted; in a multi-document file `doc[N].key` (N is 0-based)         |
+| TOML   | each root-level key before the first table    | the key, dotted keys joined (`metadata.team`)                                   |
+| TOML   | each `[table]`                                | the dotted header (`dependencies.serde`); quoted parts keep quotes (`"a.b"`)    |
+| TOML   | each `[[array of tables]]` element            | the dotted header plus the element index (`bin[0]`, `bin[1]`), counted per file |
+
+Choices:
+
+- **Non-mapping roots:** a top-level JSON array or scalar, or a YAML document that is a sequence or scalar, becomes one
+  `file` chunk covering it (unnamed, or `doc[N]` in a multi-document YAML file). Empty YAML documents and empty or
+  comment-only files give no chunks and no warning.
+- **Ranges** are the entry itself: a YAML or JSON pair, or a TOML key, or a TOML table from its header to its last key.
+  Leading comments above an entry, and the blank lines and comments between a TOML table and the next header, are not
+  included. TOML sub-tables (`[a]`, `[a.b]`) are siblings, not nested. Anchors (`&x`), tags and block scalars are part of
+  their entry; aliases are not resolved. `<<` merge keys are chunks named `<<`.
+- **Large files:** the scanner's size limits decide what is parsed at all; this analyzer parses whatever it is given.
+- **JSONC:** comments are accepted and add the warning `<path>: contains comments (JSONC); parsed leniently`. Trailing
+  commas are syntax errors (below).
+- **Syntax errors:** entries are looked up inside error nodes too, so what parsed is kept (an entry whose value contains
+  an error is still a chunk) and `warnings` gets `<path>: syntax errors; extracted N entries from the parseable regions`.
+  A file with nothing extractable returns only the warning; the whole-file text fallback is issue #32.
+- Identical same-line entries (`{"a": 1, "a": 2}`) collapse to one chunk so ids stay unique.
