@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeFile } from "./analyzers/index.ts";
-import { TYPESCRIPT_EXTENSIONS } from "./analyzers/typescript.ts";
+import { TYPESCRIPT_EXTENSIONS } from "./analyzers/ecmascript.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { selectWithinBudget } from "./context/select.ts";

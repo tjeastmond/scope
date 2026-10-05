@@ -76,3 +76,49 @@ A `Reference` records a relationship found in a chunk: `kind` (`import`, `call`,
 
 Preserve uncertainty, never guess silently: an analyzer must pick the weakest evidence that is true, and must not set
 `targetChunkId` without saying how it was found. The TypeScript analyzer emits no references yet.
+
+## JavaScript and TypeScript
+
+One analyzer (`src/analyzers/ecmascript.ts`) serves both languages. The grammar comes from the file path: `.ts`, `.mts`,
+`.cts` and `.d.ts` use `typescript`, `.tsx` uses `tsx`, and `.js`, `.jsx`, `.mjs`, `.cjs` use `javascript` (which also
+parses JSX). Chunk `language` is `typescript` for the TS family and `javascript` for the JS family. Chunks come from
+top-level statements only; `references` is empty (issue #27).
+
+| Source                                                                                                          | Kind                    | Name                           |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------ |
+| function, generator, `const`/`let`/`var` bound arrow/function                                                   | `function`              | the binding                    |
+| the above when named `Uppercase`, or default-exported, and it contains JSX or is typed `FC`/`FunctionComponent` | `component`             | the binding                    |
+| class (abstract, `const C = class {}`)                                                                          | `class`                 | the class                      |
+| method, accessor, `#private`, `static`, `handler = () => {}`                                                    | `method`                | `Class.name`, `Class.get name` |
+| interface, type alias                                                                                           | `interface`, `type`     | the declaration                |
+| enum                                                                                                            | `type` (no `enum` kind) | the enum                       |
+| exported constant that is not a function or class, `export default <expression>`                                | `config`                | the binding, or `default`      |
+| top-level `describe(...)`                                                                                       | `section`               | `describe: <title>`            |
+| top-level `it(...)` / `test(...)` (not inside a describe)                                                       | `function`              | `test: <title>`                |
+
+Choices:
+
+- **Ranges** include the `export`/`declare` wrapper and any decorators (class decorators, and method/field decorators,
+  which Tree-sitter places as siblings of the member). Leading comments are not included.
+- **Classes and methods** overlap as described above (class chunk covers the whole class; issue #33 owns the policy).
+  Constructors and non-function fields are not chunks.
+- **Anonymous default exports** are named `default` (`export default function () {}`, `export default class {}`,
+  `export default () => ...`, `export default {...}`). `export default someIdentifier` has no chunk.
+- **Not chunks:** nested functions and classes (they stay inside their parent), namespaces/modules (`namespace`,
+  `declare module`, with their contents), `export { a, b }` and `export ... from` re-exports, imports, unexported
+  non-function constants, destructured exports (`export const { a } = obj`), and CommonJS or `export =` assignments
+  (`module.exports = ...`, `exports.x = ...`).
+- **Test blocks:** `.only`/`.skip`/`.todo`/`.concurrent`/`.failing` variants count (also chained, as in `test.concurrent.only`);
+  `.each(...)(...)` tables and `test.describe` are not recognized. Tests nested in a `describe` are covered by the
+  describe chunk. Non-string titles use the argument's source text. Only top-level calls are recognized. Identical same-line
+  declarations collapse to one chunk so ids stay unique.
+- **Overloads:** a run of directly adjacent same-name signatures (functions, or class methods) is merged with the
+  implementation that follows into one chunk spanning the first signature to the end of the implementation. Signatures
+  with no following implementation (`declare function`, abstract methods, `.d.ts`) merge with each other into one chunk;
+  anything between two declarations (another statement or a different name) separates them.
+- **Ambient declarations** (`declare function/class/const`, `.d.ts`) are chunks; `declare const` counts as exported only
+  when written `export declare const`.
+- **Syntax errors:** a top-level statement that contains an error or missing node is skipped (a class with an error
+  anywhere inside is skipped whole). The rest are extracted and `warnings` gets
+  `<path>: syntax errors; extracted N declarations from the parseable regions`. A file with nothing extractable returns
+  only the warning and no chunks; the whole-file text fallback is issue #32.
