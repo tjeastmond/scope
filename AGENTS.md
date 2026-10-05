@@ -21,17 +21,18 @@ Planned source modules under `src/`: `repository/`, `analyzers/`, `graph/`, `ret
 
 Defined in `package.json`:
 
-| Command                | What it does                                                              |
-| ---------------------- | ------------------------------------------------------------------------- |
-| `bun install`          | Install dependencies (commit `bun.lock`).                                 |
-| `bun run format`       | Prettier write (120 cols, double quotes, semicolons, trailing commas).    |
-| `bun run format:check` | Prettier check only.                                                      |
-| `bun run lint`         | ESLint (typescript-eslint; forbids Bun APIs in shipped `src/`).           |
-| `bun run typecheck`    | `tsc --noEmit`.                                                           |
-| `bun run check`        | Static checks only: `format:check`, `lint`, `typecheck`.                  |
-| `bun run build`        | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).               |
-| `bun test`             | Run tests with `bun:test`.                                                |
-| `bun run validate`     | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`. |
+| Command                | What it does                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `bun install`          | Install dependencies (commit `bun.lock`).                                                                              |
+| `bun run format`       | Prettier write (120 cols, double quotes, semicolons, trailing commas).                                                 |
+| `bun run format:check` | Prettier check only.                                                                                                   |
+| `bun run lint`         | ESLint (typescript-eslint; forbids Bun APIs in shipped `src/`).                                                        |
+| `bun run typecheck`    | `tsc --noEmit`.                                                                                                        |
+| `bun run check`        | Static checks only: `format:check`, `lint`, `typecheck`.                                                               |
+| `bun run build`        | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).                                                            |
+| `bun test`             | Run tests with `bun:test`.                                                                                             |
+| `bun run smoke:node`   | Packaged-CLI smoke on real Node without Bun (`SCOPE_NODE=<node>`; needs network for `npm install`; not in `validate`). |
+| `bun run validate`     | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`.                                              |
 
 `validate` must pass on the final commit before a PR is merged. As the project grows, extend it (not a parallel script) with the offline evaluation gate and the Node 24/26 packaged-CLI smoke test. Planned script: `eval` (see the M7 milestone).
 

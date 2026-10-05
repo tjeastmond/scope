@@ -20,6 +20,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "smoke:node": "node scripts/smoke-node.mjs",
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "validate": "bun run check && bun run build && bun run test"
   },
