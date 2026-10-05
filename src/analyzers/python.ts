@@ -55,7 +55,9 @@ function constantName(statement: Node): string | undefined {
   if (statement.type !== "expression_statement") return undefined;
   const assignment = namedChildren(statement).find((child) => child.type === "assignment");
   const left = assignment?.childForFieldName("left");
-  if (!assignment || left?.type !== "identifier") return undefined;
+  if (!assignment || left?.type !== "identifier" || assignment.childForFieldName("right")?.type === "assignment") {
+    return undefined;
+  }
   const annotated = assignment.childForFieldName("type") !== null;
   return annotated || CONSTANT_NAME.test(left.text) ? left.text : undefined;
 }

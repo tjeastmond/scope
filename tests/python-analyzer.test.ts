@@ -193,6 +193,11 @@ test("main guard detection reads operands, not whitespace", async () => {
   expect(await names('if __name__ == "__ main__":\n    run()\n')).toEqual([]);
 });
 
+test("chained assignments are not single-target constants", async () => {
+  const { chunks } = await extractPythonChunks("a.py", "A = B = 1\nC = 2\n", charsPerTokenEstimator);
+  expect(chunks.map((c) => c.name)).toEqual(["C"]);
+});
+
 test("identical same-line declarations yield one chunk", async () => {
   const { chunks } = await extractPythonChunks("a.py", "A = 1; A = 2\n", charsPerTokenEstimator);
   expect(chunks.map((c) => c.name)).toEqual(["A"]);
