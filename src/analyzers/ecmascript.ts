@@ -50,6 +50,8 @@ interface Found {
   name: string;
   /** A body-less overload or abstract signature; merged into the implementation that follows it. */
   signature?: boolean;
+  /** Static and instance members with one name are different symbols, so they never merge. */
+  isStatic?: boolean;
 }
 
 function namedChildren(node: Node): Node[] {
@@ -107,6 +109,7 @@ function classMembers(classNode: Node, className: string): (Found | undefined)[]
       kind: "method",
       name: `${className}.${accessorPrefix(member)}${name}`,
       signature: METHOD_SIGNATURES.has(member.type),
+      isStatic: member.children.some((child) => child?.type === "static"),
     });
   }
   return entries;
@@ -138,10 +141,10 @@ function testCall(statement: Node): { callee: string; title: string } | undefine
   const call = statement.type === "expression_statement" ? namedChildren(statement)[0] : undefined;
   if (call?.type !== "call_expression") return undefined;
   const fn = call.childForFieldName("function");
-  const callee =
-    fn?.type === "member_expression" && TEST_MODIFIERS.has(fn.childForFieldName("property")?.text ?? "")
-      ? fn.childForFieldName("object")
-      : fn;
+  let callee = fn;
+  while (callee?.type === "member_expression" && TEST_MODIFIERS.has(callee.childForFieldName("property")?.text ?? "")) {
+    callee = callee.childForFieldName("object");
+  }
   if (callee?.type !== "identifier" || !["describe", "it", "test"].includes(callee.text)) return undefined;
   const first = call.childForFieldName("arguments")?.namedChildren.find((child) => child?.type !== "comment");
   if (!first) return undefined;
@@ -156,9 +159,10 @@ function statementEntries(statement: Node): (Found | undefined)[] {
     ? (statement.childForFieldName("declaration") ?? statement.childForFieldName("value"))
     : statement;
   if (inner?.type === "ambient_declaration") inner = namedChildren(inner)[0] ?? null;
+  const isDefault = exported && statement.childForFieldName("value") !== null;
+  if (isDefault) inner = unwrapValue(inner);
   if (!inner) return [];
   const spec = { start: statement, end: statement };
-  const isDefault = exported && statement.childForFieldName("value") !== null;
   const name = inner.childForFieldName("name")?.text ?? (isDefault ? "default" : undefined);
 
   if (CLASS_TYPES.has(inner.type)) return name ? classEntries(inner, name, statement) : [];
@@ -195,12 +199,12 @@ function mergeOverloads(entries: (Found | undefined)[]): Found[] {
   for (const entry of entries) {
     if (!entry) flush();
     else if (entry.signature) {
-      if (run?.name === entry.name) run = { ...run, end: entry.end };
+      if (run?.name === entry.name && run.isStatic === entry.isStatic) run = { ...run, end: entry.end };
       else {
         flush();
         run = entry;
       }
-    } else if (run?.name === entry.name) {
+    } else if (run?.name === entry.name && run.isStatic === entry.isStatic) {
       found.push({ ...entry, start: run.start });
       run = undefined;
     } else {
