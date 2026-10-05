@@ -8,7 +8,7 @@ Everything that touches Jev is verified only against a fake provider and a fake 
 
 - Request shape: one Noul per candidate, batched on the serialized request (`src/jev/provider.ts`), built from the installed `@typesafe-ai/sdk` 0.6.0 types and the live docs (`docs/jev-sdk-notes.md`).
 - Response validation, failure labels, exit codes, empty stdout on failure and key redaction (`tests/jev-provider.test.ts`, `tests/validate.test.ts`, `tests/cli.test.ts`).
-- Unverified against the real service: whether the Noul wording and criteria separate relevant from irrelevant code, the relevance values Jev returns for the fixture, latency, usage, rate limits and the 10 s SDK timeout in practice.
+- Unverified against the real service: whether the Noul wording and criteria separate relevant from irrelevant code, the relevance values Jev returns for the fixture, latency, usage, rate limits and the 30 s per-attempt timeout and 90 s overall deadline in practice.
 
 ## Checked offline (Node v24.7.0, compiled `dist/cli.js`)
 
