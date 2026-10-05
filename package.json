@@ -4,11 +4,17 @@
   "description": "Scope selects the smallest useful code context for a software task, using Jev to judge relevance.",
   "type": "module",
   "private": true,
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "README.md"
+  ],
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "build": "bun scripts/build.ts",
+    "prepack": "bun run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
