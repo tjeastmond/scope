@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "validate": "bun run format:check && bun run lint && bun run typecheck && bun run build && bun run test"
+    "check": "bun run format:check && bun run lint && bun run typecheck",
+    "validate": "bun run check && bun run build && bun run test"
   },
   "dependencies": {
     "@typesafe-ai/sdk": "^0.6.0",

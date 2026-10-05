@@ -28,6 +28,7 @@ Defined in `package.json`:
 | `bun run format:check` | Prettier check only.                                                      |
 | `bun run lint`         | ESLint (typescript-eslint; forbids Bun APIs in shipped `src/`).           |
 | `bun run typecheck`    | `tsc --noEmit`.                                                           |
+| `bun run check`        | Static checks only: `format:check`, `lint`, `typecheck`.                  |
 | `bun run build`        | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).               |
 | `bun test`             | Run tests with `bun:test`.                                                |
 | `bun run validate`     | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`. |
