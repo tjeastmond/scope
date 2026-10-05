@@ -246,6 +246,14 @@ test("an unquoted column named end does not close a trigger body", async () => {
   expect(inventory(chunks)).toEqual(["function:t@1-5", "query:select@6-6"]);
 });
 
+test("end after a clause keyword or before = is a column, not a closer", async () => {
+  const afterKeyword = "CREATE TRIGGER t AFTER INSERT ON u BEGIN\n  SELECT end FROM u;\n  SELECT 2;\nEND;\nSELECT 1;\n";
+  expect(inventory((await analyze("a.sql", afterKeyword)).chunks)).toEqual(["function:t@1-4", "query:select@5-5"]);
+  const beforeEquals =
+    "CREATE TRIGGER t AFTER INSERT ON u BEGIN\n  IF end = 1 THEN a; END IF;\n  b;\nEND;\nSELECT 1;\n";
+  expect(inventory((await analyze("a.sql", beforeEquals)).chunks)).toEqual(["function:t@1-4", "query:select@5-5"]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);
