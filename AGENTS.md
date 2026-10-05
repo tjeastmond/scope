@@ -21,16 +21,18 @@ Planned source modules under `src/`: `repository/`, `analyzers/`, `graph/`, `ret
 
 Defined in `package.json`:
 
-| Command                | What it does                                                           |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `bun install`          | Install dependencies (commit `bun.lock`).                              |
-| `bun run format`       | Prettier write (120 cols, double quotes, semicolons, trailing commas). |
-| `bun run format:check` | Prettier check only.                                                   |
-| `bun run typecheck`    | `tsc --noEmit`.                                                        |
-| `bun test`             | Run tests with `bun:test`.                                             |
-| `bun run validate`     | The pre-merge gate: `format:check`, `typecheck`, then `test`.          |
+| Command                | What it does                                                              |
+| ---------------------- | ------------------------------------------------------------------------- |
+| `bun install`          | Install dependencies (commit `bun.lock`).                                 |
+| `bun run format`       | Prettier write (120 cols, double quotes, semicolons, trailing commas).    |
+| `bun run format:check` | Prettier check only.                                                      |
+| `bun run lint`         | ESLint (typescript-eslint; forbids Bun APIs in shipped `src/`).           |
+| `bun run typecheck`    | `tsc --noEmit`.                                                           |
+| `bun run build`        | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).               |
+| `bun test`             | Run tests with `bun:test`.                                                |
+| `bun run validate`     | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`. |
 
-`validate` must pass on the final commit before a PR is merged. As the project grows, extend it (not a parallel script) with `lint` and `build`, and later the offline evaluation gate and the Node 24/26 packaged-CLI smoke test. Planned scripts: `build` (compile the Node CLI), `lint`, `check`, and `eval` (see the M2 and M7 milestones).
+`validate` must pass on the final commit before a PR is merged. As the project grows, extend it (not a parallel script) with the offline evaluation gate and the Node 24/26 packaged-CLI smoke test. Planned script: `eval` (see the M7 milestone).
 
 ## Work tracking
 

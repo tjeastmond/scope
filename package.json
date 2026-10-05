@@ -8,20 +8,29 @@
     "node": ">=24"
   },
   "scripts": {
+    "build": "bun scripts/build.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "validate": "bun run format:check && bun run typecheck && bun run test"
+    "validate": "bun run format:check && bun run lint && bun run typecheck && bun run build && bun run test"
   },
   "dependencies": {
     "@typesafe-ai/sdk": "^0.6.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bun": "latest",
-    "prettier": "^3.9.9"
+    "@types/node": "^26.6.4",
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.9",
+    "typescript-eslint": "^8.71.1"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "bin": {
+    "scope": "dist/cli.js"
   }
 }
