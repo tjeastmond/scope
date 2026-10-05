@@ -141,6 +141,13 @@ const isInside = (root: string, path: string) => {
   return rel !== ".." && !rel.startsWith(`..${sep}`);
 };
 
+/** Reads a `.gitignore`, refusing one over the size limit: dropping its rules would silently un-ignore files. */
+async function readIgnoreFile(path: string, maxBytes: number): Promise<string> {
+  if ((await stat(path)).size > maxBytes)
+    throw new Error(`${path} is larger than ${maxBytes} bytes; refusing to scan.`);
+  return readFile(path, "utf8");
+}
+
 /**
  * Walks the repository and decides which files are eligible to be read and sent. Dependency and build directories
  * are never entered, `.gitignore` rules apply on the way down (a negation never re-includes secrets or the
@@ -168,7 +175,7 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
     if (!entries) return skipDirectory("unreadable");
     // Only a regular `.gitignore` counts: a symlinked one could pull in rules from outside the repository.
     const gitignore = entries.some((entry) => entry.name === ".gitignore" && entry.isFile())
-      ? await readFile(join(root, directory, ".gitignore"), "utf8")
+      ? await readIgnoreFile(join(root, directory, ".gitignore"), limits.maxFileBytes)
       : "";
     const rules = gitignore ? [...inherited, { base: directory, matcher: ignore().add(gitignore) }] : inherited;
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));

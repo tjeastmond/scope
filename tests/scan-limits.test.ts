@@ -74,6 +74,11 @@ test("symlinks inside the repository are skipped, so an alias cannot dodge the e
   expect(skipped).toContainEqual({ path: "broken", reason: "unreadable" });
 });
 
+test("an oversized .gitignore fails the scan instead of being read or ignored", async () => {
+  const root = await makeDir({ ".gitignore": "*.log\n".repeat(50), "app.ts": code });
+  await expect(scanRepository(root, { maxFileBytes: 100 })).rejects.toThrow("larger than 100 bytes");
+});
+
 test("a symlinked .gitignore contributes no rules", async () => {
   const outside = await makeDir({ rules: "*.ts\n" });
   const root = await makeDir({ "app.ts": code });
