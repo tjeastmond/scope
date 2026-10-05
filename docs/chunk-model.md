@@ -133,9 +133,10 @@ are constants in `src/config.ts`:
 | `MAX_SCAN_BYTES` | 50 MB   | The scan stops once eligible files total this size and warns.               |
 
 Truncation warnings are returned as `ScanResult.warnings` and appear first in `ScopeResult.warnings`. Symlinks are
-followed only when their real target is inside the real repository root; otherwise they are skipped as
-`symlink-outside-repository`. A symlinked directory pointing at one of its own ancestors is skipped as `symlink-loop`,
-and a broken link or an unreadable file or directory is skipped as `unreadable`.
+never followed, because an alias would dodge the secret, `.gitignore` and directory exclusions that apply to its
+target, which is scanned under its own path anyway. A link whose real target is outside the repository root is skipped
+as `symlink-outside-repository`, a directory link to its own directory or an ancestor as `symlink-loop`, any other link
+as `symlink`, and a broken link or an unreadable file or directory as `unreadable`.
 
 ## Stable chunk IDs
 

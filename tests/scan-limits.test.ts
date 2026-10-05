@@ -47,14 +47,31 @@ test("symlinks that leave the repository are skipped, for directories and files 
   ]);
 });
 
-test("symlinks inside the repository are followed; broken ones are unreadable", async () => {
-  const root = await makeDir({ "lib/util.ts": code });
+test("symlinks inside the repository are skipped, so an alias cannot dodge the exclusions on its target", async () => {
+  const root = await makeDir({
+    "lib/util.ts": code,
+    "credentials.ts": code,
+    "secrets/.env": "KEY=1\n",
+    "secrets/note.ts": code,
+    ".gitignore": "generated.ts\n",
+    "generated.ts": code,
+  });
   await symlink("lib", join(root, "alias"));
   await symlink("lib/util.ts", join(root, "util-link.ts"));
+  await symlink("credentials.ts", join(root, "config.ts"));
+  await symlink("secrets", join(root, "shared"));
+  await symlink("generated.ts", join(root, "gen-link.ts"));
   await symlink("missing", join(root, "broken"));
   const { files, skipped } = await scanRepository(root);
-  expect(files).toEqual(["alias/util.ts", "lib/util.ts", "util-link.ts"]);
-  expect(skipped).toEqual([{ path: "broken", reason: "unreadable" }]);
+  expect(files).toEqual([".gitignore", "lib/util.ts"]);
+  expect(skipped.filter(({ reason }) => reason === "symlink")).toEqual([
+    { path: "alias/", reason: "symlink" },
+    { path: "config.ts", reason: "symlink" },
+    { path: "gen-link.ts", reason: "symlink" },
+    { path: "shared/", reason: "symlink" },
+    { path: "util-link.ts", reason: "symlink" },
+  ]);
+  expect(skipped).toContainEqual({ path: "broken", reason: "unreadable" });
 });
 
 test("a symlink to the parent of the root, to its own directory or to an ancestor is never followed", async () => {
@@ -62,12 +79,12 @@ test("a symlink to the parent of the root, to its own directory or to an ancesto
   const root = join(holder, "repo");
   await symlink("..", join(root, "parent"));
   await symlink(".", join(root, "lib", "self"));
-  await symlink("lib", join(root, "alias"));
+  await symlink("..", join(root, "lib", "up"));
   const { files, skipped } = await scanRepository(root);
-  expect(files).toEqual(["alias/util.ts", "lib/util.ts"]);
+  expect(files).toEqual(["lib/util.ts"]);
   expect(skipped).toEqual([
-    { path: "alias/self/", reason: "symlink-loop" },
     { path: "lib/self/", reason: "symlink-loop" },
+    { path: "lib/up/", reason: "symlink-loop" },
     { path: "parent/", reason: "symlink-outside-repository" },
   ]);
 });

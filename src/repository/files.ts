@@ -14,7 +14,8 @@ export type SkipReason =
   | "dependency-or-build-directory"
   | "too-large"
   | "symlink-outside-repository"
-  | "symlink-loop";
+  | "symlink-loop"
+  | "symlink";
 
 export interface SkippedPath {
   /** Repository-relative; directories skipped as a whole end in `/` and are not recursed into. */
@@ -144,8 +145,9 @@ const isInside = (root: string, path: string) => {
  * Walks the repository and decides which files are eligible to be read and sent. Dependency and build directories
  * are never entered, `.gitignore` rules apply on the way down (a negation never re-includes secrets or the
  * built-in exclusions), and every excluded path is reported with a reason. Entries are visited in sorted order, so a
- * limit truncates the same way on every run. Symlinks are followed only to targets inside the real root, and a
- * symlinked directory that points at one of its own ancestors is a loop. Only binary sniffing reads file content.
+ * limit truncates the same way on every run. Symlinks are never followed: the target of an in-repository link is
+ * scanned under its own path, and following the alias would let it dodge the secret, `.gitignore` and directory
+ * exclusions that apply to the target. Only binary sniffing reads file content.
  */
 export async function scanRepository(root: string, overrides: Partial<ScanLimits> = {}): Promise<ScanResult> {
   const limits = { ...DEFAULT_LIMITS, ...overrides };
@@ -160,7 +162,7 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
     stopped = true;
     warnings.push(message);
   };
-  const walk = async (directory: string, ancestors: readonly string[], inherited: readonly Rules[]) => {
+  const walk = async (directory: string, inherited: readonly Rules[]) => {
     const skipDirectory = (reason: SkipReason) => skipped.push({ path: `${directory}/`, reason });
     const entries = await readdir(join(root, directory), { withFileTypes: true }).catch(() => undefined);
     if (!entries) return skipDirectory("unreadable");
@@ -177,8 +179,6 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
       if (stopped) return;
       const path = directory ? `${directory}/${entry.name}` : entry.name;
       let isDirectory = entry.isDirectory();
-      let isFile = entry.isFile();
-      let real = join(ancestors.at(-1) as string, entry.name);
       const skip = (reason: SkipReason) => skipped.push({ path: isDirectory ? `${path}/` : path, reason });
       if (entry.isSymbolicLink()) {
         const resolved = await Promise.all([realpath(join(root, path)), stat(join(root, path))]).catch(() => undefined);
@@ -188,23 +188,18 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
         }
         const [target, info] = resolved;
         isDirectory = info.isDirectory();
-        isFile = info.isFile();
-        real = target;
-        if (!isInside(realRoot, target)) {
-          skip("symlink-outside-repository");
-          continue;
-        }
-        if (isDirectory && ancestors.includes(target)) {
-          skip("symlink-loop");
-          continue;
-        }
+        if (!isInside(realRoot, target)) skip("symlink-outside-repository");
+        else if (isDirectory && isInside(target, join(realRoot, directory))) skip("symlink-loop");
+        else skip("symlink");
+        continue;
       }
+      const isFile = entry.isFile();
       if (isDirectory) {
         if (SKIPPED_DIRECTORIES.has(entry.name)) skip("dependency-or-build-directory");
         else if (secrets.ignores(path)) skip("secret");
         else if (isIgnored(rules, `${path}/`)) skip("gitignored");
         else if (path.split("/").length > limits.maxDepth) tooDeep ??= path;
-        else await walk(path, [...ancestors, real], rules);
+        else await walk(path, rules);
       } else if (entry.name === ".git") {
         // Worktrees and submodules keep a regular `.git` metadata file.
         skip("dependency-or-build-directory");
@@ -233,7 +228,7 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
       }
     }
   };
-  await walk("", [realRoot], []);
+  await walk("", []);
   if (tooDeep)
     warnings.push(`Directories nested deeper than ${limits.maxDepth} levels were not scanned (first: ${tooDeep}/).`);
   const byPath = (a: { path: string }, b: { path: string }) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
