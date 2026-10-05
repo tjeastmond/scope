@@ -1,9 +1,10 @@
 import type { AnalysisResult, Analyzer, Language, SourceFile, TokenEstimator } from "../types.ts";
+import { configAnalyzer } from "./config.ts";
 import { ecmascriptAnalyzer } from "./ecmascript.ts";
 import { markdownAnalyzer } from "./markdown.ts";
 import { pythonAnalyzer } from "./python.ts";
 
-const ANALYZERS: readonly Analyzer[] = [ecmascriptAnalyzer, pythonAnalyzer, markdownAnalyzer];
+const ANALYZERS: readonly Analyzer[] = [ecmascriptAnalyzer, pythonAnalyzer, markdownAnalyzer, configAnalyzer];
 
 const byLanguage = new Map<Language, Analyzer>(
   ANALYZERS.flatMap((analyzer) => analyzer.languages.map((language) => [language, analyzer] as const)),
