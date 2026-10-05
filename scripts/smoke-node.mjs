@@ -2,9 +2,10 @@
 // `scope` binary under real Node with a PATH that does not contain Bun.
 // Usage: node scripts/smoke-node.mjs   (or: bun run smoke:node)
 // Select the Node under test with SCOPE_NODE=/path/to/node (default: the node running this script).
+// npm is found next to that Node, or in the distro location; override with SCOPE_NPM=/path/to/npm-cli.js.
 // Needs network once: `npm install` fetches the package's runtime dependencies from the registry.
 import { spawnSync } from "node:child_process";
-import { accessSync, constants, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -14,8 +15,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE = join(ROOT, "fixtures/webhook-service");
 const TASK = "Add retry handling to Stripe webhook processing";
 const NODE = resolve(process.env.SCOPE_NODE ?? process.execPath);
-// npm's CLI entry sits next to the Node under test, so the right npm runs without a PATH lookup.
-const NPM = join(dirname(dirname(NODE)), "lib/node_modules/npm/bin/npm-cli.js");
+// npm's CLI entry sits next to the Node under test (nvm, fnm, Homebrew, nodejs.org) or in the distro package location.
+const NPM_CANDIDATES = [
+  process.env.SCOPE_NPM,
+  join(dirname(dirname(NODE)), "lib/node_modules/npm/bin/npm-cli.js"),
+  "/usr/share/nodejs/npm/bin/npm-cli.js",
+].filter(Boolean);
+const NPM = NPM_CANDIDATES.find((path) => existsSync(path));
 // Node's own directory supplies node (for the `#!/usr/bin/env node` shebang); the system dirs supply env and sh.
 const SAFE_PATH = [dirname(NODE), "/usr/bin", "/bin"].join(delimiter);
 const SAFE_ENV = { ...process.env, PATH: SAFE_PATH, TYPESAFE_API_KEY: "" };
@@ -45,6 +51,11 @@ const bunOnPath = (path) =>
       return false;
     }
   });
+
+if (!NPM) {
+  process.stderr.write(`FAIL npm not found (tried ${NPM_CANDIDATES.join(", ")}); set SCOPE_NPM=/path/to/npm-cli.js\n`);
+  process.exit(1);
+}
 
 const scratch = mkdtempSync(join(tmpdir(), "scope-smoke-"));
 try {
