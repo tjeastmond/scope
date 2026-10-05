@@ -1,3 +1,4 @@
+import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
 import { parseArgs } from "node:util";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { renderResult } from "./output/text.ts";
@@ -42,6 +43,19 @@ function parse(argv: string[]) {
   }
 }
 
+const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
+  [JevUnavailableError, "Jev unavailable"],
+  [JevResponseError, "Jev returned an unusable response"],
+  [JevRequestError, "Jev request not sent"],
+];
+
+/** One line naming the kind of failure first, so a Jev failure is never mistaken for a Scope or usage problem. */
+function describeError(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const label = FAILURE_LABELS.find(([type]) => error instanceof type)?.[1];
+  return label ? `${label}: ${error.message}` : error.message;
+}
+
 /** Runs the CLI and returns the exit code. Results go to stdout only on success; everything else to stderr. */
 export async function main(argv: string[], io: Io): Promise<number> {
   try {
@@ -73,7 +87,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
     io.stdout(renderResult(result));
     return 0;
   } catch (error) {
-    io.stderr(`scope: ${error instanceof Error ? error.message : String(error)}\n`);
+    io.stderr(`scope: ${describeError(error)}\n`);
     return error instanceof UsageError ? 2 : 1;
   }
 }
