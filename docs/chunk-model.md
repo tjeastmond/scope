@@ -44,7 +44,7 @@ imports and calls are issue #27, class/method overlap is issue #33).
 - `if __name__ == "__main__":` (without `else`) is a `section` chunk named `__main__`.
 - Syntax errors: declarations whose subtree has an error or a missing token are skipped; the rest are extracted and
   `warnings` gets `<path>: syntax errors; extracted N declarations from the parseable regions`. A non-empty file with
-  nothing extractable returns that warning and no chunks (the text fallback is issue #32).
+  nothing extractable returns that warning and no chunks; `analyzeFile` then applies the text fallback (below).
 
 ## SQL
 
@@ -90,7 +90,7 @@ statement splitter. `references` is empty.
 - Syntax errors: the parser recovers around unclosed elements. Error nodes are looked through, so landmarks before and
   after the damage are kept; an unclosed landmark whose end tag is missing is not a chunk. The warning is
   `<path>: syntax errors; extracted N chunks from the parseable regions`. Unclosed `<html>`/`<body>`/`<p>` are valid
-  HTML and do not warn. A file with no landmarks or blocks has no chunks (text fallback: issue #32).
+  HTML and do not warn. A file with no landmarks or blocks has no chunks, so `analyzeFile` applies the text fallback (below).
 
 ## CSS and SCSS
 
@@ -110,6 +110,35 @@ statement splitter. `references` is empty.
   string, comment or interpolation is skipped or ends at the file end. Each adds the warning
   `<path>: syntax errors; extracted N chunks from the parseable regions`. A top-level statement at end of file with no
   `;` is kept. Empty or comment-only files have no chunks and no warning.
+
+## Text fallback
+
+`src/analyzers/text.ts` (`textFallback`) is the single fallback, applied by `analyzeFile` so every file still yields
+usable chunks. Analyzers themselves never fall back; they set `AnalysisResult.partial` when the parser reported syntax
+errors.
+
+| Situation                                                     | Result                                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Language with no analyzer (Go, Java, Rust, unknown text)      | Text windows over the whole file; reason `no analyzer for language "<language>"`.                |
+| The analyzer throws                                           | Text windows over the whole file; reason `analyzer failed (<message>)`, one bounded line.        |
+| The analyzer returns no chunks for a file with non-blank text | Text windows over the whole file; reason `analyzer extracted no chunks`.                         |
+| The analyzer recovered chunks but flagged syntax errors       | Recovered chunks kept; windows only over lines no recovered chunk spans; reason `syntax errors`. |
+| A NUL byte anywhere in the source                             | Not analyzed: no chunks, warning `<path>: binary content (NUL byte); skipped`.                   |
+
+- **Windows:** about 80 lines (`TEXT_WINDOW_LINES`). A window ends on the blank line nearest the 80th line when one lies
+  between line 40 and the hard maximum of 100 lines (`TEXT_WINDOW_MAX_LINES`); otherwise it ends exactly at 80. Blank
+  lines at a window's edges are trimmed and blank-only windows are dropped, so ranges are exact, never overlap, and
+  every non-blank line is in exactly one chunk. A file that is one window with nothing recovered is a single `file`
+  chunk; any other window is a `section`. Fallback chunks have no `name`; the range, hence the ID, tells them apart.
+- **Gap filling** never overlaps a recovered chunk (overlap between recovered chunks, such as class and method, is
+  untouched). Lines of a broken file that are not declarations, such as imports, are gaps too, so they get windows.
+- **Warnings:** each fallback that produces chunks adds `<path>: <reason>; text fallback produced N line window(s)`
+  (plus ` over the lines the parser did not recover` when filling gaps), after the analyzer's own warnings. They flow
+  into `ScopeResult.warnings`. A file with no non-blank line to cover (empty, blank-only) gets no chunks and no warning.
+- **Binary content:** the scanner sniffs only the first 8 KiB, so a NUL after that reaches `analyzeFile`, which skips the
+  file with a warning rather than parsing it or sending it anywhere. Files that do not look like text are never read as
+  text (classification `skip`).
+- Lines are the limit, not characters: a single huge line (minified code) is one window.
 
 ## Paths
 
@@ -204,7 +233,7 @@ Choices:
 - **Syntax errors:** a top-level statement that contains an error or missing node is skipped (a class with an error
   anywhere inside is skipped whole). The rest are extracted and `warnings` gets
   `<path>: syntax errors; extracted N declarations from the parseable regions`. A file with nothing extractable returns
-  only the warning and no chunks; the whole-file text fallback is issue #32.
+  only the warning and no chunks; `analyzeFile` then applies the text fallback (below).
 
 ## Markdown
 
@@ -258,5 +287,5 @@ Choices:
   commas are syntax errors (below).
 - **Syntax errors:** entries are looked up inside error nodes too, so what parsed is kept (an entry whose value contains
   an error is still a chunk) and `warnings` gets `<path>: syntax errors; extracted N entries from the parseable regions`.
-  A file with nothing extractable returns only the warning; the whole-file text fallback is issue #32.
+  A file with nothing extractable returns only the warning; `analyzeFile` then applies the text fallback (below).
 - Identical same-line entries (`{"a": 1, "a": 2}`) collapse to one chunk so ids stay unique.

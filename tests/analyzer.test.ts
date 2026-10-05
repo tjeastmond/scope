@@ -15,8 +15,10 @@ test("analyzeFile returns chunks and a warnings array", async () => {
   expect(result.warnings).toEqual([]);
 });
 
-test("analyzeFile fails clearly for a language without an analyzer", async () => {
-  await expect(analyzeFile({ path: "x.go", source: "" }, "go", charsPerTokenEstimator)).rejects.toThrow(/go/);
+test("analyzeFile falls back to text windows, with a warning, for a language without an analyzer", async () => {
+  const result = await analyzeFile({ path: "x.go", source: "package x\n" }, "go", charsPerTokenEstimator);
+  expect(result.chunks.map((c) => c.kind)).toEqual(["file"]);
+  expect(result.warnings).toEqual([expect.stringMatching(/^x\.go: no analyzer for language "go"/)]);
 });
 
 test("CRLF files give the same ranges and ids as LF, and content keeps the original text", async () => {

@@ -43,7 +43,7 @@ export function assembleChunks(
   const warnings = broken
     ? [`${file}: syntax errors; extracted ${unique.length} ${unit} from the parseable regions`]
     : [];
-  return { chunks: unique, warnings };
+  return { chunks: unique, warnings, ...(broken ? { partial: true } : {}) };
 }
 
 /** Collapses runs of whitespace to single spaces, for names taken from source text. */

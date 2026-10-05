@@ -145,7 +145,7 @@ export async function extractConfigChunks(
     const unique = [...perRange.values()].map((group) =>
       group.length > 1 ? { ...group[0]!, kind: "file" as const, name: undefined } : group[0]!,
     );
-    const { chunks, warnings } = assembleChunks(
+    const { chunks, warnings, partial } = assembleChunks(
       file,
       source,
       language,
@@ -157,7 +157,7 @@ export async function extractConfigChunks(
     if (grammar === "json" && tree.rootNode.descendantsOfType("comment").length > 0) {
       warnings.push(`${file}: contains comments (JSONC); parsed leniently`);
     }
-    return { chunks, warnings };
+    return { chunks, warnings, ...(partial ? { partial } : {}) };
   } finally {
     tree.delete();
   }
