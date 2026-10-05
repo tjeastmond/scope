@@ -135,7 +135,8 @@ is empty.
   blocks (``` or `~~~`, closed by the same character at least as long; an unclosed fence runs to the end of the file) is
   never a heading, and `---`, `***` and `___` thematic breaks are not headings. HTML comments (`<!--` to `-->`) are
   skipped the same way, and lines continuing a list item or blockquote never start a setext heading. Front matter
-  needs a non-blank line right after the opening `---`.
+  needs a non-blank line right after the opening `---`. A list item's indented paragraph after a blank line still counts as a new paragraph, so a `---` right
+  under it reads as a setext underline (a known limitation).
 - A section runs to the line before the next heading of the same or a higher level, so a parent's range covers its
   children (as a class covers its methods). Its `name` is the heading path, `Parent > Child`, from the nearest
   shallower heading at each step: an h3 directly under an h1 is `H1 > H3`. Heading text is kept as written (inline

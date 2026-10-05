@@ -212,3 +212,7 @@ test("headings inside HTML comments are not headings", () => {
   expect(names("# A\n\n<!--\n# hidden\n-->\n\n## B\n")).toEqual(["A@1-7", "A > B@7-7"]);
   expect(names("# A\n<!-- # one line -->\n## B\n")).toEqual(["A@1-3", "A > B@3-3"]);
 });
+
+test("an unterminated HTML comment opener inside a fence does not hide later headings", () => {
+  expect(names("# A\n```html\n<!-- start\n```\n# B\n")).toEqual(["A@1-5", "B@5-5"]);
+});

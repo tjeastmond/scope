@@ -41,7 +41,7 @@ function findHeadings(lines: string[], from: number): Heading[] {
   let comment = false;
   for (let index = from; index < lines.length; index++) {
     const line = lines[index]!;
-    if (comment || COMMENT_START.test(line)) {
+    if (comment || (!fence && COMMENT_START.test(line))) {
       comment = !line.includes("-->");
       paragraph = undefined;
       continue;
