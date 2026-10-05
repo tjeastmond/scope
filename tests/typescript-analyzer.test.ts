@@ -4,13 +4,14 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { extractTypeScriptChunks, TYPESCRIPT_EXTENSIONS } from "../src/analyzers/typescript.ts";
 import { charsPerTokenEstimator } from "../src/context/tokens.ts";
-import { listFiles } from "../src/repository/files.ts";
+import { scanRepository } from "../src/repository/files.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const FIXTURE = join(import.meta.dir, "../fixtures/webhook-service");
 
 async function extractFixture(): Promise<CodeChunk[]> {
-  const files = await listFiles(FIXTURE, TYPESCRIPT_EXTENSIONS);
+  const { files: all } = await scanRepository(FIXTURE);
+  const files = all.filter((f) => TYPESCRIPT_EXTENSIONS.some((ext) => f.endsWith(ext)));
   const perFile = await Promise.all(
     files.map(async (file) =>
       extractTypeScriptChunks(file, await readFile(join(FIXTURE, file), "utf8"), charsPerTokenEstimator),

@@ -8,7 +8,7 @@ import { selectWithinBudget } from "./context/select.ts";
 import { charsPerTokenEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
-import { listFiles } from "./repository/files.ts";
+import { scanRepository } from "./repository/files.ts";
 import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
@@ -38,9 +38,12 @@ export { UsageError };
 async function loadChunks(repo: string): Promise<CodeChunk[]> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
-  for (const file of await listFiles(root, TYPESCRIPT_EXTENSIONS)) {
+  const { files } = await scanRepository(root);
+  // Issue #20 replaces this extension filter with language classification.
+  for (const file of files.filter((f) => TYPESCRIPT_EXTENSIONS.some((ext) => f.endsWith(ext)))) {
     const bytes = await readFile(join(root, file));
-    if (bytes.includes(0)) continue; // NUL bytes mean binary content, which is never parsed or sent
+    // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which is never parsed or sent.
+    if (bytes.includes(0)) continue;
     const source = redactSecrets(bytes.toString("utf8"));
     chunks.push(...(await analyzeFile({ path: file, source }, "typescript", charsPerTokenEstimator)).chunks);
   }
