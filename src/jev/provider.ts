@@ -91,14 +91,20 @@ function planBatches(task: string, candidates: readonly CodeChunk[], budget: num
   return batches;
 }
 
+const STATUS_HINTS: Record<number, string> = {
+  401: "authentication failed; check TYPESAFE_API_KEY",
+  403: "access denied; check TYPESAFE_API_KEY",
+  429: "rate limited; try again later",
+};
+
 function failure(error: unknown, signal: AbortSignal): JevUnavailableError {
   if (signal.aborted) return new JevUnavailableError("Jev did not complete: the request was cancelled or timed out.");
   const status = (error as { status?: unknown } | null)?.status;
   const name = error instanceof Error ? error.name : "Error";
+  const detail =
+    typeof status === "number" ? `HTTP ${status}${STATUS_HINTS[status] ? `, ${STATUS_HINTS[status]}` : ""}` : name;
   // Deliberately omit the SDK message, body and `cause`: they can echo request content and credentials.
-  return new JevUnavailableError(
-    `Jev request failed (${name}${typeof status === "number" ? `, HTTP ${status}` : ""}).`,
-  );
+  return new JevUnavailableError(`Jev request failed (${detail}).`);
 }
 
 /** Asks Jev one yes/no relevance question per candidate (a Noul), batched within request limits. */

@@ -19,6 +19,38 @@ candidate**, through the official `@typesafe-ai/sdk`. TypeScript then applies co
 
 `--no-jev` runs a deterministic-only baseline for diagnostics and benchmarks. It is not the primary product path.
 
+## Credentials and data transmission
+
+**What is sent.** The ordinary command (`scope "<task>"`) sends two things to TypeSafe/Jev through the official SDK:
+the task text and the source of the shortlisted candidate chunks (at most 30 functions, classes, methods, types). It
+sends nothing else from your repository.
+
+**What is never sent.** Files matched by `.gitignore` (root and nested), dependency and build directories, files with
+secret-looking names (`.env*`, `*.pem`, `*.key`, `*secret*`, `*credential*`), and files containing binary data are
+never read. Credential-looking text inside source (private key blocks, common API token shapes, quoted values assigned
+to `apiKey`/`secret`/`token`/`password`) is replaced with `[REDACTED]` before parsing. Redaction is best-effort: do not
+rely on it to protect secrets you have committed to source.
+
+**Credentials.** Set `TYPESAFE_API_KEY` in the environment. Scope reads it only to create the SDK client. It is never
+printed, logged, written to disk or included in error messages.
+
+```bash
+export TYPESAFE_API_KEY=...   # your TypeSafe key
+scope "Add retry handling to Stripe webhook processing"
+```
+
+**Offline.** `--no-jev` needs no key and makes no network calls. It scores every candidate equally, so it is a
+diagnostic baseline, not a replacement for Jev's relevance judgment.
+
+**Failures.** If Jev cannot complete, Scope fails; it never falls back to offline results. Stdout stays empty, the error
+goes to stderr, and the exit code is non-zero:
+
+| Exit code | Meaning                                                                                                                                                                                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0         | Success                                                                                                                                                                                                                                                        |
+| 1         | Runtime failure. The message starts with `Jev unavailable:` (missing key, 401/403, 429, network, timeout), `Jev returned an unusable response:` (missing, duplicate or out-of-range answers) or `Jev request not sent:` (a request too large for Jev's limits) |
+| 2         | Usage error (bad argument, `--repo` is not a directory)                                                                                                                                                                                                        |
+
 ## Status
 
 Early development. See [docs/scope-implementation-plan.md](docs/scope-implementation-plan.md).

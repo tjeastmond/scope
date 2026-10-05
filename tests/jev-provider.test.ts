@@ -143,3 +143,20 @@ test("fails clearly when the API key is missing and never names the variable's v
   expect(() => createJevClient()).toThrow(JevUnavailableError);
   expect(() => new JevDecisionProvider()).toThrow(JevUnavailableError);
 });
+
+test.each([
+  [401, /authentication failed.*TYPESAFE_API_KEY/],
+  [403, /access denied/],
+  [429, /rate limited/],
+])("explains HTTP %d without echoing the SDK message", async (status, hint) => {
+  const client: JevClient = {
+    async systemOne() {
+      throw Object.assign(new Error("source and key text"), { status });
+    },
+  };
+  const error = await new JevDecisionProvider({ client })
+    .decide({ task: "t", candidates: [chunk("a")] })
+    .catch((e: unknown) => e);
+  expect((error as Error).message).toMatch(hint);
+  expect((error as Error).message).not.toContain("source and key text");
+});

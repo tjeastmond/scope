@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { JevRequestError, JevResponseError, JevUnavailableError } from "../src/jev/errors.ts";
 import { main, type Io } from "../src/main.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
 
@@ -103,6 +104,26 @@ test("reports Jev metrics only when the provider supplies them", async () => {
   expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(0);
   expect(run.stderr()).toContain("Jev usage not reported");
   expect(run.stderr()).not.toContain("undefined");
+});
+
+const KEY = "tsk-test-key-1234567890";
+const failing = (error: Error): DecisionProvider => ({
+  decide: async () => {
+    throw error;
+  },
+});
+
+test.each([
+  [new JevUnavailableError("Jev request failed (HTTP 429, rate limited; try again later)."), "Jev unavailable:"],
+  [new JevResponseError("Missing judgments for 3 candidate(s)."), "Jev returned an unusable response:"],
+  [new JevRequestError("big.ts:1 with the task is too large."), "Jev request not sent:"],
+])("%s exits 1 with a distinct label, empty stdout, and never the key", async (error, label) => {
+  process.env.TYPESAFE_API_KEY = KEY;
+  const run = capture(failing(error));
+  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(1);
+  expect(run.stdout()).toBe("");
+  expect(run.stderr()).toContain(label);
+  expect(run.stderr()).not.toContain(KEY);
 });
 
 test("usage errors exit 2 with a message and no stdout", async () => {
