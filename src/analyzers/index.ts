@@ -22,5 +22,5 @@ export async function analyzeFile(
 ): Promise<AnalysisResult> {
   const analyzer = analyzerFor(language);
   if (!analyzer) throw new Error(`No analyzer is registered for language "${language}" (${file.path}).`);
-  return analyzer.analyze(file, estimator);
+  return analyzer.analyze(file, estimator, language);
 }

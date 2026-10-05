@@ -3,8 +3,6 @@ import { makeChunkId } from "../chunk-id.ts";
 import type { AnalysisResult, Analyzer, ChunkKind, CodeChunk, TokenEstimator } from "../types.ts";
 import { parserFor } from "./parser.ts";
 
-export const PYTHON_EXTENSIONS = [".py", ".pyi"] as const;
-
 interface Found {
   node: Node;
   kind: ChunkKind;

@@ -2,9 +2,10 @@ import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { ECMASCRIPT_EXTENSIONS, extractEcmascript, TYPESCRIPT_EXTENSIONS } from "../src/analyzers/ecmascript.ts";
+import { extractEcmascript } from "../src/analyzers/ecmascript.ts";
 import { charsPerTokenEstimator } from "../src/context/tokens.ts";
 import { scanRepository } from "../src/repository/files.ts";
+import { classifyFile } from "../src/repository/language.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const FIXTURE = join(import.meta.dir, "../fixtures/webhook-service");
@@ -15,7 +16,7 @@ async function chunksOf(path: string, source: string): Promise<CodeChunk[]> {
 
 async function extractFixture(): Promise<CodeChunk[]> {
   const { files: all } = await scanRepository(FIXTURE);
-  const files = all.filter((f) => TYPESCRIPT_EXTENSIONS.some((ext) => f.endsWith(ext)));
+  const files = all.filter((f) => classifyFile(f).language === "typescript");
   const perFile = await Promise.all(
     files.map(async (file) => chunksOf(file, await readFile(join(FIXTURE, file), "utf8"))),
   );
@@ -108,7 +109,6 @@ const inv = async (path: string, source: string) => inventory(await chunksOf(pat
 const lines = (...parts: string[]) => parts.join("\n") + "\n";
 
 test("covers every extension and picks the language from the path", async () => {
-  expect([...ECMASCRIPT_EXTENSIONS]).toEqual([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]);
   for (const [path, language] of [
     ["a.ts", "typescript"],
     ["a.d.ts", "typescript"],

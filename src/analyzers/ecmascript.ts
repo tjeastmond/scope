@@ -1,21 +1,12 @@
 import type { Node } from "web-tree-sitter";
 import { makeChunkId } from "../chunk-id.ts";
 import type { AnalysisResult, Analyzer, ChunkKind, CodeChunk, Language, TokenEstimator } from "../types.ts";
+import { classifyFile } from "../repository/language.ts";
 import { type Grammar, parserFor } from "./parser.ts";
 
-/** Every extension the analyzer understands (`.d.ts` is covered by `.ts`). */
-export const ECMASCRIPT_EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"] as const;
-
-/** The TypeScript subset `scope.ts` scans until the repository scanner (#18/#20) takes over file discovery. */
-export const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx"] as const;
-
-/** The grammar and chunk language for a file, decided by its path. Unknown extensions use the TypeScript grammar. */
-export function grammarForPath(path: string): { grammar: Grammar; language: Language } {
-  const lower = path.toLowerCase();
-  const ends = (...extensions: string[]) => extensions.some((extension) => lower.endsWith(extension));
-  if (ends(".tsx")) return { grammar: "tsx", language: "typescript" };
-  if (ends(".js", ".jsx", ".mjs", ".cjs")) return { grammar: "javascript", language: "javascript" };
-  return { grammar: "typescript", language: "typescript" };
+/** The grammar for a file: `.tsx` needs its own, JavaScript (JSX included) and TypeScript have one each. */
+function grammarFor(path: string, language: Language): Grammar {
+  return path.toLowerCase().endsWith(".tsx") ? "tsx" : language === "javascript" ? "javascript" : "typescript";
 }
 
 const CLASS_TYPES = new Set(["class_declaration", "abstract_class_declaration", "class"]);
@@ -232,14 +223,15 @@ function mergeOverloads(entries: (Found | undefined)[]): Found[] {
 
 /**
  * Extracts declaration-level chunks from one JavaScript or TypeScript source file. `content` is the exact source lines
- * the declaration spans, and line numbers are 1-based and inclusive. The grammar and chunk language come from the path.
+ * the declaration spans, and line numbers are 1-based and inclusive. The chunk language is the one given, by default the path's.
  */
 export async function extractEcmascript(
   path: string,
   source: string,
   estimator: TokenEstimator,
+  language: Language = classifyFile(path).language === "javascript" ? "javascript" : "typescript",
 ): Promise<AnalysisResult> {
-  const { grammar, language } = grammarForPath(path);
+  const grammar = grammarFor(path, language);
   const parser = await parserFor(grammar);
   const tree = parser.parse(source);
   if (!tree) throw new Error(`Tree-sitter could not parse ${path}`);
@@ -280,5 +272,5 @@ export async function extractEcmascript(
 
 export const ecmascriptAnalyzer: Analyzer = {
   languages: ["typescript", "javascript"],
-  analyze: (file, estimator) => extractEcmascript(file.path, file.source, estimator),
+  analyze: (file, estimator, language) => extractEcmascript(file.path, file.source, estimator, language),
 };

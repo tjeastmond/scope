@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { analyzeFile } from "./analyzers/index.ts";
-import { TYPESCRIPT_EXTENSIONS } from "./analyzers/ecmascript.ts";
+import { analyzeFile, analyzerFor } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { selectWithinBudget } from "./context/select.ts";
@@ -9,6 +8,7 @@ import { charsPerTokenEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
+import { classifyFile } from "./repository/language.ts";
 import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
@@ -35,17 +35,26 @@ export interface ScopeRun {
 
 export { UsageError };
 
+/** How much of a file the classifier sees, enough for a shebang line and a text check. */
+const HEAD_CHARS = 1024;
+
 async function loadChunks(repo: string): Promise<CodeChunk[]> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const { files } = await scanRepository(root);
-  // Issue #20 replaces this extension filter with language classification.
-  for (const file of files.filter((f) => TYPESCRIPT_EXTENSIONS.some((ext) => f.endsWith(ext)))) {
+  for (const file of files) {
+    // A file of a known type with no analyzer is skipped without being read; unknown types need their head checked.
+    const known = classifyFile(file).language;
+    if (known && !analyzerFor(known)) continue;
     const bytes = await readFile(join(root, file));
     // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which is never parsed or sent.
     if (bytes.includes(0)) continue;
-    const source = redactSecrets(bytes.toString("utf8"));
-    chunks.push(...(await analyzeFile({ path: file, source }, "typescript", charsPerTokenEstimator)).chunks);
+    const text = bytes.toString("utf8");
+    const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
+    // Languages with no registered analyzer are left out until the text fallback (#32) covers them.
+    if (!language || !analyzerFor(language)) continue;
+    const source = redactSecrets(text);
+    chunks.push(...(await analyzeFile({ path: file, source }, language, charsPerTokenEstimator)).chunks);
   }
   return chunks;
 }
