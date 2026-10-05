@@ -1,6 +1,6 @@
 import type { Node } from "web-tree-sitter";
-import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, Analyzer, ChunkKind, CodeChunk, Language, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, ChunkKind, Language, TokenEstimator } from "../types.ts";
+import { assembleChunks, type Region } from "./assemble.ts";
 import { classifyFile } from "../repository/language.ts";
 import { type Grammar, parserFor } from "./parser.ts";
 
@@ -241,30 +241,13 @@ export async function extractEcmascript(
       return found.length > 0 ? found : [undefined];
     });
     const found = mergeOverloads(entries);
-    const lines = source.split("\n");
-    const all = found.map(({ start, end, kind, name }): CodeChunk => {
-      const startLine = start.startPosition.row + 1;
-      const endLine = end.endPosition.row + 1;
-      const content = lines.slice(startLine - 1, endLine).join("\n");
-      return {
-        id: makeChunkId({ file: path, startLine, endLine, kind, name }),
-        file: path,
-        language,
-        kind,
-        name,
-        startLine,
-        endLine,
-        content,
-        references: [],
-        estimatedTokens: estimator.count(content),
-      };
-    });
-    // Same-name declarations on one line (`it("a", f); it("a", f);`) share a range, hence an id; keep the first.
-    const chunks = [...new Map(all.map((chunk) => [chunk.id, chunk])).values()];
-    const warnings = tree.rootNode.hasError
-      ? [`${path}: syntax errors; extracted ${chunks.length} declarations from the parseable regions`]
-      : [];
-    return { chunks, warnings };
+    const regions = found.map(({ start, end, kind, name }): Region => ({
+      startLine: start.startPosition.row + 1,
+      endLine: end.endPosition.row + 1,
+      kind,
+      name,
+    }));
+    return assembleChunks(path, source, language, regions, tree.rootNode.hasError, estimator, "declarations");
   } finally {
     tree.delete();
   }
