@@ -160,6 +160,14 @@ test("fails instead of ignoring an unreadable .gitignore", async () => {
   await expect(scanRepository(root)).rejects.toThrow(/EACCES/);
 });
 
+test("an unreadable ordinary file is skipped with a reason instead of aborting the scan", async () => {
+  const root = await makeRepo({ "src/app.ts": "export const a = 1;\n", "notes.txt": "private\n" });
+  await chmod(join(root, "notes.txt"), 0o000);
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual(["src/app.ts"]);
+  expect(skipped).toEqual([{ path: "notes.txt", reason: "unreadable" }]);
+});
+
 test("a nested directory rule excludes the directory even when a deeper .gitignore negates its files", async () => {
   const root = await makeRepo({
     "src/.gitignore": "private/\n",

@@ -3,7 +3,8 @@ import { join, posix } from "node:path";
 import ignore, { type Ignore } from "ignore";
 
 /** Why a path was left out of the scan. Add members here as new eligibility rules arrive. */
-export type SkipReason = "gitignored" | "secret" | "binary" | "lockfile" | "minified" | "dependency-or-build-directory";
+export type SkipReason =
+  "gitignored" | "secret" | "binary" | "unreadable" | "lockfile" | "minified" | "dependency-or-build-directory";
 
 export interface SkippedPath {
   /** Repository-relative; directories skipped as a whole end in `/` and are not recursed into. */
@@ -86,12 +87,15 @@ function isIgnored(rules: readonly Rules[], path: string): boolean {
   return ignored;
 }
 
-/** A NUL byte in the first 8 KiB marks binary content; only that prefix is ever read. */
-async function isBinary(path: string): Promise<boolean> {
-  const handle = await open(path, "r");
+/** A NUL byte in the first 8 KiB marks binary content; only that prefix is ever read. Unreadable files are skipped. */
+async function sniff(path: string): Promise<"binary" | "unreadable" | undefined> {
+  const handle = await open(path, "r").catch(() => undefined);
+  if (!handle) return "unreadable";
   try {
     const { buffer, bytesRead } = await handle.read(Buffer.alloc(SNIFF_BYTES), 0, SNIFF_BYTES, 0);
-    return buffer.subarray(0, bytesRead).includes(0);
+    return buffer.subarray(0, bytesRead).includes(0) ? "binary" : undefined;
+  } catch {
+    return "unreadable";
   } finally {
     await handle.close();
   }
@@ -134,8 +138,11 @@ export async function scanRepository(root: string): Promise<ScanResult> {
         const reason = nameSkipReason(entry.name, path);
         if (reason) skip(reason);
         else if (isIgnored(rules, path)) skip("gitignored");
-        else if (await isBinary(join(root, path))) skip("binary");
-        else files.push(path);
+        else {
+          const unusable = await sniff(join(root, path));
+          if (unusable) skip(unusable);
+          else files.push(path);
+        }
       }
     }
   };
