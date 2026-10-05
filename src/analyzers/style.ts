@@ -6,7 +6,7 @@ import { parserFor } from "./parser.ts";
 export const STYLE_EXTENSIONS = [".css", ".scss"] as const;
 
 const VARIABLE = /^(\$[\w-]+|--[\w-]+)\s*:/;
-const UNQUOTED_URL = /url\((?!\s*["'])[^)]*\)/iy;
+const UNQUOTED_URL_START = /url\((?!\s*["'])/iy;
 
 /**
  * Classifies one top-level statement. A rule or at-rule with a `{ }` body is a `style` chunk named by its prelude
@@ -104,8 +104,15 @@ export function scssRegions(source: string): { regions: Region[]; broken: boolea
       return j;
     }
     if (c === "u" || c === "U") {
-      UNQUOTED_URL.lastIndex = i;
-      return UNQUOTED_URL.test(source) ? UNQUOTED_URL.lastIndex : -1;
+      UNQUOTED_URL_START.lastIndex = i;
+      if (!UNQUOTED_URL_START.test(source)) return -1;
+      // The closing `)` of an unquoted url, skipping `#{...}` so an interpolated call's own `)` does not end it.
+      for (let j = UNQUOTED_URL_START.lastIndex; j < length;) {
+        if (source[j] === ")") return j + 1;
+        const end = source[j] === "#" ? opaque(j) : -1;
+        j = end >= 0 ? end : j + 1;
+      }
+      return -1;
     }
     return comment(i);
   };

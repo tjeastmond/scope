@@ -180,6 +180,14 @@ describe("scss", () => {
     expect(inventory(open.chunks)).toEqual(["config:@import url(a.css@1-1", "style:.b@2-2"]);
   });
 
+  test("an interpolated call inside an unquoted url() does not end it or the rule", async () => {
+    const { chunks, warnings } = await scss(
+      'a {\n  background: url(#{asset-path("logo.svg")});\n  color: red;\n}\nb { x: y }\n',
+    );
+    expect(inventory(chunks)).toEqual(["style:a@1-4", "style:b@5-5"]);
+    expect(warnings).toEqual([]);
+  });
+
   test("escaped quotes, a lone slash and the warning count with duplicates", async () => {
     const escaped = await scss('a { content: "\\"}"; font: 12px/1.5 x; }\nb { x: y }\n');
     expect(inventory(escaped.chunks)).toEqual(["style:a@1-1", "style:b@2-2"]);
