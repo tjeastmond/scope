@@ -59,6 +59,12 @@ function functionConstants(declaration: Node, range: Node): Found[] {
     });
 }
 
+/** `get `/`set ` for accessors so a getter and setter sharing a name and line get distinct chunk identities. */
+function accessorPrefix(member: Node): string {
+  const accessor = member.children.find((child) => child?.type === "get" || child?.type === "set");
+  return accessor ? `${accessor.type} ` : "";
+}
+
 function collect(node: Node, found: Found[]): void {
   // Exported declarations are wrapped; use the wrapper's range so the chunk includes `export`.
   const declaration = node.type === "export_statement" ? (node.childForFieldName("declaration") ?? node) : node;
@@ -70,7 +76,7 @@ function collect(node: Node, found: Found[]): void {
       for (const member of namedChildren(declaration.childForFieldName("body") ?? declaration)) {
         const methodName = member.type === "method_definition" ? nameOf(member) : undefined;
         if (methodName && methodName !== "constructor")
-          found.push({ node: member, kind: "method", name: `${name}.${methodName}` });
+          found.push({ node: member, kind: "method", name: `${name}.${accessorPrefix(member)}${methodName}` });
       }
     }
   } else if (declaration.type === "lexical_declaration") {
