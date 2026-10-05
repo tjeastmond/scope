@@ -42,7 +42,7 @@ const questions = Object.fromEntries(
   ]),
 );
 
-const client = new TypeSafeClient({ timeout: 30_000, retry: { maxRetries: 2 } });
+const client = new TypeSafeClient({ logLevel: "off", timeout: 30_000, retry: { maxRetries: 2 } });
 const controller = new AbortController();
 try {
   const started = performance.now();
