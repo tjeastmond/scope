@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JevResponseError, JevUnavailableError } from "../src/jev/errors.ts";
 import { runScope } from "../src/scope.ts";
@@ -35,4 +36,21 @@ test.each([
 ] as const)("an injected %s failure fails the run instead of producing a result", async (failure, errorType) => {
   const run = runScope({ task: TASK, repo: FIXTURE, provider: fakeProvider({ failure }) });
   await expect(run).rejects.toBeInstanceOf(errorType);
+});
+
+test("analyzes every file whose language has an analyzer, found by extension or shebang, and skips the rest", async () => {
+  const repo = await mkdtemp(join(tmpdir(), "scope-classify-"));
+  try {
+    await mkdir(join(repo, "bin"));
+    await writeFile(join(repo, "a.py"), "def from_py():\n    pass\n");
+    await writeFile(join(repo, "b.mjs"), "export function fromMjs() {}\n");
+    await writeFile(join(repo, "bin/tool"), "#!/usr/bin/env python3\ndef from_shebang():\n    pass\n");
+    await writeFile(join(repo, "notes.md"), "# Notes\n");
+    await writeFile(join(repo, "main.go"), "package main\nfunc fromGo() {}\n");
+    await writeFile(join(repo, "mystery"), "def not_python():\n");
+    const { result } = await runScope({ task: "anything", repo, noJev: true });
+    expect(result.chunks.map((s) => s.chunk.name).sort()).toEqual(["fromMjs", "from_py", "from_shebang"]);
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+  }
 });
