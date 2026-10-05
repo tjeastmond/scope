@@ -41,7 +41,7 @@ function isMainGuard(node: Node): boolean {
   if (node.type !== "if_statement" || node.childForFieldName("alternative")) return false;
   let condition = node.childForFieldName("condition");
   while (condition?.type === "parenthesized_expression") condition = condition.namedChildren[0] ?? null;
-  if (condition?.type !== "comparison_operator" || condition.children.every((child) => child.text !== "==")) {
+  if (condition?.type !== "comparison_operator" || condition.children.every((child) => child?.text !== "==")) {
     return false;
   }
   const operands = namedChildren(condition).map((child) => child.text);
