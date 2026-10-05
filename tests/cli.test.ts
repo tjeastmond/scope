@@ -4,8 +4,9 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { JevRequestError, JevResponseError, JevUnavailableError } from "../src/jev/errors.ts";
+import { fakeProvider } from "./helpers/fake-provider.ts";
 import { main, type Io } from "../src/main.ts";
-import type { CodeChunk, DecisionProvider } from "../src/types.ts";
+import type { DecisionProvider } from "../src/types.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const FIXTURE = join(ROOT, "fixtures/webhook-service");
@@ -18,17 +19,9 @@ function capture(provider?: DecisionProvider) {
   return { io, stdout: () => out.join(""), stderr: () => err.join("") };
 }
 
-/** Fake Jev: chunks whose name contains `retry` (case-insensitive) are relevant. */
-const fakeProvider: DecisionProvider = {
-  async decide({ candidates }) {
-    const judge = (chunk: CodeChunk) => (/retry|backoff/i.test(chunk.name ?? "") ? 0.9 : 0.1);
-    return {
-      judgments: candidates.map((chunk) => ({ chunkId: chunk.id, relevance: judge(chunk) })),
-      usage: { inputTokens: 5, outputTokens: 1 },
-      latencyMs: 3,
-    };
-  },
-};
+const retryProvider = fakeProvider({
+  relevance: { withRetry: 0.9, computeBackoff: 0.9, sendWithRetry: 0.9, RetryOptions: 0.9 },
+});
 
 const savedKey = process.env.TYPESAFE_API_KEY;
 beforeEach(() => delete process.env.TYPESAFE_API_KEY);
@@ -44,7 +37,7 @@ test("--no-jev runs without credentials and prints exact locations", async () =>
 });
 
 test("with a decision provider, selects the chunks it judged relevant and reports usage on stderr", async () => {
-  const run = capture(fakeProvider);
+  const run = capture(retryProvider);
   expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(0);
   expect(run.stdout()).toContain("withRetry");
   expect(run.stdout()).toContain("computeBackoff");
