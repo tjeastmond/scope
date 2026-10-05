@@ -74,6 +74,8 @@ export interface RelevanceJudgment {
 export interface DecisionRequest {
   task: string;
   candidates: readonly CodeChunk[];
+  /** Caller-owned cancellation and overall deadline. */
+  signal?: AbortSignal;
 }
 
 export interface DecisionResult {

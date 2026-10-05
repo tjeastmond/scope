@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
-import { JevResponseError } from "../src/jev/types.ts";
+import { JevResponseError } from "../src/jev/errors.ts";
 import { validateRelevance } from "../src/jev/validate.ts";
 
 const answer = (noul: unknown) => ({ type: "noul", noul });
 
 test("returns judgments in candidate order, accepting the 0 and 1 bounds", () => {
   const judgments = validateRelevance(["b", "a"], { a: answer(0), b: answer(1) });
-  expect(judgments).toEqual([
-    { id: "b", relevance: 1 },
-    { id: "a", relevance: 0 },
+  expect(judgments.map(({ chunkId, relevance }) => ({ chunkId, relevance }))).toEqual([
+    { chunkId: "b", relevance: 1 },
+    { chunkId: "a", relevance: 0 },
   ]);
 });
 

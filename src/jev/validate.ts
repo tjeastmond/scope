@@ -1,10 +1,14 @@
-import { JevResponseError, type Judgment } from "./types.ts";
+import type { RelevanceJudgment } from "../types.ts";
+import { JevResponseError } from "./errors.ts";
 
 /**
  * Validates untrusted Jev answers against the submitted candidate IDs: exactly one finite relevance in [0, 1] per
  * candidate, no extras. Returns judgments in candidate order.
  */
-export function validateRelevance(ids: readonly string[], answers: Readonly<Record<string, unknown>>): Judgment[] {
+export function validateRelevance(
+  ids: readonly string[],
+  answers: Readonly<Record<string, unknown>>,
+): RelevanceJudgment[] {
   const expected = new Set(ids);
   if (expected.size !== ids.length) throw new JevResponseError("Duplicate candidate IDs were submitted to Jev.");
   const extra = Object.keys(answers).filter((key) => !expected.has(key));
@@ -17,6 +21,6 @@ export function validateRelevance(ids: readonly string[], answers: Readonly<Reco
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
       throw new JevResponseError(`Jev returned an invalid relevance for candidate ${id}: ${String(value)}.`);
     }
-    return { id, relevance: value };
+    return { chunkId: id, relevance: value, raw: answer };
   });
 }
