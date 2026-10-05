@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { Language, Parser, type Node } from "web-tree-sitter";
 import { makeChunkId } from "../chunk-id.ts";
-import type { ChunkKind, CodeChunk, TokenEstimator } from "../types.ts";
+import type { Analyzer, ChunkKind, CodeChunk, TokenEstimator } from "../types.ts";
 
 export const TYPESCRIPT_EXTENSIONS = [".ts", ".tsx"] as const;
 
@@ -121,3 +121,10 @@ export async function extractTypeScriptChunks(
     tree.delete();
   }
 }
+
+export const typescriptAnalyzer: Analyzer = {
+  languages: ["typescript"],
+  async analyze(file, estimator) {
+    return { chunks: await extractTypeScriptChunks(file.path, file.source, estimator), warnings: [] };
+  },
+};

@@ -1,6 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { extractTypeScriptChunks, TYPESCRIPT_EXTENSIONS } from "./analyzers/typescript.ts";
+import { analyzeFile } from "./analyzers/index.ts";
+import { TYPESCRIPT_EXTENSIONS } from "./analyzers/typescript.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { selectWithinBudget } from "./context/select.ts";
 import { charsPerTokenEstimator } from "./context/tokens.ts";
@@ -46,7 +47,7 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
     const bytes = await readFile(join(repo, file));
     if (bytes.includes(0)) continue; // NUL bytes mean binary content, which is never parsed or sent
     const source = redactSecrets(bytes.toString("utf8"));
-    chunks.push(...(await extractTypeScriptChunks(file, source, charsPerTokenEstimator)));
+    chunks.push(...(await analyzeFile({ path: file, source }, "typescript", charsPerTokenEstimator)).chunks);
   }
   return chunks;
 }

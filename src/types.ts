@@ -1,7 +1,22 @@
 // Shared contracts for Scope. Source records (CodeChunk) are kept separate from retrieval scores and selection
 // reasons (SelectedChunk, ScopeResult). Scores are ranking signals, not calibrated probabilities.
 
-export type Language = "typescript" | "javascript" | "python" | "go" | "java" | "rust" | "markdown" | "text";
+export type Language =
+  | "typescript"
+  | "javascript"
+  | "python"
+  | "go"
+  | "java"
+  | "rust"
+  | "sql"
+  | "html"
+  | "css"
+  | "scss"
+  | "json"
+  | "yaml"
+  | "toml"
+  | "markdown"
+  | "text";
 
 export type ChunkKind =
   | "function"
@@ -24,16 +39,19 @@ export interface SourceLocation {
   line: number;
 }
 
+/** How a reference target was determined. Uncertainty is recorded, never guessed away; see docs/chunk-model.md. */
+export type ReferenceEvidence = "exact" | "heuristic" | "unresolved";
+
 export interface Reference {
-  kind: "import" | "call" | "type" | "extends" | "implements" | "test";
+  kind: "import" | "call" | "type" | "extends" | "implements" | "style" | "test";
   /** Where the reference occurs. */
   from: SourceLocation;
   /** Name as written in source. */
   name: string;
   /** Chunk the reference resolves to, when known. */
   targetChunkId?: string;
-  /** How the target was resolved (for example "same-file", "import", "name-match"). */
-  evidence?: string;
+  /** Absent means no resolution was attempted; consumers treat that like "unresolved". */
+  evidence?: ReferenceEvidence;
 }
 
 export interface CodeChunk {
@@ -57,6 +75,24 @@ export interface TokenEstimator {
   /** Identity reported in results so estimates can be compared. */
   readonly id: string;
   count(text: string): number;
+}
+
+export interface SourceFile {
+  /** Repository-relative path with `/` separators. */
+  path: string;
+  source: string;
+}
+
+export interface AnalysisResult {
+  chunks: CodeChunk[];
+  /** Non-fatal problems (for example a file that only partly parsed). */
+  warnings: string[];
+}
+
+/** Turns one source file into normalized chunks. Async because Tree-sitter initialization is. */
+export interface Analyzer {
+  readonly languages: readonly Language[];
+  analyze(file: SourceFile, estimator: TokenEstimator): Promise<AnalysisResult>;
 }
 
 export interface JevUsage {
