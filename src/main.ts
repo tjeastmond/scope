@@ -1,9 +1,10 @@
 import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
-import { statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { renderResult } from "./output/text.ts";
-import { runScope, UsageError } from "./scope.ts";
+import { UsageError } from "./errors.ts";
+import { resolveRepository } from "./repository/root.ts";
+import { runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
 
 export const FORMATS = ["text", "markdown", "json"] as const;
@@ -91,13 +92,7 @@ export function parseCli(argv: string[]): CliOptions {
 
   const repo = values.repo ?? ".";
   if (!repo.trim()) throw new UsageError("--repo requires a path");
-  let info;
-  try {
-    info = statSync(repo);
-  } catch {
-    throw new UsageError(`--repo does not exist or is not accessible: ${repo}`);
-  }
-  if (!info.isDirectory()) throw new UsageError(`--repo is not a directory: ${repo}`);
+  resolveRepository(repo); // fails before anything is scanned
 
   if (values.output !== undefined && !values.output.trim()) throw new UsageError("--output requires a path");
 

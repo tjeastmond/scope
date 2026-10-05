@@ -23,6 +23,15 @@ Every analyzer (`src/analyzers/`) implements `Analyzer` from `src/types.ts` and 
 - The `file` kind is for whole-file chunks: the fallback for files with no recognized structure (plain text, or
   formats where the file is the natural unit). Its range is the entire file and it usually has no `name`.
 
+## Paths
+
+Every chunk `file` is a repository-relative path produced by `toRepoPath` (`src/repository/root.ts`): `/` separators, no
+leading `./`, no `..` segments, and the on-disk spelling (no lowercasing, no Unicode normalization).
+
+`resolveRepository` treats the `--repo` path as exactly the root. Scope never walks up to an enclosing git root, so a
+subdirectory is scanned as its own repository. A symlinked `--repo` is resolved to its real path, so symlink-escape
+checks compare files against a real root.
+
 ## Stable chunk IDs
 
 `makeChunkId` (`src/chunk-id.ts`) hashes `file:startLine-endLine:kind:name` (SHA-256, first 12 hex characters).

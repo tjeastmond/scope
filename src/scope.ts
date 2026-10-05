@@ -1,14 +1,16 @@
-import { readFile, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { analyzeFile } from "./analyzers/index.ts";
 import { TYPESCRIPT_EXTENSIONS } from "./analyzers/typescript.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
+import { UsageError } from "./errors.ts";
 import { selectWithinBudget } from "./context/select.ts";
 import { charsPerTokenEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { listFiles } from "./repository/files.ts";
 import { redactSecrets } from "./repository/redact.ts";
+import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import type { CodeChunk, DecisionProvider, DecisionResult, ScopeResult, SelectedChunk } from "./types.ts";
 
@@ -31,20 +33,13 @@ export interface ScopeRun {
   decision?: DecisionResult;
 }
 
-/** A problem with how Scope was invoked (bad path, bad budget), as opposed to a failure while running. */
-export class UsageError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "UsageError";
-  }
-}
+export { UsageError };
 
 async function loadChunks(repo: string): Promise<CodeChunk[]> {
-  const info = await stat(repo).catch(() => undefined);
-  if (!info?.isDirectory()) throw new UsageError(`--repo is not a directory: ${repo}`);
+  const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
-  for (const file of await listFiles(repo, TYPESCRIPT_EXTENSIONS)) {
-    const bytes = await readFile(join(repo, file));
+  for (const file of await listFiles(root, TYPESCRIPT_EXTENSIONS)) {
+    const bytes = await readFile(join(root, file));
     if (bytes.includes(0)) continue; // NUL bytes mean binary content, which is never parsed or sent
     const source = redactSecrets(bytes.toString("utf8"));
     chunks.push(...(await analyzeFile({ path: file, source }, "typescript", charsPerTokenEstimator)).chunks);
@@ -58,7 +53,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   if (!task.trim()) throw new UsageError("A task description is required.");
   if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
-  const candidates = selectCandidates(await loadChunks(resolve(repo)));
+  const candidates = selectCandidates(await loadChunks(repo));
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   const decision = noJev
