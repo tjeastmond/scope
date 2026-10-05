@@ -120,6 +120,24 @@ leading `./`, no `..` segments, and the on-disk spelling (no lowercasing, no Uni
 subdirectory is scanned as its own repository. A symlinked `--repo` is resolved to its real path, so symlink-escape
 checks compare files against a real root.
 
+## Scan limits and symlinks
+
+`scanRepository` (`src/repository/files.ts`) visits entries in sorted order, so truncation is reproducible. The limits
+are constants in `src/config.ts`:
+
+| Constant         | Default | Effect                                                                      |
+| ---------------- | ------- | --------------------------------------------------------------------------- |
+| `MAX_FILE_BYTES` | 1 MB    | A larger file is skipped with reason `too-large` and never read.            |
+| `MAX_SCAN_FILES` | 10,000  | The scan stops after this many eligible files and warns.                    |
+| `MAX_SCAN_DEPTH` | 32      | Deeper directories (root = 0) are not entered; one warning names the first. |
+| `MAX_SCAN_BYTES` | 50 MB   | The scan stops once eligible files total this size and warns.               |
+
+Truncation warnings are returned as `ScanResult.warnings` and appear first in `ScopeResult.warnings`. Symlinks are
+never followed, because an alias would dodge the secret, `.gitignore` and directory exclusions that apply to its
+target, which is scanned under its own path anyway. A link whose real target is outside the repository root is skipped
+as `symlink-outside-repository`, a directory link to its own directory or an ancestor as `symlink-loop`, any other link
+as `symlink`, and a broken link or an unreadable file or directory as `unreadable`.
+
 ## Stable chunk IDs
 
 `makeChunkId` (`src/chunk-id.ts`) hashes `file:startLine-endLine:kind:name` (SHA-256, first 12 hex characters).
