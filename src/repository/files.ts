@@ -134,6 +134,9 @@ export async function scanRepository(root: string): Promise<ScanResult> {
         else if (secrets.ignores(path)) skip("secret");
         else if (isIgnored(rules, `${path}/`)) skip("gitignored");
         else await walk(path, rules);
+      } else if (entry.name === ".git") {
+        // Worktrees and submodules keep a regular `.git` metadata file.
+        skip("dependency-or-build-directory");
       } else if (entry.isFile()) {
         const reason = nameSkipReason(entry.name, path);
         if (reason) skip(reason);

@@ -160,6 +160,13 @@ test("fails instead of ignoring an unreadable .gitignore", async () => {
   await expect(scanRepository(root)).rejects.toThrow(/EACCES/);
 });
 
+test("a .git metadata file is excluded like a .git directory", async () => {
+  const root = await makeRepo({ "src/app.ts": "export const a = 1;\n", ".git": "gitdir: ../elsewhere\n" });
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual(["src/app.ts"]);
+  expect(skipped).toEqual([{ path: ".git", reason: "dependency-or-build-directory" }]);
+});
+
 test("an unreadable ordinary file is skipped with a reason instead of aborting the scan", async () => {
   const root = await makeRepo({ "src/app.ts": "export const a = 1;\n", "notes.txt": "private\n" });
   await chmod(join(root, "notes.txt"), 0o000);
