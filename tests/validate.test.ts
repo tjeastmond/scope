@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
+import type { CodeChunk } from "../src/types.ts";
 import { JevResponseError } from "../src/jev/errors.ts";
-import { validateRelevance } from "../src/jev/validate.ts";
+import { validateJudgments, validateRelevance } from "../src/jev/validate.ts";
 
 const answer = (noul: unknown) => ({ type: "noul", noul });
 
@@ -43,4 +44,32 @@ test("rejects a malformed answer object", () => {
 
 test("does not read inherited properties as answers", () => {
   expect(() => validateRelevance(["toString"], {})).toThrow(/no answer for candidate toString/);
+});
+
+const candidate = (id: string) => ({ id }) as CodeChunk;
+
+test("validateJudgments requires exactly one in-range judgment per candidate", () => {
+  const candidates = [candidate("a"), candidate("b")];
+  expect(
+    validateJudgments(candidates, [
+      { chunkId: "b", relevance: 0.2 },
+      { chunkId: "a", relevance: 1 },
+    ]),
+  ).toEqual(
+    new Map([
+      ["b", 0.2],
+      ["a", 1],
+    ]),
+  );
+  expect(() => validateJudgments(candidates, [])).toThrow(/Missing judgments for 2/);
+  expect(() => validateJudgments(candidates, [{ chunkId: "a", relevance: 1 }])).toThrow(/Missing judgments for 1/);
+  expect(() => validateJudgments(candidates, [{ chunkId: "z", relevance: 1 }])).toThrow(/unknown candidate z/);
+  expect(() =>
+    validateJudgments(candidates, [
+      { chunkId: "a", relevance: 1 },
+      { chunkId: "a", relevance: 1 },
+    ]),
+  ).toThrow(/Duplicate judgment/);
+  expect(() => validateJudgments(candidates, [{ chunkId: "a", relevance: Number.NaN }])).toThrow(/Invalid relevance/);
+  expect(() => validateJudgments(candidates, [{ chunkId: "a", relevance: 2 }])).toThrow(JevResponseError);
 });
