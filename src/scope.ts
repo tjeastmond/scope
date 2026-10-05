@@ -47,9 +47,9 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
     // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which is never parsed or sent.
     if (bytes.includes(0)) continue;
     const text = bytes.toString("utf8");
-    const { language, strategy } = classifyFile(file, text.slice(0, HEAD_CHARS));
-    // Text and structural strategies (#32 and later) have no chunker yet, so those files are left out for now.
-    if (strategy !== "semantic" || !language || !analyzerFor(language)) continue;
+    const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
+    // Languages with no registered analyzer are left out until the text fallback (#32) covers them.
+    if (!language || !analyzerFor(language)) continue;
     const source = redactSecrets(text);
     chunks.push(...(await analyzeFile({ path: file, source }, language, charsPerTokenEstimator)).chunks);
   }
