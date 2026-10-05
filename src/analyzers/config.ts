@@ -132,7 +132,11 @@ export async function extractConfigChunks(
     });
     // Entries sharing a line range (minified JSON, flow YAML) would each repeat the whole line, so they collapse into
     // one `file` chunk for that range.
-    const perRange = Map.groupBy(found, ({ startLine, endLine }) => `${startLine}-${endLine}`);
+    const perRange = new Map<string, (typeof found)[number][]>();
+    for (const entry of found) {
+      const key = `${entry.startLine}-${entry.endLine}`;
+      perRange.set(key, [...(perRange.get(key) ?? []), entry]);
+    }
     const unique = [...perRange.values()].map((group) =>
       group.length > 1 ? { ...group[0]!, kind: "file" as const, name: undefined } : group[0]!,
     );
