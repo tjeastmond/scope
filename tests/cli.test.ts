@@ -73,6 +73,7 @@ test("ignored and secret-looking files never reach the provider", async () => {
     await writeFile(join(root, "ok.ts"), "export function ok() {}\n");
     await writeFile(join(root, "private/hidden.ts"), "export function hiddenIgnored() {}\n");
     await writeFile(join(root, "credentials.ts"), "export function hiddenSecret() {}\n");
+    await writeFile(join(root, "binary.ts"), "export function hiddenBinary() {}\0\n");
     const seen: string[] = [];
     const spy: DecisionProvider = {
       async decide({ candidates }) {
@@ -87,7 +88,7 @@ test("ignored and secret-looking files never reach the provider", async () => {
     const run = capture(spy);
     expect(await main([TASK, "--repo", root], run.io)).toBe(0);
     expect(seen.join("\n")).toContain("ok");
-    expect(seen.join("\n")).not.toMatch(/hiddenIgnored|hiddenSecret/);
+    expect(seen.join("\n")).not.toMatch(/hiddenIgnored|hiddenSecret|hiddenBinary/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listFiles } from "../src/repository/files.ts";
@@ -60,6 +60,18 @@ test("secret exclusions survive .gitignore negations, and nested .gitignore file
       await writeFile(join(root, file), "");
     }
     expect(await listFiles(root, [".ts"])).toEqual(["private.ts", "src/deep/fine.ts", "src/keep.skip.ts", "src/ok.ts"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fails instead of ignoring an unreadable .gitignore", async () => {
+  const root = await mkdtemp(join(tmpdir(), "scope-files-"));
+  try {
+    await writeFile(join(root, ".gitignore"), "hidden.ts\n");
+    await writeFile(join(root, "hidden.ts"), "");
+    await chmod(join(root, ".gitignore"), 0o000);
+    await expect(listFiles(root, [".ts"])).rejects.toThrow(/EACCES/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

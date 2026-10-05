@@ -40,7 +40,13 @@ function isIgnored(rules: readonly Rules[], path: string): boolean {
 export async function listFiles(root: string, extensions: readonly string[]): Promise<string[]> {
   const files: string[] = [];
   const walk = async (directory: string, inherited: readonly Rules[]): Promise<void> => {
-    const gitignore = await readFile(join(root, directory, ".gitignore"), "utf8").catch(() => "");
+    const gitignore = await readFile(join(root, directory, ".gitignore"), "utf8").catch(
+      (error: NodeJS.ErrnoException) => {
+        // Only a missing file means "no rules"; any other failure must not silently widen what is read.
+        if (error.code === "ENOENT") return "";
+        throw error;
+      },
+    );
     const rules = gitignore ? [...inherited, { base: directory, matcher: ignore().add(gitignore) }] : inherited;
     for (const entry of await readdir(join(root, directory), { withFileTypes: true })) {
       const path = directory ? `${directory}/${entry.name}` : entry.name;

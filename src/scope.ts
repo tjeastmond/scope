@@ -42,7 +42,9 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
   if (!info?.isDirectory()) throw new UsageError(`--repo is not a directory: ${repo}`);
   const chunks: CodeChunk[] = [];
   for (const file of await listFiles(repo, TYPESCRIPT_EXTENSIONS)) {
-    const source = await readFile(join(repo, file), "utf8");
+    const bytes = await readFile(join(repo, file));
+    if (bytes.includes(0)) continue; // NUL bytes mean binary content, which is never parsed or sent
+    const source = bytes.toString("utf8");
     chunks.push(...(await extractTypeScriptChunks(file, source, charsPerTokenEstimator)));
   }
   return chunks;
