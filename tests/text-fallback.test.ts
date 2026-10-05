@@ -117,9 +117,9 @@ test("a binary-looking tail past the scanner's sniff window is skipped with a wa
 
 test("a NUL inside a credential-like literal still marks the file binary", async () => {
   const source = `${"export const a = 1;\n".repeat(600)}password = "abcdefgh\0ijklmnop"\n`;
-  const repo = await makeRepo({ "cfg.ts": Buffer.from(source) });
+  const repo = await makeRepo({ "cfg.ts": Buffer.from(source), "ok.py": "def ok():\n    pass\n" });
   const run = await runScope({ task: "anything", repo, noJev: true });
-  expect(run.result.chunks).toEqual([]);
+  expect(run.result.chunks.map((s) => s.chunk.file)).toEqual(["ok.py"]);
   expect(run.result.warnings).toEqual(["cfg.ts: binary content (NUL byte); skipped"]);
 });
 
