@@ -272,6 +272,13 @@ test("key quoting: YAML single quotes unescape, an invalid JSON escape keeps the
   expect(inventory((await analyze("a.json", '{"x\\q": 1}')).chunks)).toEqual(['config:"x\\q"@1-1']);
 });
 
+test("quoted keys differing only in inner whitespace stay distinct", async () => {
+  const names = async (path: string, source: string) => (await analyze(path, source)).chunks.map((c) => c.name);
+  expect(await names("a.json", '{\n  "a  b": 1,\n  "a b": 2\n}\n')).toEqual(["a  b", "a b"]);
+  expect(await names("a.yaml", '"a  b": 1\n"a b": 2\n')).toEqual(["a  b", "a b"]);
+  expect(await names("a.toml", '"a  b" = 1\n"a b" = 2\n')).toEqual(['"a  b"', '"a b"']);
+});
+
 test("the extension is matched case-insensitively", async () => {
   expect(inventory((await analyze("A.YAML", "a: 1\n")).chunks)).toEqual(["config:a@1-1"]);
 });
