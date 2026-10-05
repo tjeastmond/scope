@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/", "node_modules/", "fixtures/", "coverage/"] },
+  { ignores: [".claude/", "dist/", "node_modules/", "fixtures/", "coverage/"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
