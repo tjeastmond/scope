@@ -3,8 +3,15 @@ import { configAnalyzer } from "./config.ts";
 import { ecmascriptAnalyzer } from "./ecmascript.ts";
 import { markdownAnalyzer } from "./markdown.ts";
 import { pythonAnalyzer } from "./python.ts";
+import { sqlAnalyzer } from "./sql.ts";
 
-const ANALYZERS: readonly Analyzer[] = [ecmascriptAnalyzer, pythonAnalyzer, markdownAnalyzer, configAnalyzer];
+const ANALYZERS: readonly Analyzer[] = [
+  ecmascriptAnalyzer,
+  pythonAnalyzer,
+  markdownAnalyzer,
+  configAnalyzer,
+  sqlAnalyzer,
+];
 
 const byLanguage = new Map<Language, Analyzer>(
   ANALYZERS.flatMap((analyzer) => analyzer.languages.map((language) => [language, analyzer] as const)),
