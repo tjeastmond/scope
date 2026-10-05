@@ -233,3 +233,46 @@ test("the analyzer is registered for sql", async () => {
   const result = await analyzeFile({ path: "a.sql", source: "SELECT 1;" }, "sql", charsPerTokenEstimator);
   expect(inventory(result.chunks)).toEqual(["query:select@1-1"]);
 });
+
+test("a stray END before any BEGIN does not unbalance a routine and swallow the file", async () => {
+  const { chunks } = await analyze("a.sql", "CREATE FUNCTION f(end int) RETURNS int RETURN end;\nSELECT 1;\n");
+  expect(inventory(chunks)).toEqual(["function:f@1-1", "query:select@2-2"]);
+});
+
+test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
+  const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
+  const { chunks } = await analyze("a.sql", source);
+  expect(inventory(chunks)).toEqual(["function:g@1-5", "query:select@6-6"]);
+});
+
+test("comments above a line shared by two statements are claimed by the first only", async () => {
+  const { chunks } = await analyze("a.sql", "-- header\nSELECT 1; SELECT 2 FROM t;\n");
+  expect(inventory(chunks)).toEqual(["query:select@1-2", "query:select from t@2-2"]);
+});
+
+test("an unterminated final construct ends at the line holding its last character", async () => {
+  const { chunks } = await analyze("a.sql", "SELECT 'oops\n");
+  expect(inventory(chunks)).toEqual(["query:select@1-1"]);
+  expect(chunks[0]!.content).toBe("SELECT 'oops");
+});
+
+test("query names skip ONLY, OR, column lists, RECURSIVE and NOT MATERIALIZED", async () => {
+  const source = [
+    "DELETE FROM ONLY t;",
+    "UPDATE OR REPLACE users SET a = 1;",
+    "WITH a(x) AS NOT MATERIALIZED (SELECT 1), b AS (SELECT 2) SELECT 1;",
+    "WITH RECURSIVE r AS (SELECT 1) SELECT * FROM r;",
+  ].join("\n");
+  const { chunks } = await analyze("a.sql", source);
+  expect(chunks.map((c) => c.name)).toEqual(["delete from t", "update users", "with a, b", "with r"]);
+});
+
+test("non-CREATE statements only look for an object keyword right after the verb", async () => {
+  const { chunks } = await analyze("a.sql", "GRANT ALL ON TABLE users TO bob;\nALTER TABLE x ADD y int;\n");
+  expect(chunks.map((c) => c.name)).toEqual(["grant ALL", "alter table x"]);
+});
+
+test("a comment trailing a statement is not a leading comment of the next one", async () => {
+  const { chunks } = await analyze("a.sql", "SELECT 1; -- note\nSELECT 2;\n");
+  expect(chunks.map((c) => c.content)).toEqual(["SELECT 1; -- note", "SELECT 2;"]);
+});

@@ -315,15 +315,11 @@ export async function extractSqlChunks(
     }
     return low + 1;
   };
-  const codeLines = new Set<number>();
-  for (const token of tokens) {
-    for (let line = lineOf(token.start); line <= lineOf(token.end - 1); line++) codeLines.add(line);
-  }
-  const commentOnlyLines = new Set<number>();
+  // Lines touched by a comment. A line that also holds code is never reached when attaching comments upward: the
+  // lines just above a statement's first token hold only comments, or the previous statement (guarded by `previousEnd`).
+  const commentLines = new Set<number>();
   for (const comment of comments) {
-    for (let line = lineOf(comment.start); line <= lineOf(comment.end - 1); line++) {
-      if (!codeLines.has(line)) commentOnlyLines.add(line);
-    }
+    for (let line = lineOf(comment.start); line <= lineOf(comment.end - 1); line++) commentLines.add(line);
   }
 
   const chunks: CodeChunk[] = [];
@@ -333,7 +329,7 @@ export async function extractSqlChunks(
     const endLine = lineOf(statement.terminator ? last.start : last.end - 1);
     if (statement.tokens.length > 0) {
       let startLine = lineOf(statement.tokens[0]!.start);
-      while (startLine - 1 > previousEnd && commentOnlyLines.has(startLine - 1)) startLine--;
+      while (startLine - 1 > previousEnd && commentLines.has(startLine - 1)) startLine--;
       const { kind, name } = classify(statement.tokens);
       const content = lines.slice(startLine - 1, endLine).join("\n");
       chunks.push({
