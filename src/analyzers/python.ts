@@ -38,11 +38,14 @@ function accessorName(decorated: Node | undefined): string | undefined {
 }
 
 function isMainGuard(node: Node): boolean {
-  if (node.type !== "if_statement") return false;
-  const condition = node.childForFieldName("condition");
-  if (!condition || condition.type !== "comparison_operator" || node.childForFieldName("alternative")) return false;
-  const text = condition.text.replace(/\s+/g, "").replaceAll("'", '"');
-  return text === `__name__=="__main__"` || text === `"__main__"==__name__`;
+  if (node.type !== "if_statement" || node.childForFieldName("alternative")) return false;
+  let condition = node.childForFieldName("condition");
+  while (condition?.type === "parenthesized_expression") condition = condition.namedChildren[0] ?? null;
+  if (condition?.type !== "comparison_operator" || condition.children.every((child) => child.text !== "==")) {
+    return false;
+  }
+  const operands = namedChildren(condition).map((child) => child.text);
+  return operands.length === 2 && operands.includes("__name__") && operands.some((text) => MAIN_LITERAL.test(text));
 }
 
 /** `NAME = ...` and `name: T = ...` statements: UPPER_CASE targets or any annotated target. */
@@ -54,6 +57,8 @@ function constantName(statement: Node): string | undefined {
   const annotated = assignment.childForFieldName("type") !== null;
   return annotated || CONSTANT_NAME.test(left.text) ? left.text : undefined;
 }
+
+const MAIN_LITERAL = /^(["'])__main__\1$/;
 
 const CONTROL_FLOW = new Set([
   "if_statement",
@@ -102,7 +107,7 @@ function collect(scope: Node[], owner: string | undefined, found: Found[]): void
       const constant = constantName(definition);
       if (constant) entry = { node: statement, kind: "config", name: constant };
     }
-    if (!entry && CONTROL_FLOW.has(definition.type) && !isBroken(statement)) {
+    if (!entry && CONTROL_FLOW.has(definition.type)) {
       collect(controlFlowBody(definition), owner, found);
       continue;
     }

@@ -175,6 +175,23 @@ test("declarations inside control flow keep the enclosing scope", async () => {
   ]);
 });
 
+test("valid declarations survive malformed siblings inside a block", async () => {
+  const { chunks } = await extractPythonChunks(
+    "a.py",
+    "if True:\n    def good():\n        pass\n    def broken(: pass\n",
+    charsPerTokenEstimator,
+  );
+  expect(chunks.map((c) => c.name)).toContain("good");
+});
+
+test("main guard detection reads operands, not whitespace", async () => {
+  const names = async (source: string) =>
+    (await extractPythonChunks("a.py", source, charsPerTokenEstimator)).chunks.map((c) => c.name);
+  expect(await names('if (__name__ == "__main__"):\n    run()\n')).toEqual(["__main__"]);
+  expect(await names("if '__main__' == __name__:\n    run()\n")).toEqual(["__main__"]);
+  expect(await names('if __name__ == "__ main__":\n    run()\n')).toEqual([]);
+});
+
 test("identical same-line declarations yield one chunk", async () => {
   const { chunks } = await extractPythonChunks("a.py", "A = 1; A = 2\n", charsPerTokenEstimator);
   expect(chunks.map((c) => c.name)).toEqual(["A"]);
