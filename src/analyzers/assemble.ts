@@ -39,10 +39,9 @@ export function assembleChunks(
     };
   });
   const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
-  const warnings =
-    broken && source.trim() !== ""
-      ? [`${file}: syntax errors; extracted ${unique.length} chunks from the parseable regions`]
-      : [];
+  const warnings = broken
+    ? [`${file}: syntax errors; extracted ${unique.length} chunks from the parseable regions`]
+    : [];
   return { chunks: unique, warnings };
 }
 

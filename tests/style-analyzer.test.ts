@@ -160,10 +160,32 @@ describe("scss", () => {
 
   test("unterminated comments, strings and interpolation warn without throwing", async () => {
     expect((await scss("a { x: y }\n/* open { \n")).warnings).toHaveLength(1);
-    expect((await scss('a { content: "oops }\n}\nb { x: y }\n')).warnings).toHaveLength(1);
+    const string = await scss('a { content: "oops }\n}\nb { x: y }\n');
+    expect(inventory(string.chunks)).toEqual(["style:a@1-2", "style:b@3-3"]);
+    expect(string.warnings).toHaveLength(1);
     const open = await scss("a { x: y }\n.b-#{ { c: d\n");
     expect(open.chunks.map((c) => c.name)).toEqual(["a", ".b-#{ { c: d"]);
     expect(open.warnings).toHaveLength(1);
+  });
+
+  test("url() handling: quoted, upper-case, with ; or ) inside, and unterminated", async () => {
+    const urls = await scss('@import URL(a;b{.css);\n@import url("a)b{.css");\nc { x: y }\n');
+    expect(inventory(urls.chunks)).toEqual([
+      "config:@import URL(a;b{.css)@1-1",
+      'config:@import url("a)b{.css")@2-2',
+      "style:c@3-3",
+    ]);
+    expect(urls.warnings).toEqual([]);
+    const open = await scss("@import url(a.css;\n.b { x: y }\n");
+    expect(inventory(open.chunks)).toEqual(["config:@import url(a.css@1-1", "style:.b@2-2"]);
+  });
+
+  test("escaped quotes, a lone slash and the warning count with duplicates", async () => {
+    const escaped = await scss('a { content: "\\"}"; font: 12px/1.5 x; }\nb { x: y }\n');
+    expect(inventory(escaped.chunks)).toEqual(["style:a@1-1", "style:b@2-2"]);
+    expect(escaped.warnings).toEqual([]);
+    const dup = await scss("a { x: y } a { x: y }\n}\n");
+    expect(dup.warnings).toEqual(["web/site.scss: syntax errors; extracted 1 chunks from the parseable regions"]);
   });
 
   test("a trailing statement without a semicolon is kept", async () => {

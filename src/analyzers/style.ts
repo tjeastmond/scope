@@ -6,7 +6,7 @@ import { parserFor } from "./parser.ts";
 export const STYLE_EXTENSIONS = [".css", ".scss"] as const;
 
 const VARIABLE = /^(\$[\w-]+|--[\w-]+)\s*:/;
-const UNQUOTED_URL = /url\((?!\s*["'])[^)]*\)?/iy;
+const UNQUOTED_URL = /url\((?!\s*["'])[^)]*\)/iy;
 
 /**
  * Classifies one top-level statement. A rule or at-rule with a `{ }` body is a `style` chunk named by its prelude
