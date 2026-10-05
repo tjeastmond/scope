@@ -71,18 +71,24 @@ test("extracts exported arrow-function constants and ignores plain values", asyn
 });
 
 const built = existsSync(join(import.meta.dir, "../dist/analyzers/typescript.js"));
-test.skipIf(!built)("works from the compiled dist/ under Node, not only Bun", async () => {
-  const script = `
+test.skipIf(!built)(
+  "works from the compiled dist/ under Node, including concurrent first use of both grammars",
+  async () => {
+    const script = `
     import { extractTypeScriptChunks } from "./dist/analyzers/typescript.js";
     const est = { id: "t", count: (s) => s.length };
-    const chunks = await extractTypeScriptChunks("a.ts", "export function f() {}\\n", est);
-    console.log(JSON.stringify(chunks.map((c) => c.name)));
+    // Concurrent first use of both grammars in a fresh process.
+    const results = await Promise.all(
+      ["a.ts", "b.tsx"].map((file) => extractTypeScriptChunks(file, "export function f() {}\\n", est)),
+    );
+    console.log(JSON.stringify(results.flat().map((c) => c.name)));
   `;
-  const proc = Bun.spawn(["node", "--input-type=module", "-e", script], {
-    cwd: join(import.meta.dir, ".."),
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  expect(await new Response(proc.stdout).text()).toBe('["f"]\n');
-  expect(await proc.exited).toBe(0);
-});
+    const proc = Bun.spawn(["node", "--input-type=module", "-e", script], {
+      cwd: join(import.meta.dir, ".."),
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(await new Response(proc.stdout).text()).toBe('["f","f"]\n');
+    expect(await proc.exited).toBe(0);
+  },
+);
