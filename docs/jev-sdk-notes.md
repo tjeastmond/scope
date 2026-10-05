@@ -22,7 +22,7 @@ const explicit = new TypeSafeClient({ apiKey, timeout: 30_000 });
 - Other env fallbacks (`ENV` export): `TYPESAFE_BASE_URL` (default `https://api.typesafe.ai`), `TYPESAFE_DEFAULT_MODEL` (default `jev-latest`), `TYPESAFE_LOG_LEVEL` (default `warn`). Explicit options win over env.
 - HTTP wire format (docs): `POST https://api.typesafe.ai/v1/systemone`, `Authorization: Bearer <API_KEY>`.
 - SDK docs state Node.js 20+; ESM, CommonJS and declarations are shipped. Scope targets Node 24+.
-- **Logging hazard:** `logLevel: "debug"` logs request headers and bodies. Known credential headers are redacted, **bodies are not** (they contain source code). Scope must not enable `debug`/`info` logging by default, and should set `logLevel` explicitly rather than inherit `TYPESAFE_LOG_LEVEL`.
+- **Logging hazard:** `logLevel: "debug"` logs request headers and bodies. Credential headers are only partly redacted (a review reproduced the key's last four characters appearing in `debug` output), and **bodies are not redacted** at all (they contain source code). Scope must not enable `debug`/`info` logging by default, and should set `logLevel` explicitly rather than inherit `TYPESAFE_LOG_LEVEL`.
 
 ## Noul helper and question shape
 
