@@ -23,6 +23,29 @@ Every analyzer (`src/analyzers/`) implements `Analyzer` from `src/types.ts` and 
 - The `file` kind is for whole-file chunks: the fallback for files with no recognized structure (plain text, or
   formats where the file is the natural unit). Its range is the entire file and it usually has no `name`.
 
+## Python
+
+`src/analyzers/python.ts` handles `.py` and `.pyi`. It extracts boundaries and names only (`references` is empty;
+imports and calls are issue #27, class/method overlap is issue #33).
+
+- Module-level `def` and `async def` are `function` chunks; methods (including `async`, `@staticmethod`,
+  `@classmethod`, `@property`) are `method` chunks named `Class.method`. Stub signatures (`def f(): ...`) are ordinary
+  functions or methods.
+- A class chunk covers the whole class. Nested classes are `class` chunks named `Outer.Inner`, their methods
+  `Outer.Inner.method`. Functions nested in functions, and classes defined inside function bodies, are not separate
+  chunks; the parent covers them.
+- Decorators and docstrings are inside the range: ranges come from the `decorated_definition` node.
+- Property accessors share a name, so `@x.setter` is `Class.set x`, `@x.getter` is `Class.get x` and `@x.deleter` is
+  `Class.delete x`; the plain `@property` getter stays `Class.x`. Other same-name redefinitions (`@overload`, a function
+  defined twice) keep the same name and are told apart by range, hence by ID.
+- Module-level assignments are `config` chunks, one per statement, named by the target, when the single target is
+  UPPER_CASE (`MAX_RETRIES`, `_LIMIT`) or annotated (`counter: int = 0`). Tuple targets and lower-case unannotated
+  assignments are skipped.
+- `if __name__ == "__main__":` (without `else`) is a `section` chunk named `__main__`.
+- Syntax errors: declarations whose subtree has an error or a missing token are skipped; the rest are extracted and
+  `warnings` gets `<path>: syntax errors; extracted N declarations from the parseable regions`. A non-empty file with
+  nothing extractable returns that warning and no chunks (the text fallback is issue #32).
+
 ## Paths
 
 Every chunk `file` is a repository-relative path produced by `toRepoPath` (`src/repository/root.ts`): `/` separators, no
