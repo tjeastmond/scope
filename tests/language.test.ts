@@ -53,7 +53,7 @@ const cases: [string, string | undefined, string | undefined, string][] = [
   ["bin/tool", "#!/usr/local/bin/node\r\nconsole.log(1)\r\n", "javascript", "semantic"],
   ["bin/tool", "#!/usr/bin/env tsx\n", "typescript", "semantic"],
   ["bin/tool", "#!/bin/bash\n", "text", "text"],
-  ["bin/tool", "#!/usr/bin/env FOO=1 ruby\n", "text", "text"],
+  ["bin/tool", "#!/usr/bin/env FOO=1 python\n", "python", "semantic"],
   ["bin/tool", "#!/usr/bin/env lolcode\n", "text", "text"],
   ["script.weird", "#!/usr/bin/env python\n", "python", "semantic"],
   // Unknown files are text only when the content looks like text.
