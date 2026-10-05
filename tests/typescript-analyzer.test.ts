@@ -92,3 +92,14 @@ test.skipIf(!built)(
     expect(await proc.exited).toBe(0);
   },
 );
+
+test("gives a getter and setter on one line distinct names and IDs", async () => {
+  const chunks = await extractTypeScriptChunks(
+    "a.ts",
+    "class C { get x() { return 1; } set x(v: number) {} }",
+    charsPerTokenEstimator,
+  );
+  const accessors = chunks.filter((chunk) => chunk.kind === "method");
+  expect(accessors.map((chunk) => chunk.name)).toEqual(["C.get x", "C.set x"]);
+  expect(new Set(chunks.map((chunk) => chunk.id)).size).toBe(chunks.length);
+});
