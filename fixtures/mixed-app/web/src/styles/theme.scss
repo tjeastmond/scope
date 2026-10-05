@@ -1,0 +1,27 @@
+@use "sass:math";
+
+$brand: #0b6e4f;
+$gap: 8px;
+
+@mixin card($pad: $gap * 2) {
+  padding: $pad;
+  border: 1px solid rgba($brand, 0.3);
+}
+
+.panel {
+  @include card;
+
+  &__title {
+    font-weight: 600;
+  }
+
+  &:hover {
+    border-color: $brand;
+  }
+}
+
+@media (max-width: 600px) {
+  .panel {
+    @include card($gap);
+  }
+}

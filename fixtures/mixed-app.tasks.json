@@ -1,0 +1,78 @@
+[
+  {
+    "id": "due-date-column",
+    "task": "Show each invoice's due date in the invoice list: return dueDate from the invoices API and render it in the frontend row.",
+    "required": [
+      "web/src/components/InvoiceRow.tsx::InvoiceRow",
+      "web/src/hooks/useInvoices.ts::InvoiceDto",
+      "api/src/routes/invoices.ts::listInvoices",
+      "api/src/models/invoice.ts::Billing.Invoice",
+      "db/queries/invoices.sql::select from invoices@10-11"
+    ],
+    "useful": [
+      "web/src/components/InvoiceList.tsx::InvoiceList",
+      "web/src/lib/format.ts::format",
+      "web/src/styles/invoice.module.css::.row",
+      "api/src/services/invoiceService.ts::InvoiceService.listByStatus",
+      "api/src/services/invoiceService.ts::InvoiceService.dueDateFrom",
+      "db/migrations/001_create_invoices.sql::invoices"
+    ],
+    "irrelevant": [
+      "api/src/util/format.ts::format",
+      "api/src/util/validate.ts::validate",
+      "web/src/lib/validate.ts::validate",
+      "web/src/components/Greeting.tsx::Greeting",
+      "api/src/i18n/messages.ts::translate",
+      "api/src/util/csv.ts::toCsv",
+      "worker/tasks.py::send_reminder",
+      "worker/format.py::format",
+      "worker/validate.py::validate",
+      "config/app.toml::reminders"
+    ]
+  },
+  {
+    "id": "configurable-reminder-retries",
+    "task": "Make the reminder worker's retry attempts and backoff configurable from config/app.toml instead of hard-coded constants, and document the setting.",
+    "required": [
+      "worker/tasks.py::retry",
+      "worker/tasks.py::BACKOFF_SECONDS",
+      "worker/tasks.py::send_reminder",
+      "worker/main.py::MAX_ATTEMPTS",
+      "config/app.toml::reminders"
+    ],
+    "useful": [
+      "worker/main.py::run_once",
+      "worker/main.py::main",
+      "worker/main.py::__main__",
+      "worker/queue_client.py::Job",
+      "worker/queue_client.py::ReminderQueue.poll",
+      "docs/architecture.md::Architecture > Worker > Retries",
+      "db/migrations/002_add_status_index.sql::alter table invoices"
+    ],
+    "irrelevant": [
+      "worker/format.py::format",
+      "worker/validate.py::validate",
+      "worker/names.py::Kundin",
+      "worker/names.py::grüßen",
+      "config/settings.json::limits",
+      "docs/api.md::HTTP API > GET /health",
+      "api/src/routes/health.ts::handleHealth",
+      "api/src/services/invoiceService.ts::InvoiceService.create",
+      "web/src/styles/theme.scss::.panel"
+    ]
+  },
+  {
+    "id": "localized-csv-export",
+    "task": "Add a localized status column to the CSV invoice export.",
+    "required": ["api/src/util/csv.ts::toCsv", "api/src/i18n/messages.ts::translate", "api/src/i18n/messages.ts::messages"],
+    "useful": ["api/src/util/csv.ts::escapeCell", "api/src/models/invoice.ts::Billing.Invoice"],
+    "irrelevant": [
+      "api/src/i18n/messages.ts::naïveSlug",
+      "api/src/i18n/messages.ts::税率",
+      "api/src/util/format.ts::format",
+      "web/src/lib/format.ts::format",
+      "worker/main.py::run_once",
+      "db/queries/invoices.sql::update invoices"
+    ]
+  }
+]

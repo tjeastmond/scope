@@ -1,0 +1,20 @@
+services:
+  api:
+    build: ./api
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgres://ledgerly@db/ledgerly
+    depends_on:
+      - db
+  worker:
+    build: ./worker
+    depends_on:
+      - db
+      - api
+  db:
+    image: postgres:16
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+volumes:
+  dbdata: {}

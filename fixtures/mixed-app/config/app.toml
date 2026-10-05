@@ -1,0 +1,19 @@
+name = "ledgerly"
+region = "eu-west"
+
+[reminders]
+days_before_due = 3
+max_attempts = 5
+backoff_seconds = 30
+
+[database]
+pool_size = 10
+statement_timeout_ms = 5000
+
+[[workers]]
+name = "reminders"
+concurrency = 2
+
+[[workers]]
+name = "digests"
+concurrency = 1

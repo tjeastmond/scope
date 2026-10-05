@@ -38,7 +38,7 @@ export { UsageError };
 /** How much of a file the classifier sees, enough for a shebang line and a text check. */
 const HEAD_CHARS = 1024;
 
-async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
+export async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const { files, warnings } = await scanRepository(root);
