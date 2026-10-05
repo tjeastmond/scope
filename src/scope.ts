@@ -54,7 +54,9 @@ async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings
     // Languages with no registered analyzer are left out until the text fallback (#32) covers them.
     if (!language || !analyzerFor(language)) continue;
     const source = redactSecrets(text);
-    chunks.push(...(await analyzeFile({ path: file, source }, language, charsPerTokenEstimator)).chunks);
+    const analysis = await analyzeFile({ path: file, source }, language, charsPerTokenEstimator);
+    chunks.push(...analysis.chunks);
+    warnings.push(...analysis.warnings);
   }
   return { chunks, warnings };
 }

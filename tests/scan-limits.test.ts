@@ -152,3 +152,9 @@ test("a truncation warning surfaces in the run result", async () => {
   expect(result.warnings).toEqual([expect.stringContaining(`deeper than ${MAX_SCAN_DEPTH} levels`)]);
   expect(result.chunks.map((c) => c.chunk.file)).toEqual(["app.ts"]);
 });
+
+test("an analyzer's syntax-error warning surfaces in the run result", async () => {
+  const repo = await makeDir({ "broken.ts": "export const a = 1;\nfunction ( {\n", "ok.ts": code });
+  const { result } = await runScope({ task: "anything", repo, noJev: true });
+  expect(result.warnings).toEqual([expect.stringContaining("broken.ts: syntax errors")]);
+});
