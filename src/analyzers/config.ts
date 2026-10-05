@@ -24,18 +24,24 @@ function entries(parent: Node, types: readonly string[]): Node[] {
   );
 }
 
-/** A JSON or YAML key as written, without its quotes. */
+/** A JSON or YAML key as written, without its quotes. Inner whitespace is kept exactly unless the name spans lines. */
 function keyName(key: Node): string {
-  const text = key.text.replace(/\s+/g, " ").trim();
+  const text = key.text.trim();
+  const singleLine = (value: string) => (/[\r\n]/.test(value) ? value.replace(/\s+/g, " ").trim() : value);
   if (text.startsWith('"')) {
     try {
       const parsed: string = JSON.parse(text);
-      return parsed === "" ? text : parsed;
+      // An empty key or one with a line break keeps its quoted source form, so names stay single-line and distinct.
+      return parsed === "" || /[\r\n]/.test(parsed) ? text : parsed;
     } catch {
-      return text;
+      return singleLine(text);
     }
   }
-  return text.startsWith("'") && text.endsWith("'") ? text.slice(1, -1).replaceAll("''", "'") : text;
+  if (text.startsWith("'") && text.endsWith("'") && text.length > 1) {
+    return singleLine(text.slice(1, -1).replaceAll("''", "'"));
+  }
+  // A plain scalar that wraps lines folds them into single spaces.
+  return singleLine(text);
 }
 
 function keyedEntries(pairs: Node[], prefix = ""): Found[] {
