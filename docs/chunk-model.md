@@ -54,7 +54,9 @@ statement splitter. `references` is empty.
 - One chunk per top-level statement, split on `;`. Single-quoted strings, double-quoted and backtick identifiers
   (doubled quote = escape), `--` and `/* */` comments (not nested) and dollar-quoted bodies (`$$...$$`, `$tag$...$tag$`)
   never split. Backslash is not an escape. For `CREATE ... TRIGGER|PROCEDURE|FUNCTION`, semicolons inside a
-  `BEGIN ... END` body do not split either (`CASE ... END` and `END IF`/`END LOOP` are accounted for).
+  `BEGIN ... END` body do not split either. A block-closing `END` is one that follows a `;` or `BEGIN`, which keeps `CASE ... END`
+  expressions and a column named `end` from closing it; `BEGIN TRANSACTION` and `BEGIN TRY` open nothing. Known limit: a
+  T-SQL body that omits the `;` before its closing `END` is not recognized and runs to the end of the file's statements.
 - Range: starts at the statement's first token, extended upward over comment-only lines directly above it (a blank line
   detaches them, and lines of the previous statement's terminating line are never claimed); ends at the line of the
   terminating `;`, or at the last token for a final statement without one (trailing comments and blank lines are not

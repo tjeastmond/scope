@@ -96,17 +96,19 @@ const upper = (token: Token | undefined): string => (token?.type === "word" ? to
 const isName = (token: Token | undefined): token is Token => token?.type === "word" || token?.type === "ident";
 
 const ROUTINE_OBJECTS = new Set(["TRIGGER", "PROCEDURE", "FUNCTION"]);
-const BLOCK_CLOSERS = new Set(["IF", "LOOP", "WHILE", "REPEAT", "FOR", "CASE"]);
+const BLOCK_CLOSERS = new Set(["IF", "LOOP", "WHILE", "REPEAT", "FOR", "CASE", "TRY", "CATCH"]);
+/** `BEGIN` followed by one of these starts a transaction or a `TRY`/`CATCH` section, not a counted block. */
+const NOT_A_BLOCK = new Set(["TRANSACTION", "TRAN", "WORK", "DEFERRED", "IMMEDIATE", "EXCLUSIVE", "TRY", "CATCH"]);
 
 /**
  * Change in BEGIN...END nesting at token `i`. Only routine bodies need it (`CREATE TRIGGER ... BEGIN a; b; END;`).
  * A block-closing `END` always follows a `;` (or an empty `BEGIN`), which tells it apart from `CASE ... END`
  * expressions and from a column named `end`. `END IF`, `END LOOP` and `END CASE` close constructs that are never
- * counted as openers.
+ * counted as openers. T-SQL bodies that omit the `;` before their closing `END` are not recognized.
  */
 function blockDelta(tokens: Token[], i: number): number {
   const word = upper(tokens[i]);
-  if (word === "BEGIN") return 1;
+  if (word === "BEGIN") return NOT_A_BLOCK.has(upper(tokens[i + 1])) ? 0 : 1;
   if (word !== "END" || BLOCK_CLOSERS.has(upper(tokens[i + 1]))) return 0;
   const before = tokens[i - 1];
   return upper(before) === "BEGIN" || (before?.type === "punct" && before.text === ";") ? -1 : 0;

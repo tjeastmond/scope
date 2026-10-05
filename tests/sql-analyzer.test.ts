@@ -270,6 +270,14 @@ test("an empty BEGIN END block and a trailing END CASE statement balance", async
   expect(inventory((await analyze("a.sql", caseStatement)).chunks)).toEqual(["function:p@1-4", "query:select@5-5"]);
 });
 
+test("BEGIN TRANSACTION and BEGIN TRY do not open a counted block", async () => {
+  const transaction = "CREATE PROCEDURE p() BEGIN\n  BEGIN TRANSACTION;\n  a;\n  COMMIT;\nEND;\nSELECT 1;\n";
+  expect(inventory((await analyze("a.sql", transaction)).chunks)).toEqual(["function:p@1-5", "query:select@6-6"]);
+  const tryCatch =
+    "CREATE PROCEDURE p() BEGIN\n  BEGIN TRY\n  a;\n  END TRY\n  BEGIN CATCH\n  b;\n  END CATCH;\nEND;\nSELECT 1;\n";
+  expect(inventory((await analyze("a.sql", tryCatch)).chunks)).toEqual(["function:p@1-8", "query:select@9-9"]);
+});
+
 test("a routine keyword far into the CREATE header still protects its BEGIN...END body", async () => {
   const source = "CREATE OR REPLACE DEFINER = x TEMP FUNCTION g()\nBEGIN\n  a;\n  b;\nEND;\nSELECT 1;\n";
   const { chunks } = await analyze("a.sql", source);
