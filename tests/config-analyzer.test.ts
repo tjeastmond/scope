@@ -280,7 +280,7 @@ test("quoted keys differing only in inner whitespace stay distinct", async () =>
 });
 
 test("JSON keys with escaped line breaks stay distinct from the same keys with spaces", async () => {
-  const chunks = (await analyze("a.json", '{"a\\nb": 1, "a b": 2, "a\\rb": 3}')).chunks;
+  const chunks = (await analyze("a.json", '{\n"a\\nb": 1,\n"a b": 2,\n"a\\rb": 3\n}')).chunks;
   expect(chunks.map((c) => c.name)).toEqual(['"a\\nb"', "a b", '"a\\rb"']);
 });
 
