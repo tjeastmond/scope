@@ -122,7 +122,7 @@ test.each([
 const EMPTY = 'The task description is empty. Pass it in quotes: scope "<task>"';
 const FORMAT = "--format must be one of text, markdown, json";
 const budgetMsg = (got: string) => `--budget must be a positive integer (digits only): got "${got}"`;
-const NOT_DIR = join(FIXTURE, "TASK.md");
+const NOT_DIR = `${FIXTURE}.TASK.md`;
 test.each([
   [[""], EMPTY],
   [["   "], EMPTY],
