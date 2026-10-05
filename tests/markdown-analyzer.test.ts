@@ -194,3 +194,21 @@ test("registered for markdown and callable through analyzeFile", async () => {
 test("a thematic break is not the first line of a setext paragraph", () => {
   expect(names("***\n---\ntext\n")).toEqual(["preamble@1-3"]);
 });
+
+test("a list item or blockquote continuation followed by --- is not a setext heading", () => {
+  const source = "# Log\n\n## 1.0\n\n- Fix parser so it\n  handles tabs\n---\n\nnotes\n\n## 0.9\n";
+  expect(names(source)).toEqual(["Log@1-11", "Log > 1.0@3-10", "Log > 0.9@11-11"]);
+});
+
+test("a leading --- followed by a blank line is a thematic break, not front matter", () => {
+  expect(names("---\n\n# Title\n\nbody\n\n---\n\n## Next\n")).toEqual([
+    "preamble@1-2",
+    "Title@3-9",
+    "Title > Next@9-9",
+  ]);
+});
+
+test("headings inside HTML comments are not headings", () => {
+  expect(names("# A\n\n<!--\n# hidden\n-->\n\n## B\n")).toEqual(["A@1-7", "A > B@7-7"]);
+  expect(names("# A\n<!-- # one line -->\n## B\n")).toEqual(["A@1-3", "A > B@3-3"]);
+});

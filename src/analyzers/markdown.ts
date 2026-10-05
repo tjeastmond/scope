@@ -16,11 +16,13 @@ const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const INDENTED = /^(?: {4}|\t)/;
 const BLOCK_START = /^ {0,3}(?:>|[-*+](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$))/;
+const COMMENT_START = /^ {0,3}<!--/;
 const CLOSING_HASHES = /(?:^|[ \t]+)#+[ \t]*$/;
 
 /** The line index after a leading `---` front matter block, or 0 when the file has none. */
 function frontMatterEnd(lines: string[]): number {
-  if (lines[0]?.trimEnd() !== "---") return 0;
+  // A blank line after the opening delimiter means this is a thematic break, not front matter.
+  if (lines[0]?.trimEnd() !== "---" || !lines[1]?.trim()) return 0;
   const close = lines.findIndex((line, index) => index > 0 && /^(?:---|\.\.\.)[ \t]*$/.test(line));
   return close === -1 ? 0 : close + 1;
 }
@@ -34,8 +36,16 @@ function findHeadings(lines: string[], from: number): Heading[] {
   let fence: { char: string; length: number } | undefined;
   /** First line of the paragraph being read, if any. */
   let paragraph: number | undefined;
+  /** True inside a list item or blockquote, whose continuation lines never start a setext paragraph. */
+  let container = false;
+  let comment = false;
   for (let index = from; index < lines.length; index++) {
     const line = lines[index]!;
+    if (comment || COMMENT_START.test(line)) {
+      comment = !line.includes("-->");
+      paragraph = undefined;
+      continue;
+    }
     const marker = FENCE.exec(line);
     if (fence) {
       if (marker && marker[1]![0] === fence.char && marker[1]!.length >= fence.length && marker[2]!.trim() === "") {
@@ -46,6 +56,7 @@ function findHeadings(lines: string[], from: number): Heading[] {
     if (marker && !(marker[1]![0] === "`" && marker[2]!.includes("`"))) {
       fence = { char: marker[1]![0]!, length: marker[1]!.length };
       paragraph = undefined;
+      container = false;
       continue;
     }
     const underline = SETEXT_UNDERLINE.exec(line);
@@ -62,9 +73,11 @@ function findHeadings(lines: string[], from: number): Heading[] {
     if (atx) {
       headings.push({ start: index, level: atx[1]!.length, text: (atx[2] ?? "").replace(CLOSING_HASHES, "").trim() });
       paragraph = undefined;
+      container = false;
     } else if (line.trim() === "" || THEMATIC_BREAK.test(line) || BLOCK_START.test(line)) {
       paragraph = undefined;
-    } else if (paragraph === undefined && !INDENTED.test(line)) {
+      container = line.trim() !== "" && !THEMATIC_BREAK.test(line);
+    } else if (paragraph === undefined && !container && !INDENTED.test(line)) {
       paragraph = index;
     }
   }
