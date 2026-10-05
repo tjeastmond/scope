@@ -31,7 +31,8 @@ function keyName(key: Node): string {
   if (text.startsWith('"')) {
     try {
       const parsed: string = JSON.parse(text);
-      return parsed === "" ? text : singleLine(parsed);
+      // An empty key or one with a line break keeps its quoted source form, so names stay single-line and distinct.
+      return parsed === "" || /[\r\n]/.test(parsed) ? text : parsed;
     } catch {
       return singleLine(text);
     }

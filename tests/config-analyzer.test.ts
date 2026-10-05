@@ -279,6 +279,11 @@ test("quoted keys differing only in inner whitespace stay distinct", async () =>
   expect(await names("a.toml", '"a  b" = 1\n"a b" = 2\n')).toEqual(['"a  b"', '"a b"']);
 });
 
+test("JSON keys with escaped line breaks stay distinct from the same keys with spaces", async () => {
+  const chunks = (await analyze("a.json", '{"a\\nb": 1, "a b": 2, "a\\rb": 3}')).chunks;
+  expect(chunks.map((c) => c.name)).toEqual(['"a\\nb"', "a b", '"a\\rb"']);
+});
+
 test("the extension is matched case-insensitively", async () => {
   expect(inventory((await analyze("A.YAML", "a: 1\n")).chunks)).toEqual(["config:a@1-1"]);
 });
