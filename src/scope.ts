@@ -7,6 +7,7 @@ import { charsPerTokenEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { listFiles } from "./repository/files.ts";
+import { redactSecrets } from "./repository/redact.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import type { CodeChunk, DecisionProvider, DecisionResult, ScopeResult, SelectedChunk } from "./types.ts";
 
@@ -44,7 +45,7 @@ async function loadChunks(repo: string): Promise<CodeChunk[]> {
   for (const file of await listFiles(repo, TYPESCRIPT_EXTENSIONS)) {
     const bytes = await readFile(join(repo, file));
     if (bytes.includes(0)) continue; // NUL bytes mean binary content, which is never parsed or sent
-    const source = bytes.toString("utf8");
+    const source = redactSecrets(bytes.toString("utf8"));
     chunks.push(...(await extractTypeScriptChunks(file, source, charsPerTokenEstimator)));
   }
   return chunks;

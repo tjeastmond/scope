@@ -71,6 +71,7 @@ test("ignored and secret-looking files never reach the provider", async () => {
     await mkdir(join(root, "private"), { recursive: true });
     await writeFile(join(root, ".gitignore"), "private/\n");
     await writeFile(join(root, "ok.ts"), "export function ok() {}\n");
+    await writeFile(join(root, "client.ts"), 'export function client() { return "AKIAABCDEFGHIJKLMNOP"; }\n');
     await writeFile(join(root, "private/hidden.ts"), "export function hiddenIgnored() {}\n");
     await writeFile(join(root, "credentials.ts"), "export function hiddenSecret() {}\n");
     await writeFile(join(root, "binary.ts"), "export function hiddenBinary() {}\0\n");
@@ -88,7 +89,8 @@ test("ignored and secret-looking files never reach the provider", async () => {
     const run = capture(spy);
     expect(await main([TASK, "--repo", root], run.io)).toBe(0);
     expect(seen.join("\n")).toContain("ok");
-    expect(seen.join("\n")).not.toMatch(/hiddenIgnored|hiddenSecret|hiddenBinary/);
+    expect(seen.join("\n")).toContain("[REDACTED]");
+    expect(seen.join("\n")).not.toMatch(/hiddenIgnored|hiddenSecret|hiddenBinary|AKIAABCDEFGHIJKLMNOP/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
