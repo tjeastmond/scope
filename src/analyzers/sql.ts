@@ -1,5 +1,5 @@
-import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, Analyzer, ChunkKind, CodeChunk, TokenEstimator } from "../types.ts";
+import { assembleChunks, type Region } from "./assemble.ts";
+import type { AnalysisResult, Analyzer, ChunkKind, TokenEstimator } from "../types.ts";
 
 // No WASM grammar loads for SQL (docs/grammars.md), so this is a small lexer plus a statement splitter.
 
@@ -338,7 +338,6 @@ export async function extractSqlChunks(
   estimator: TokenEstimator,
 ): Promise<AnalysisResult> {
   const { tokens, comments, unterminated } = lex(source);
-  const lines = source.split("\n");
   const lineStarts = [0];
   for (let i = source.indexOf("\n"); i >= 0; i = source.indexOf("\n", i + 1)) lineStarts.push(i + 1);
   const lineOf = (offset: number): number => {
@@ -358,7 +357,7 @@ export async function extractSqlChunks(
     for (let line = lineOf(comment.start); line <= lineOf(comment.end - 1); line++) commentLines.add(line);
   }
 
-  const chunks: CodeChunk[] = [];
+  const regions: Region[] = [];
   let previousEnd = 0;
   for (const statement of splitStatements(tokens)) {
     const last = statement.terminator ?? statement.tokens.at(-1)!;
@@ -366,31 +365,17 @@ export async function extractSqlChunks(
     if (statement.tokens.length > 0) {
       let startLine = lineOf(statement.tokens[0]!.start);
       while (startLine - 1 > previousEnd && commentLines.has(startLine - 1)) startLine--;
-      const { kind, name } = classify(statement.tokens);
-      const content = lines.slice(startLine - 1, endLine).join("\n");
-      chunks.push({
-        id: makeChunkId({ file, startLine, endLine, kind, name }),
-        file,
-        language: "sql",
-        kind,
-        name,
-        startLine,
-        endLine,
-        content,
-        references: [],
-        estimatedTokens: estimator.count(content),
-      });
+      regions.push({ startLine, endLine, ...classify(statement.tokens) });
     }
     previousEnd = endLine;
   }
-  // `SELECT 1; SELECT 1;` on one line yields identical chunks; keep one so chunk ids stay unique.
-  const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
-  const warnings = unterminated
-    ? [
-        `${file}: unterminated string, quoted identifier, comment or dollar-quoted body; the last statement runs to the end of the file`,
-      ]
-    : [];
-  return { chunks: unique, warnings };
+  const { chunks, warnings } = assembleChunks(file, source, "sql", regions, false, estimator);
+  if (unterminated) {
+    warnings.push(
+      `${file}: unterminated string, quoted identifier, comment or dollar-quoted body; the last statement runs to the end of the file`,
+    );
+  }
+  return { chunks, warnings };
 }
 
 export const sqlAnalyzer: Analyzer = {

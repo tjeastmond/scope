@@ -6,7 +6,7 @@ export interface Region {
   startLine: number;
   endLine: number;
   kind: ChunkKind;
-  name: string;
+  name?: string | undefined;
 }
 
 /**
@@ -31,7 +31,7 @@ export function assembleChunks(
       file,
       language,
       kind,
-      name,
+      ...(name === undefined ? {} : { name }),
       startLine,
       endLine,
       content,

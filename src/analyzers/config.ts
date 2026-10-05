@@ -1,6 +1,6 @@
 import type { Node } from "web-tree-sitter";
-import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, Analyzer, ChunkKind, CodeChunk, Language, TokenEstimator } from "../types.ts";
+import { assembleChunks } from "./assemble.ts";
+import type { AnalysisResult, Analyzer, ChunkKind, Language, TokenEstimator } from "../types.ts";
 import { type Grammar, parserFor } from "./parser.ts";
 
 interface Found {
@@ -122,7 +122,6 @@ export async function extractConfigChunks(
   const tree = parser.parse(source);
   if (!tree) throw new Error(`Tree-sitter could not parse ${file}`);
   try {
-    const lines = source.split("\n");
     const found = find(tree.rootNode).map(({ node, last = node, kind, name }) => {
       const { startPosition: start } = node;
       const { endPosition: end } = last;
@@ -140,25 +139,15 @@ export async function extractConfigChunks(
     const unique = [...perRange.values()].map((group) =>
       group.length > 1 ? { ...group[0]!, kind: "file" as const, name: undefined } : group[0]!,
     );
-    const chunks = unique.map(({ startLine, endLine, kind, name }): CodeChunk => {
-      const content = lines.slice(startLine - 1, endLine).join("\n");
-      return {
-        id: makeChunkId({ file, startLine, endLine, kind, name }),
-        file,
-        language,
-        kind,
-        ...(name === undefined ? {} : { name }),
-        startLine,
-        endLine,
-        content,
-        references: [],
-        estimatedTokens: estimator.count(content),
-      };
-    });
-    const warnings: string[] = [];
-    if (tree.rootNode.hasError) {
-      warnings.push(`${file}: syntax errors; extracted ${chunks.length} entries from the parseable regions`);
-    }
+    const { chunks, warnings } = assembleChunks(
+      file,
+      source,
+      language,
+      unique,
+      tree.rootNode.hasError,
+      estimator,
+      "entries",
+    );
     if (grammar === "json" && tree.rootNode.descendantsOfType("comment").length > 0) {
       warnings.push(`${file}: contains comments (JSONC); parsed leniently`);
     }
