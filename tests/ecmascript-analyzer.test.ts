@@ -410,7 +410,7 @@ test("static and instance overloads, wrapped default exports and chained test mo
   ]);
   expect(await names("a.ts", "declare function Factory(): void;\ninterface Factory {}")).toEqual([
     "function:Factory",
-    "type:Factory",
+    "interface:Factory",
   ]);
   expect(await names("a.tsx", "export default function page() { return <main />; }")).toEqual(["component:page"]);
   expect(await names("a.tsx", "export default (() => <div />);")).toEqual(["component:default"]);
