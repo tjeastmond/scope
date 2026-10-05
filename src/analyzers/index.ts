@@ -1,4 +1,4 @@
-import type { AnalysisResult, Analyzer, Language, SourceFile, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, CodeChunk, Language, SourceFile, TokenEstimator } from "../types.ts";
 import { configAnalyzer } from "./config.ts";
 import { ecmascriptAnalyzer } from "./ecmascript.ts";
 import { markdownAnalyzer } from "./markdown.ts";
@@ -6,6 +6,7 @@ import { markupAnalyzer } from "./markup.ts";
 import { pythonAnalyzer } from "./python.ts";
 import { sqlAnalyzer } from "./sql.ts";
 import { styleAnalyzer } from "./style.ts";
+import { textFallback } from "./text.ts";
 
 const ANALYZERS: readonly Analyzer[] = [
   ecmascriptAnalyzer,
@@ -26,13 +27,39 @@ export function analyzerFor(language: Language): Analyzer | undefined {
   return byLanguage.get(language);
 }
 
-/** Analyzes a file with the analyzer for its language; throws when the language has no analyzer. */
+/** A failure message reduced to one bounded line, so a parser error never floods the warnings. */
+function briefly(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error);
+  return text.replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
+/**
+ * Analyzes a file with the analyzer for its language and guarantees usable chunks anyway. A file with a NUL byte is
+ * binary: it is not analyzed, gets no chunks and a warning. A language with no analyzer, an analyzer that throws, or
+ * one that extracts nothing from non-blank source falls back to text windows over the whole file; an analyzer that
+ * recovered chunks from a file with syntax errors keeps them and gets text windows over the uncovered lines only.
+ */
 export async function analyzeFile(
   file: SourceFile,
   language: Language,
   estimator: TokenEstimator,
 ): Promise<AnalysisResult> {
+  if (file.source.includes("\0")) return { chunks: [], warnings: [`${file.path}: binary content (NUL byte); skipped`] };
   const analyzer = analyzerFor(language);
-  if (!analyzer) throw new Error(`No analyzer is registered for language "${language}" (${file.path}).`);
-  return analyzer.analyze(file, estimator, language);
+  const fallback = (reason: string, covered: readonly CodeChunk[] = []) =>
+    textFallback(file.path, file.source, language, estimator, reason, covered);
+  if (!analyzer) return fallback(`no analyzer for language "${language}"`);
+  let analysis: AnalysisResult;
+  try {
+    analysis = await analyzer.analyze(file, estimator, language);
+  } catch (error) {
+    return fallback(`analyzer failed (${briefly(error)})`);
+  }
+  if (!analysis.partial && analysis.chunks.length > 0) return analysis;
+  const filled = fallback(analysis.partial ? "syntax errors" : "analyzer extracted no chunks", analysis.chunks);
+  return {
+    chunks: [...analysis.chunks, ...filled.chunks].sort((a, b) => a.startLine - b.startLine || a.endLine - b.endLine),
+    warnings: [...analysis.warnings, ...filled.warnings],
+    ...(analysis.partial ? { partial: true } : {}),
+  };
 }

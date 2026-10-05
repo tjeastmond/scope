@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { analyzeFile, analyzerFor } from "./analyzers/index.ts";
+import { analyzeFile } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { selectWithinBudget } from "./context/select.ts";
@@ -43,16 +43,12 @@ async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings
   const chunks: CodeChunk[] = [];
   const { files, warnings } = await scanRepository(root);
   for (const file of files) {
-    // A file of a known type with no analyzer is skipped without being read; unknown types need their head checked.
-    const known = classifyFile(file).language;
-    if (known && !analyzerFor(known)) continue;
     const bytes = await readFile(join(root, file));
-    // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which is never parsed or sent.
-    if (bytes.includes(0)) continue;
+    // The scanner only sniffs the start of a file; a NUL anywhere means binary content, which analyzeFile skips with a
+    // warning. Files that do not look like text have no language and are left out here.
     const text = bytes.toString("utf8");
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
-    // Languages with no registered analyzer are left out until the text fallback (#32) covers them.
-    if (!language || !analyzerFor(language)) continue;
+    if (!language) continue;
     const source = redactSecrets(text);
     const analysis = await analyzeFile({ path: file, source }, language, charsPerTokenEstimator);
     chunks.push(...analysis.chunks);

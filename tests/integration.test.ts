@@ -38,7 +38,7 @@ test.each([
   await expect(run).rejects.toBeInstanceOf(errorType);
 });
 
-test("analyzes every file whose language has an analyzer, found by extension or shebang, and skips the rest", async () => {
+test("analyzes every file whose language has an analyzer, found by extension or shebang, and falls back to text windows for the rest", async () => {
   const repo = await mkdtemp(join(tmpdir(), "scope-classify-"));
   try {
     await mkdir(join(repo, "bin"));
@@ -49,7 +49,11 @@ test("analyzes every file whose language has an analyzer, found by extension or 
     await writeFile(join(repo, "main.go"), "package main\nfunc fromGo() {}\n");
     await writeFile(join(repo, "mystery"), "def not_python():\n");
     const { result } = await runScope({ task: "anything", repo, noJev: true });
-    expect(result.chunks.map((s) => s.chunk.name).sort()).toEqual(["fromMjs", "fromNode", "from_py", "from_shebang"]);
+    const named = result.chunks.flatMap((s) => (s.chunk.name === undefined ? [] : [s.chunk.name]));
+    expect(named.sort()).toEqual(["fromMjs", "fromNode", "from_py", "from_shebang"]);
+    // Files with no analyzer (Go, an unrecognized text file) get text windows instead of being dropped.
+    const windows = result.chunks.filter((s) => s.chunk.name === undefined).map((s) => s.chunk.file);
+    expect(windows.sort()).toEqual(["main.go", "mystery"]);
     expect(result.chunks.find((s) => s.chunk.name === "fromNode")?.chunk.language).toBe("javascript");
   } finally {
     await rm(repo, { recursive: true, force: true });

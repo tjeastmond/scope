@@ -87,6 +87,8 @@ export interface AnalysisResult {
   chunks: CodeChunk[];
   /** Non-fatal problems (for example a file that only partly parsed). */
   warnings: string[];
+  /** Set when the file had syntax errors and the chunks cover only what the parser recovered. */
+  partial?: boolean;
 }
 
 /** Turns one source file into normalized chunks. Async because Tree-sitter initialization is. */
