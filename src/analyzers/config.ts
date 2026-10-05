@@ -40,7 +40,7 @@ function keyName(key: Node): string {
 function keyedEntries(pairs: Node[], prefix = ""): Found[] {
   return pairs.flatMap((pair) => {
     const key = pair.childForFieldName("key");
-    return key && !pair.isMissing ? [{ node: pair, kind: "config" as const, name: prefix + keyName(key) }] : [];
+    return key ? [{ node: pair, kind: "config" as const, name: prefix + keyName(key) }] : [];
   });
 }
 
@@ -141,7 +141,7 @@ export async function extractConfigChunks(
     // `{"a": 1, "a": 2}` on one line yields two identical entries; keep one so chunk ids stay unique.
     const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
     const warnings: string[] = [];
-    if (tree.rootNode.hasError && source.trim() !== "") {
+    if (tree.rootNode.hasError) {
       warnings.push(`${file}: syntax errors; extracted ${unique.length} entries from the parseable regions`);
     }
     if (grammar === "json" && tree.rootNode.descendantsOfType("comment").length > 0) {

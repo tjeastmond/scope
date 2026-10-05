@@ -258,3 +258,18 @@ test("the analyzer is registered for json, yaml and toml and picks the grammar f
   const result = await analyzeFile(file, "yaml", charsPerTokenEstimator);
   expect(inventory(result.chunks)).toEqual(["config:a@1-1"]);
 });
+
+test("key quoting: YAML single quotes unescape, an invalid JSON escape keeps the key as written", async () => {
+  expect(inventory((await analyze("a.yaml", "'it''s': 1\n")).chunks)).toEqual(["config:it's@1-1"]);
+  expect(inventory((await analyze("a.json", '{"x\\q": 1}')).chunks)).toEqual(['config:"x\\q"@1-1']);
+});
+
+test("the extension is matched case-insensitively", async () => {
+  expect(inventory((await analyze("A.YAML", "a: 1\n")).chunks)).toEqual(["config:a@1-1"]);
+});
+
+test("empty and blank files give no chunks and no warning", async () => {
+  for (const path of ["a.json", "a.yaml", "a.toml"]) {
+    expect(await analyze(path, " \n")).toEqual({ chunks: [], warnings: [] });
+  }
+});
