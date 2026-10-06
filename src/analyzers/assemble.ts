@@ -43,11 +43,15 @@ function referenceAttacher(
   const fileLevel: number[] = [];
   references.forEach(({ line }, index) => {
     if (!covered[line]) fileLevel.push(index);
-    else byLine.set(line, [...(byLine.get(line) ?? []), index]);
+    else {
+      const bucket = byLine.get(line);
+      if (bucket) bucket.push(index);
+      else byLine.set(line, [index]);
+    }
   });
   return (startLine, endLine) => {
     const picked = [...fileLevel];
-    for (let line = startLine; line <= endLine; line++) picked.push(...(byLine.get(line) ?? []));
+    for (let line = startLine; line <= endLine; line++) for (const index of byLine.get(line) ?? []) picked.push(index);
     return picked
       .sort((a, b) => a - b)
       .map((index) => {

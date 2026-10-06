@@ -64,3 +64,26 @@ test("attachment: 2,000 chunks and 2,000 references are fast and match the per-c
   }
   expect(chunks[1]?.references).toHaveLength(count / 2);
 });
+
+test("attachment: many references on one line stay linear", () => {
+  const count = 60_000;
+  const references: RawReference[] = Array.from({ length: count }, (_, i) => ({
+    kind: "import",
+    line: 1,
+    name: `m${i}`,
+  }));
+  const regions: Region[] = [{ startLine: 1, endLine: 1, kind: "function", name: "f" }];
+  const started = performance.now();
+  const { chunks } = assembleChunks(
+    "a.ts",
+    "x",
+    "typescript",
+    regions,
+    false,
+    charsPerTokenEstimator,
+    "line",
+    references,
+  );
+  expect(performance.now() - started).toBeLessThan(1000);
+  expect(chunks[0]?.references).toHaveLength(count);
+});

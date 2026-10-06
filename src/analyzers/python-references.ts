@@ -46,7 +46,7 @@ function moduleArgument(call: Node): Node | undefined {
   const args =
     call.childForFieldName("arguments")?.namedChildren.filter((c): c is Node => c !== null && c.type !== "comment") ??
     [];
-  const positional = args.find((arg) => arg.type !== "keyword_argument");
+  const positional = args.find((arg) => arg.type !== "keyword_argument" && arg.type !== "dictionary_splat");
   if (positional) return positional;
   return (
     args

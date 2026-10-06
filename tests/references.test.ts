@@ -216,3 +216,18 @@ test("a container header and its members each get file-level references once", a
   expect(chunks.length).toBeGreaterThan(2);
   for (const chunk of chunks) expect(chunk.references.map((r) => r.name)).toEqual(["os"]);
 });
+
+test("Python dynamic imports: **kwargs does not override an explicit name= keyword", async () => {
+  const source = [
+    "import importlib",
+    "def f(options):",
+    '    a = __import__(name="pkg", **options)',
+    '    b = importlib.import_module(**options, name="other")',
+  ].join("\n");
+  const { chunks } = await extractPythonChunks("a.py", source, charsPerTokenEstimator);
+  const refs = chunks.find((c) => c.name === "f")?.references.filter((r) => r.from.line > 1);
+  expect(refs?.map((r) => [r.from.line, r.name, r.evidence])).toEqual([
+    [3, "pkg", undefined],
+    [4, "other", undefined],
+  ]);
+});
