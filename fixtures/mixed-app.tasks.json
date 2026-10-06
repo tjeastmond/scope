@@ -1,15 +1,15 @@
 [
   {
     "id": "due-date-column",
-    "task": "Show each invoice's due date in the invoice list: return dueDate from the invoices API and render it in the frontend row.",
+    "task": "Show each invoice's due date in the invoice list: render it in the frontend row (the API already returns dueDate).",
     "required": [
       "web/src/components/InvoiceRow.tsx::InvoiceRow",
-      "web/src/hooks/useInvoices.ts::InvoiceDto",
-      "api/src/routes/invoices.ts::listInvoices",
-      "api/src/models/invoice.ts::Billing.Invoice",
-      "db/queries/invoices.sql::select from invoices@10-11"
+      "web/src/hooks/useInvoices.ts::InvoiceDto"
     ],
     "useful": [
+      "api/src/routes/invoices.ts::listInvoices",
+      "api/src/models/invoice.ts::Billing.Invoice",
+      "db/queries/invoices.sql::select from invoices@10-11",
       "web/src/components/InvoiceList.tsx::InvoiceList",
       "web/src/lib/format.ts::format",
       "web/src/styles/invoice.module.css::.row",
@@ -37,10 +37,10 @@
       "worker/tasks.py::retry",
       "worker/tasks.py::BACKOFF_SECONDS",
       "worker/tasks.py::send_reminder",
-      "worker/main.py::MAX_ATTEMPTS",
       "config/app.toml::reminders"
     ],
     "useful": [
+      "worker/main.py::MAX_ATTEMPTS",
       "worker/main.py::run_once",
       "worker/main.py::main",
       "worker/main.py::__main__",
