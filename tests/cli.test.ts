@@ -6,10 +6,15 @@ import { join } from "node:path";
 import { JevRequestError, JevResponseError, JevUnavailableError } from "../src/jev/errors.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
 import { main, type Io } from "../src/main.ts";
+import Ajv2020 from "ajv/dist/2020";
+import { readFileSync } from "node:fs";
 import type { DecisionProvider } from "../src/types.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const FIXTURE = join(ROOT, "fixtures/webhook-service");
+const validate = new Ajv2020({ strict: true }).compile(
+  JSON.parse(readFileSync(join(ROOT, "docs/scope-result.schema.json"), "utf8")),
+);
 const TASK = "Add retry handling to Stripe webhook processing";
 
 function capture(provider?: DecisionProvider) {
@@ -165,10 +170,11 @@ test("--help documents every flag with its default and says the output flags are
   expect(help).toContain("(default: text)");
   expect(help).toContain("(default: stdout)");
   expect(help).toContain("(default: off)");
-  expect(help).toContain("Not yet implemented: output is always text");
+  expect(help).toContain("Not yet implemented: --output and --explain");
+  expect(help).not.toContain("--format, --output");
 });
 
-test.each([[["--format", "markdown"]], [["--format", "json"]], [["--output", "out.txt"]], [["--explain"]]])(
+test.each([[["--output", "out.txt"]], [["--explain"]]])(
   "accepted but not yet implemented flags %j still produce text output",
   async (flags) => {
     const baseline = capture();
@@ -178,6 +184,51 @@ test.each([[["--format", "markdown"]], [["--format", "json"]], [["--output", "ou
     expect(run.stdout()).toBe(baseline.stdout());
   },
 );
+
+test("--format json prints only parseable, schema-valid JSON on stdout; warnings stay on stderr", async () => {
+  const run = capture(retryProvider);
+  expect(await main([TASK, "--repo", FIXTURE, "--format", "json"], run.io)).toBe(0);
+  const payload = JSON.parse(run.stdout());
+  expect(validate(payload)).toBe(true);
+  expect(payload.mode).toBe("jev");
+  expect(run.stdout()).toEndWith("}\n");
+  expect(run.stderr()).toContain("Jev 3ms");
+  expect(run.stdout()).not.toContain("scope: ");
+});
+
+test("--format markdown starts with the heading and keeps stderr output off stdout", async () => {
+  const run = capture(retryProvider);
+  expect(await main([TASK, "--repo", FIXTURE, "--format", "markdown"], run.io)).toBe(0);
+  expect(run.stdout()).toStartWith("# Scope context\n");
+  expect(run.stdout()).toContain("withRetry");
+  expect(run.stdout()).not.toContain("Jev 3ms");
+});
+
+test("--format text is the default output", async () => {
+  const base = capture();
+  const text = capture();
+  await main([TASK, "--repo", FIXTURE, "--no-jev"], base.io);
+  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--format", "text"], text.io)).toBe(0);
+  expect(text.stdout()).toBe(base.stdout());
+  expect(text.stdout()).toStartWith("Scope context for: ");
+});
+
+test("warnings go to stderr, never stdout, in every format", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "scope-warn-"));
+  try {
+    // A file that only partly parses makes the analyzer emit a warning.
+    await mkdir(join(dir, "src"), { recursive: true });
+    await writeFile(join(dir, "src/a.ts"), "export function retry() { return 1 }\nexport function broken( {\n");
+    for (const format of ["text", "markdown", "json"]) {
+      const run = capture();
+      expect(await main(["retry", "--repo", dir, "--no-jev", "--format", format], run.io)).toBe(0);
+      expect(run.stderr()).toContain("scope: warning: ");
+      expect(run.stdout()).not.toContain("scope: warning");
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
 
 test("no arguments prints help", async () => {
   const run = capture();

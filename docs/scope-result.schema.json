@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjeastmond/scope/docs/scope-result.schema.json",
+  "title": "Scope result (schemaVersion 1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "mode",
+    "task",
+    "budget",
+    "estimator",
+    "estimatedTokens",
+    "characters",
+    "lines",
+    "regions",
+    "warnings",
+    "unmetCoherence",
+    "skipped"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "mode": { "enum": ["jev", "no-jev"] },
+    "task": { "type": "string" },
+    "budget": { "type": "integer", "minimum": 1 },
+    "estimator": { "type": "string" },
+    "estimatedTokens": { "type": "integer", "minimum": 0 },
+    "characters": { "type": "integer", "minimum": 0 },
+    "lines": { "type": "integer", "minimum": 0 },
+    "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "unmetCoherence": { "type": "array", "items": { "$ref": "#/$defs/unmetCoherence" } },
+    "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
+    "retrievalConfigVersion": { "type": "string" }
+  },
+  "$defs": {
+    "language": {
+      "enum": [
+        "typescript",
+        "javascript",
+        "python",
+        "go",
+        "java",
+        "rust",
+        "sql",
+        "html",
+        "css",
+        "scss",
+        "json",
+        "yaml",
+        "toml",
+        "markdown",
+        "text"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "function",
+        "method",
+        "class",
+        "interface",
+        "type",
+        "component",
+        "query",
+        "table",
+        "style",
+        "template",
+        "config",
+        "section",
+        "file"
+      ]
+    },
+    "score": { "type": "number", "minimum": 0 },
+    "relevance": { "type": "number", "minimum": 0, "maximum": 1 },
+    "line": { "type": "integer", "minimum": 1 },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "language", "startLine", "endLine", "content", "chunks"],
+      "properties": {
+        "file": { "type": "string" },
+        "language": { "$ref": "#/$defs/language" },
+        "startLine": { "$ref": "#/$defs/line" },
+        "endLine": { "$ref": "#/$defs/line" },
+        "content": { "type": "string" },
+        "chunks": { "type": "array", "items": { "$ref": "#/$defs/chunk" } }
+      }
+    },
+    "chunk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "score", "reason"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": { "$ref": "#/$defs/kind" },
+        "relevance": { "$ref": "#/$defs/relevance" },
+        "score": { "$ref": "#/$defs/score" },
+        "reason": { "type": "string" },
+        "supportFor": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "unmetCoherence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunkId", "requiredId", "reason"],
+      "properties": {
+        "chunkId": { "type": "string" },
+        "requiredId": { "type": "string" },
+        "reason": { "enum": ["too-large", "over-budget"] }
+      }
+    },
+    "skipped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chunkId", "file", "startLine", "endLine", "score", "estimatedTokens", "reason"],
+      "properties": {
+        "chunkId": { "type": "string" },
+        "file": { "type": "string" },
+        "startLine": { "$ref": "#/$defs/line" },
+        "endLine": { "$ref": "#/$defs/line" },
+        "name": { "type": "string" },
+        "relevance": { "$ref": "#/$defs/relevance" },
+        "score": { "$ref": "#/$defs/score" },
+        "estimatedTokens": { "type": "integer", "minimum": 0 },
+        "reason": { "enum": ["below-threshold", "over-budget"] },
+        "minimumBudget": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

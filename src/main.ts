@@ -1,14 +1,11 @@
 import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
 import { parseArgs } from "node:util";
 import { DEFAULT_BUDGET } from "./config.ts";
-import { renderResult } from "./output/text.ts";
+import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
 import { UsageError } from "./errors.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
-
-export const FORMATS = ["text", "markdown", "json"] as const;
-export type OutputFormat = (typeof FORMATS)[number];
 
 const HELP = `Usage: scope "<task>" [--repo <path>] [--budget <tokens>] [--format text|markdown|json]
              [--output <path>] [--no-jev] [--explain]
@@ -24,8 +21,8 @@ Options:
   --no-jev           Skip Jev and use the offline baseline (no credentials or network)
   -h, --help         Show this help
 
-Not yet implemented: output is always text on stdout. --format, --output and --explain are accepted and
-validated, but have no effect yet.
+Not yet implemented: --output and --explain are accepted and validated, but have no effect yet. Only the
+artifact goes to stdout, in every format; warnings and Jev usage go to stderr.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
 `;
@@ -138,7 +135,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
       ].filter((metric) => metric !== undefined);
       io.stderr(`scope: Jev ${metrics.length > 0 ? metrics.join(", ") : "usage not reported"}\n`);
     }
-    io.stdout(renderResult(result));
+    io.stdout(renderFormat(options.format, result));
     return 0;
   } catch (error) {
     io.stderr(`scope: ${describeError(error)}\n`);
