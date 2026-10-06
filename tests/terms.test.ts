@@ -30,6 +30,8 @@ describe("stem", () => {
     ["boxes", "box"],
     ["matches", "match"],
     ["statuses", "status"],
+    ["status", "status"],
+    ["analysis", "analysis"],
     ["class", "class"],
     ["retrying", "retry"],
     ["parsed", "pars"],

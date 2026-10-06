@@ -19,13 +19,13 @@ export function splitIdentifier(text: string): string[] {
 /**
  * Deliberately light stemming so `retries`, `retrying` and `retry` meet. No dictionary and no ML; first match wins:
  * words shorter than 4 characters are untouched; `-ies` -> `-y`; `-es` after s, x, z, ch or sh drops `es`; a trailing
- * `-s` (not `-ss`) drops the `s`; `-ing` and `-ed` are dropped when at least 3 characters remain.
+ * `-s` (not `-ss`, `-us` or `-is`, so `status` and `analysis` stay whole and meet `statuses`) drops the `s`; `-ing` and `-ed` are dropped when at least 3 characters remain.
  */
 export function stem(word: string): string {
   if (word.length < 4) return word;
   if (word.endsWith("ies")) return `${word.slice(0, -3)}y`;
   if (/(?:[sxz]|ch|sh)es$/u.test(word)) return word.slice(0, -2);
-  if (word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  if (word.endsWith("s") && !/(?:ss|us|is)$/u.test(word)) return word.slice(0, -1);
   if (word.endsWith("ing") && word.length - 3 >= 3) return word.slice(0, -3);
   if (word.endsWith("ed") && word.length - 2 >= 3) return word.slice(0, -2);
   return word;

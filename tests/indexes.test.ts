@@ -147,6 +147,15 @@ describe("text index and BM25", () => {
   });
 });
 
+describe("singular and plural forms", () => {
+  const plural = buildIndexes([chunk("p1", "src/statuses.ts", "export const statuses = [];", "statuses")]);
+  test("meet in the symbol, path and text indexes", () => {
+    expect(lookupSymbolWord(plural, "status")).toEqual(["p1"]);
+    expect(lookupPathWord(plural, "status")).toEqual(["src/statuses.ts"]);
+    expect(scoreText(plural, tokenizeText("status")).has("p1")).toBe(true);
+  });
+});
+
 describe("determinism", () => {
   test("reversed input builds identical indexes", () => {
     const other = buildIndexes([...chunks].reverse());
