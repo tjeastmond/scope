@@ -11,20 +11,18 @@ import { scoreChunks } from "./score.ts";
 import { extractTaskTerms } from "./terms.ts";
 
 /**
- * Drops a candidate that repeats an earlier one's chunk id or its exact range in the same file (the first, best-ranked,
- * is kept). Chunks within a file never overlap except a container header and its members, which cover different
+ * Drops a candidate that repeats an earlier one's exact range in the same file, which also covers a repeated chunk id
+ * (ids hash the range); the first, best-ranked, is kept. Chunks within a file never overlap except a container header and its members, which cover different
  * lines and so are all kept (docs/chunk-model.md, "Containers").
  */
 export function dedupeCandidates(ranked: readonly Candidate[], indexes: RetrievalIndexes): Candidate[] {
-  const ids = new Set<string>();
   const ranges = new Set<string>();
   const kept: Candidate[] = [];
   for (const candidate of ranked) {
     const chunk = indexes.byId.get(candidate.chunkId);
-    const range = chunk && `${chunk.file}:${chunk.startLine}-${chunk.endLine}`;
-    if (ids.has(candidate.chunkId) || (range !== undefined && ranges.has(range))) continue;
-    ids.add(candidate.chunkId);
-    if (range !== undefined) ranges.add(range);
+    const range = chunk ? `${chunk.file}:${chunk.startLine}-${chunk.endLine}` : candidate.chunkId;
+    if (ranges.has(range)) continue;
+    ranges.add(range);
     kept.push(candidate);
   }
   return kept;

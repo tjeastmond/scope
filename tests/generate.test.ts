@@ -32,7 +32,7 @@ const candidate = (id: string, total: number): Candidate => ({
 
 describe("dedupeCandidates", () => {
   const a = chunk("src/a.ts", "a", 1, 5);
-  const alias = chunk("src/a.ts", "aAlias", 1, 5, "variable");
+  const alias = chunk("src/a.ts", "aAlias", 1, 5, "type");
   const header = chunk("src/a.ts", "Box", 10, 14, "class");
   const member = chunk("src/a.ts", "Box.size", 15, 18, "method");
   const sameRangeElsewhere = chunk("src/b.ts", "b", 1, 5);
