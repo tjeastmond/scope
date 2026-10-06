@@ -119,3 +119,11 @@ test("fixture file estimates stay within a sane multiple of chars/4", () => {
   expect(n).toBeGreaterThanOrEqual(Math.ceil(source.length / 4));
   expect(n).toBeLessThanOrEqual(source.length);
 });
+
+test("camelCase parts are charged separately", () => {
+  expect(heuristicEstimator.count("aAaAaAaA")).toBe(5);
+});
+
+test("each blank line costs a token", () => {
+  expect(heuristicEstimator.count("a\n\n\n\nb")).toBe(6);
+});
