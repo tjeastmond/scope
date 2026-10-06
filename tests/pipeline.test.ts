@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { lstat, readdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import { MAX_CANDIDATES } from "../src/config.ts";
+import { EmptySelectionError } from "../src/context/select.ts";
 import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
@@ -19,7 +20,7 @@ const dueDate = tasks.find((task) => task.id === "due-date-column")!;
 // Spans the frontend, the SQL layer, the Python worker, its TOML config and the docs, so every language is relevant.
 const CROSS_LANGUAGE_TASK =
   "Show each invoice due date in the invoice list, query it in SQL, and make the reminder worker retry attempts configurable from config/app.toml, then document it.";
-const PROVISIONAL = /eligible chunks exceed the candidate cap of 30; candidates were pre-filtered/;
+const PROVISIONAL = /retrieval is provisional/;
 const loaded = await loadChunks(ROOT);
 
 const labelChunk = (label: string): CodeChunk | undefined => {
@@ -45,14 +46,30 @@ async function snapshot(root: string, directory = ""): Promise<Record<string, st
   return result;
 }
 
-test("--no-jev on the mixed fixture selects chunks across languages and warns that retrieval is provisional", async () => {
+test("--no-jev on the mixed fixture selects chunks across languages with no provisional-retrieval warning", async () => {
   expect(loaded.chunks.length).toBeGreaterThan(MAX_CANDIDATES);
   const { result } = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, noJev: true, budget: 100_000 });
   const languages = new Set<string>(result.chunks.map((selected) => selected.chunk.language));
   for (const language of ["typescript", "python", "sql", "markdown"]) expect(languages).toContain(language);
   expect([...languages].some((language) => ["toml", "json", "yaml"].includes(language))).toBe(true);
   expect(result.chunks.length).toBeLessThanOrEqual(MAX_CANDIDATES);
-  expect(result.warnings.filter((warning) => PROVISIONAL.test(warning))).toHaveLength(1);
+  expect(result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(false);
+  expect(result.chunks.every((selected) => selected.origin !== undefined)).toBe(true);
+  expect(result.chunks.some((selected) => Object.keys(selected.signals).length > 0)).toBe(true);
+});
+
+test("a task matching nothing keeps retrieval's guidance and never calls Jev", async () => {
+  let called = false;
+  const provider: DecisionProvider = {
+    async decide() {
+      called = true;
+      return { judgments: [] };
+    },
+  };
+  const run = runScope({ task: "quuxfrobnicate", repo: ROOT, provider });
+  await expect(run).rejects.toBeInstanceOf(EmptySelectionError);
+  await expect(run).rejects.toThrow(/No chunk matched the task/);
+  expect(called).toBe(false);
 });
 
 test("default mode with a fake provider judges the same chunk inventory as --no-jev", async () => {
@@ -70,22 +87,18 @@ test("default mode with a fake provider judges the same chunk inventory as --no-
   // The output order is by score density, so compare the inventories as sets.
   expect(judged[0]!.map((chunk) => chunk.id).sort()).toEqual(offline.result.chunks.map((s) => s.chunk.id).sort());
   expect(judged[0]).toEqual(selectCandidates(CROSS_LANGUAGE_TASK, loaded.chunks).candidates);
-  expect(online.result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(true);
+  expect(judged[0]!.length).toBeLessThanOrEqual(MAX_CANDIDATES);
+  expect(online.result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(false);
 });
 
-// Known gap: the due-date task's other required chunk, web/src/hooks/useInvoices.ts::InvoiceDto, shares no word with
-// the task except the plural "invoices", so the lexical pre-filter drops it. Milestone 3 retrieval is meant to find it.
-test("the pre-filter on the mixed fixture is deterministic, capped and keeps InvoiceRow for the due-date task", () => {
+test("the shortlist on the mixed fixture is deterministic, capped, and holds both due-date chunks", () => {
   const first = selectCandidates(dueDate.task, loaded.chunks);
   const again = selectCandidates(dueDate.task, [...loaded.chunks].reverse());
   expect(first.candidates.map((c) => c.id)).toEqual(again.candidates.map((c) => c.id));
   expect(first.candidates).toHaveLength(MAX_CANDIDATES);
-  expect(first.warning).toMatch(PROVISIONAL);
+  expect(first.warning).toBeUndefined();
   const kept = new Set(first.candidates.map((chunk) => chunk.id));
-  const row = labelChunk("web/src/components/InvoiceRow.tsx::InvoiceRow");
-  expect(dueDate.required).toContain("web/src/components/InvoiceRow.tsx::InvoiceRow");
-  expect(kept.has(row!.id)).toBe(true);
-  expect(selectCandidates(dueDate.task, loaded.chunks, { max: loaded.chunks.length }).warning).toBeUndefined();
+  for (const label of dueDate.required) expect(kept.has(labelChunk(label)!.id)).toBe(true);
 });
 
 test("scanning and running never modify the source repository", async () => {

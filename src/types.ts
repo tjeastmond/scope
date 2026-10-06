@@ -145,6 +145,8 @@ export interface SelectedChunk {
   chunk: CodeChunk;
   /** Deterministic ranking signals by name (empty when none were computed). */
   signals: Record<string, number>;
+  /** How retrieval found the chunk: `direct` (matched the task) or `expanded-from:<chunk id>` (a graph neighbour). */
+  origin?: string;
   /** Jev relevance, absent in `no-jev` mode. */
   relevance?: number;
   /** Ranking score used for selection; not a probability. */

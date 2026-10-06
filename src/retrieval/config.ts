@@ -13,6 +13,8 @@ export interface RetrievalConfig {
   weights: { symbol: number; lexical: number; path: number; dependency: number; test: number; proximity: number };
   /** Maximum candidates passed on to Jev (plan target: 20-30). */
   shortlistSize: number;
+  /** When the best candidate's total score is below this (in [0, 1]), the shortlist is called weak in a warning. */
+  weakShortlistTotal: number;
   /** Caps for one-hop graph expansion of the strongest matches. */
   expansion: {
     /** Top-ranked chunks whose neighbors are considered. */
@@ -27,9 +29,10 @@ export interface RetrievalConfig {
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export const DEFAULT_RETRIEVAL_CONFIG: Readonly<RetrievalConfig> = Object.freeze({
-  version: "retrieval-v2",
+  version: "retrieval-v3",
   weights: Object.freeze({ symbol: 0.3, lexical: 0.2, path: 0.15, dependency: 0.2, test: 0.1, proximity: 0.05 }),
   shortlistSize: 30,
+  weakShortlistTotal: 0.1,
   expansion: Object.freeze({ seedCount: 5, maxNeighborsPerSeed: 4, maxExpanded: 10 }),
 });
 
@@ -49,6 +52,7 @@ export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> =
     version: overrides.version ?? base.version,
     weights: { ...base.weights, ...overrides.weights },
     shortlistSize: overrides.shortlistSize ?? base.shortlistSize,
+    weakShortlistTotal: overrides.weakShortlistTotal ?? base.weakShortlistTotal,
     expansion: { ...base.expansion, ...overrides.expansion },
   };
   if (!config.version.trim()) throw new RetrievalConfigError("version", "must not be empty");
@@ -59,6 +63,9 @@ export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> =
   }
   if (!Object.values(config.weights).some((weight) => weight > 0)) {
     throw new RetrievalConfigError("weights", "at least one weight must be positive");
+  }
+  if (!Number.isFinite(config.weakShortlistTotal) || config.weakShortlistTotal < 0 || config.weakShortlistTotal > 1) {
+    throw new RetrievalConfigError("weakShortlistTotal", `must be a number in [0, 1]: ${config.weakShortlistTotal}`);
   }
   requirePositiveInteger("shortlistSize", config.shortlistSize);
   for (const [name, value] of Object.entries(config.expansion)) requirePositiveInteger(`expansion.${name}`, value);
