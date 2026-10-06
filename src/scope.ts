@@ -68,7 +68,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
   const { chunks, warnings: scanWarnings } = await loadChunks(repo);
-  const candidates = selectCandidates(chunks);
+  const { candidates, warning: retrievalWarning } = selectCandidates(task, chunks);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   const decision = noJev
@@ -88,6 +88,9 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   });
 
   const selected = selectWithinBudget(scored, { task, mode, budget, estimator: charsPerTokenEstimator });
-  const result = { ...selected, warnings: [...scanWarnings, ...selected.warnings] };
+  const result = {
+    ...selected,
+    warnings: [...scanWarnings, ...(retrievalWarning ? [retrievalWarning] : []), ...selected.warnings],
+  };
   return { result, decision };
 }

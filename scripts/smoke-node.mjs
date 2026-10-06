@@ -14,6 +14,10 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE = join(ROOT, "fixtures/webhook-service");
 const TASK = "Add retry handling to Stripe webhook processing";
+const MIXED_FIXTURE = join(ROOT, "fixtures/mixed-app");
+// Spans TypeScript, Python, SQL, TOML and Markdown so the lexical pre-filter keeps chunks from each.
+const MIXED_TASK =
+  "Show each invoice due date in the invoice list, query it in SQL, and make the reminder worker retry attempts configurable from config/app.toml, then document it.";
 const NODE = resolve(process.env.SCOPE_NODE ?? process.execPath);
 // npm's CLI entry sits next to the Node under test (nvm, fnm, Homebrew, nodejs.org) or in the distro package location.
 const NPM_CANDIDATES = [
@@ -85,6 +89,20 @@ try {
   expectIncludes("scope --help", help, "Usage: scope");
   const selection = run("scope <task> --no-jev", scope, [TASK, "--repo", FIXTURE, "--no-jev"], { cwd: projectDir });
   expectIncludes("scope <task> --no-jev", selection, "== src/util/retry.ts:");
+
+  const mixed = run(
+    "scope <task> --repo mixed-app --no-jev",
+    scope,
+    [MIXED_TASK, "--repo", MIXED_FIXTURE, "--no-jev"],
+    {
+      cwd: projectDir,
+    },
+  );
+  for (const extension of [".ts", ".tsx", ".py", ".sql", ".toml", ".md"]) {
+    if (!new RegExp(`^== \\S+${extension.replace(".", "\\.")}:`, "m").test(mixed)) {
+      fail(`scope mixed-app --no-jev: output has no chunk from a ${extension} file\n${mixed}`);
+    }
+  }
 
   const version = run("node --version", NODE, ["--version"]).trim();
   process.stdout.write(`node ${version}: packaged CLI smoke passed\n`);
