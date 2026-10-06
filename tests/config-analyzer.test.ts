@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { configAnalyzer, extractConfigChunks } from "../src/analyzers/config.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const PACKAGE_JSON = `{
@@ -84,7 +84,7 @@ y = 2
 
 const inventory = (chunks: CodeChunk[]) => chunks.map((c) => `${c.kind}:${c.name}@${c.startLine}-${c.endLine}`);
 
-const analyze = (path: string, source: string) => extractConfigChunks(path, source, charsPerTokenEstimator);
+const analyze = (path: string, source: string) => extractConfigChunks(path, source, heuristicEstimator);
 
 test("golden inventory for package.json: top-level keys only, scripts and dependencies stay whole", async () => {
   const { chunks, warnings } = await analyze("package.json", PACKAGE_JSON);
@@ -263,7 +263,7 @@ test("unicode keys and content", async () => {
 test("the analyzer is registered for json, yaml and toml and picks the grammar from the path", async () => {
   expect(configAnalyzer.languages).toEqual(["json", "yaml", "toml"]);
   const file = { path: "x/y.yml", source: "a: 1\n" };
-  const result = await analyzeFile(file, "yaml", charsPerTokenEstimator);
+  const result = await analyzeFile(file, "yaml", heuristicEstimator);
   expect(inventory(result.chunks)).toEqual(["config:a@1-1"]);
 });
 

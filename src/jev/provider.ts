@@ -1,6 +1,6 @@
 import { TypeSafeClient, noul } from "@typesafe-ai/sdk";
 import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_TOKEN_BUDGET, JEV_DEADLINE_MS } from "../config.ts";
-import { charsPerTokenEstimator } from "../context/tokens.ts";
+import { heuristicEstimator } from "../context/tokens.ts";
 import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
 import { JevRequestError, JevUnavailableError } from "./errors.ts";
 import { validateRelevance } from "./validate.ts";
@@ -66,7 +66,7 @@ function buildBatch(task: string, chunks: CodeChunk[], first: number): Batch {
   return { chunks, refs, request: { state, questions } };
 }
 
-const requestTokens = (batch: Batch) => charsPerTokenEstimator.count(JSON.stringify(batch.request));
+const requestTokens = (batch: Batch) => heuristicEstimator.count(JSON.stringify(batch.request));
 
 /** Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). */
 function planBatches(task: string, candidates: readonly CodeChunk[], budget: number): Batch[] {

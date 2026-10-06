@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { extractEcmascript } from "../src/analyzers/ecmascript.ts";
 import { extractPythonChunks } from "../src/analyzers/python.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { Reference } from "../src/types.ts";
 
 /** Compact `line name <- specifier [evidence]` form of every distinct reference in a file's chunks. */
@@ -12,8 +12,8 @@ async function refsOf(
 ): Promise<string[]> {
   const result =
     language === "ts"
-      ? await extractEcmascript(path, source, charsPerTokenEstimator)
-      : await extractPythonChunks(path, source, charsPerTokenEstimator);
+      ? await extractEcmascript(path, source, heuristicEstimator)
+      : await extractPythonChunks(path, source, heuristicEstimator);
   const seen = new Map<string, Reference>();
   for (const chunk of result.chunks) {
     for (const ref of chunk.references) seen.set(JSON.stringify(ref), ref);
@@ -103,7 +103,7 @@ test("TS/JS references attach by line range, and top-level ones to every chunk o
     "  return import(dynamicPath);", //        7: only inside second
     "}", //                                    8
   ].join("\n");
-  const { chunks } = await extractEcmascript("a.ts", source, charsPerTokenEstimator);
+  const { chunks } = await extractEcmascript("a.ts", source, heuristicEstimator);
   const names = (name: string) => chunks.find((c) => c.name === name)?.references.map((r) => r.name);
   expect(names("first")).toEqual(["shared", "./inner"]);
   expect(names("second")).toEqual(["shared", "dynamicPath"]);
@@ -119,9 +119,9 @@ test("TS/JS references attach by line range, and top-level ones to every chunk o
 });
 
 test("TS/JS: files without imports and statement-only files have no references", async () => {
-  const none = await extractEcmascript("a.ts", "export function f() { return 1; }\n", charsPerTokenEstimator);
+  const none = await extractEcmascript("a.ts", "export function f() { return 1; }\n", heuristicEstimator);
   expect(none.chunks[0]?.references).toEqual([]);
-  const importsOnly = await extractEcmascript("a.ts", 'import "x";\n', charsPerTokenEstimator);
+  const importsOnly = await extractEcmascript("a.ts", 'import "x";\n', heuristicEstimator);
   expect(importsOnly.chunks).toEqual([]);
 });
 
@@ -176,7 +176,7 @@ test("Python dynamic imports: literals plain, non-literals unresolved, nested im
     "def plain():",
     "    return 1",
   ].join("\n");
-  const { chunks } = await extractPythonChunks("a.py", source, charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", source, heuristicEstimator);
   const load = chunks.find((c) => c.name === "load");
   const plain = chunks.find((c) => c.name === "plain");
   expect(load?.references.map((r) => [r.from.line, r.name, r.specifier, r.evidence])).toEqual([
@@ -192,7 +192,7 @@ test("Python dynamic imports: literals plain, non-literals unresolved, nested im
 });
 
 test("Python: no imports, no references", async () => {
-  const { chunks } = await extractPythonChunks("a.py", "def f():\n    return 1\n", charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", "def f():\n    return 1\n", heuristicEstimator);
   expect(chunks[0]?.references).toEqual([]);
 });
 
@@ -212,7 +212,7 @@ test("a container header and its members each get file-level references once", a
     "    def c(self):",
     "        return 3",
   ].join("\n");
-  const { chunks } = await extractPythonChunks("a.py", source, charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", source, heuristicEstimator);
   expect(chunks.length).toBeGreaterThan(2);
   for (const chunk of chunks) expect(chunk.references.map((r) => r.name)).toEqual(["os"]);
 });
@@ -224,7 +224,7 @@ test("Python dynamic imports: **kwargs does not override an explicit name= keywo
     '    a = __import__(name="pkg", **options)',
     '    b = importlib.import_module(**options, name="other")',
   ].join("\n");
-  const { chunks } = await extractPythonChunks("a.py", source, charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", source, heuristicEstimator);
   const refs = chunks.find((c) => c.name === "f")?.references.filter((r) => r.from.line > 1);
   expect(refs?.map((r) => [r.from.line, r.name, r.evidence])).toEqual([
     [3, "pkg", undefined],
@@ -241,7 +241,7 @@ test("local bindings and namespace imports are recorded", async () => {
       'import * as ns from "./c";',
       "export const x = 1;",
     ].join("\n"),
-    charsPerTokenEstimator,
+    heuristicEstimator,
   );
   const byName = new Map(ts.chunks.flatMap((c) => c.references).map((r) => [r.name, r]));
   expect(byName.get("default")?.local).toBe("def");
@@ -253,7 +253,7 @@ test("local bindings and namespace imports are recorded", async () => {
   const py = await extractPythonChunks(
     "a.py",
     ["import a.b as ab", "from x import y as z, w", "", "def f():", "    pass"].join("\n"),
-    charsPerTokenEstimator,
+    heuristicEstimator,
   );
   const pyRefs = new Map(py.chunks.flatMap((c) => c.references).map((r) => [r.name, r]));
   expect(pyRefs.get("ab")).toMatchObject({ namespace: true, specifier: "a.b" });

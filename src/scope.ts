@@ -4,7 +4,7 @@ import { analyzeFile, binaryWarning } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { EmptySelectionError, selectWithinBudget } from "./context/select.ts";
-import { charsPerTokenEstimator } from "./context/tokens.ts";
+import { heuristicEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
@@ -55,7 +55,7 @@ export async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; w
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
     const source = redactSecrets(text);
-    const analysis = await analyzeFile({ path: file, source }, language, charsPerTokenEstimator);
+    const analysis = await analyzeFile({ path: file, source }, language, heuristicEstimator);
     chunks.push(...analysis.chunks);
     warnings.push(...analysis.warnings);
   }
@@ -94,7 +94,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     };
   });
 
-  const selected = selectWithinBudget(scored, { task, mode, budget, estimator: charsPerTokenEstimator });
+  const selected = selectWithinBudget(scored, { task, mode, budget, estimator: heuristicEstimator });
   const result = {
     ...selected,
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,

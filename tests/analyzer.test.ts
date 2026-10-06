@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { analyzeFile, analyzerFor } from "../src/analyzers/index.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 
 const SOURCE = "export function a() {\n  return 1;\n}\n\nexport function b() {\n  return 2;\n}\n";
 
@@ -10,23 +10,23 @@ test("the registry resolves known languages and returns undefined for others", (
 });
 
 test("analyzeFile returns chunks and a warnings array", async () => {
-  const result = await analyzeFile({ path: "src/a.ts", source: SOURCE }, "typescript", charsPerTokenEstimator);
+  const result = await analyzeFile({ path: "src/a.ts", source: SOURCE }, "typescript", heuristicEstimator);
   expect(result.chunks.map((c) => c.name)).toEqual(["a", "b"]);
   expect(result.warnings).toEqual([]);
 });
 
 test("analyzeFile falls back to text windows, with a warning, for a language without an analyzer", async () => {
-  const result = await analyzeFile({ path: "x.go", source: "package x\n" }, "go", charsPerTokenEstimator);
+  const result = await analyzeFile({ path: "x.go", source: "package x\n" }, "go", heuristicEstimator);
   expect(result.chunks.map((c) => c.kind)).toEqual(["file"]);
   expect(result.warnings).toEqual([expect.stringMatching(/^x\.go: no analyzer for language "go"/)]);
 });
 
 test("CRLF files give the same ranges and ids as LF, and content keeps the original text", async () => {
-  const lf = await analyzeFile({ path: "src/a.ts", source: SOURCE }, "typescript", charsPerTokenEstimator);
+  const lf = await analyzeFile({ path: "src/a.ts", source: SOURCE }, "typescript", heuristicEstimator);
   const crlf = await analyzeFile(
     { path: "src/a.ts", source: SOURCE.replaceAll("\n", "\r\n") },
     "typescript",
-    charsPerTokenEstimator,
+    heuristicEstimator,
   );
   expect(crlf.chunks.map((c) => [c.id, c.startLine, c.endLine])).toEqual(
     lf.chunks.map((c) => [c.id, c.startLine, c.endLine]),
