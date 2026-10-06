@@ -9,8 +9,9 @@ they are. Do not rename symbols: the labels below depend on them.
 
 ## Machine-readable labels
 
-`fixtures/mixed-app.tasks.json` is an array of `{ id, task, required[], useful[], irrelevant[] }`. Each entry in the
-three lists is a chunk label:
+`tasks/mixed-app.json` is an array of `{ id, split, task, required[], useful[], irrelevant[] }`. `split` is `tuning`
+(retrieval may be tuned on it) or `heldout` (kept to measure generalization; never tune on it). Each entry in the three
+lists is a chunk label:
 
 - `path::symbol` is the chunk whose `file` is `path` (relative to `fixtures/mixed-app/`) and whose `name` is `symbol`,
   exactly as the analyzers name it (`InvoiceService.create`, `Billing.Ledger`, `Architecture > Worker > Retries`).
