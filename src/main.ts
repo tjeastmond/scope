@@ -121,6 +121,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
       task: options.task,
       repo: options.repo,
       budget: options.budget,
+      format: options.format,
       noJev: options.noJev,
       provider: io.provider,
     });
