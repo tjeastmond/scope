@@ -1,8 +1,6 @@
 Scope context for: Validate invoice totals
 
 Mode: jev
-Budget: 900 estimated tokens
-Artifact: 312 estimated tokens (estimator scope-heuristic-v1), 1100 characters, 40 lines
 Regions: 3
 Retrieval config: golden-1
 
@@ -24,7 +22,6 @@ src/invoices.ts:3-5 total
   Signals: lexical 0.25, path 0.20, symbol 0.50
   Jev relevance: 0.91
   Score: 0.91
-  Token cost: 10 estimated tokens
   Origin: direct (dependency distance 0)
   Reason: golden
 
@@ -32,7 +29,6 @@ src/invoices.ts:7-9 due
   Signals: dependency 1.00
   Jev relevance: 0.60
   Score: 0.60
-  Token cost: 10 estimated tokens
   Origin: expanded from src/invoices.ts:3-5 total (dependency distance 1)
   Reason: golden
 
@@ -40,22 +36,16 @@ src/invoices.ts:1-1 Money
   Signals: none
   Jev relevance: not judged
   Score: 0.00
-  Token cost: 10 estimated tokens
   Origin: supporting declaration for src/invoices.ts:3-5 total
   Reason: Supporting declaration for total
 
--- Left out (over budget) --
-src/big.ts:10-15 big1 (relevance 0.89): 101 estimated tokens, needs a budget of at least 401
-src/big.ts:20-25 big2 (relevance 0.88): 102 estimated tokens, needs a budget of at least 402
-src/big.ts:30-35 big3 (relevance 0.87): 103 estimated tokens, needs a budget of at least 403
-src/big.ts:40-45 big4 (relevance 0.86): 104 estimated tokens, needs a budget of at least 404
-src/big.ts:50-55 big5 (relevance 0.85): 105 estimated tokens, needs a budget of at least 405
-and 2 more left out; --format json lists every one.
-
 -- Left out (below relevance minimum) --
-src/big.ts:80-85 big8 (score 0.50): below the relevance minimum
-src/big.ts:90-95 big9 (score 0.50): below the relevance minimum
-
--- Unmet coherence --
-src/invoices.ts:3-5 total needs chunk src/types.ts#Money: too large to include as a supporting declaration (too-large)
-src/invoices.ts:7-9 due needs src/big.ts:10-15 big1: did not fit the budget (over-budget)
+src/big.ts:10-15 big1 (relevance 0.44): below the relevance minimum
+src/big.ts:20-25 big2 (relevance 0.43): below the relevance minimum
+src/big.ts:30-35 big3 (relevance 0.42): below the relevance minimum
+src/big.ts:40-45 big4 (relevance 0.41): below the relevance minimum
+src/big.ts:50-55 big5 (relevance 0.40): below the relevance minimum
+src/big.ts:60-65 big6 (relevance 0.39): below the relevance minimum
+src/big.ts:70-75 big7 (relevance 0.38): below the relevance minimum
+src/big.ts:80-85 big8 (relevance 0.37): below the relevance minimum
+src/big.ts:90-95 big9 (relevance 0.36): below the relevance minimum

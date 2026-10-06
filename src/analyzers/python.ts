@@ -1,5 +1,5 @@
 import type { Node } from "web-tree-sitter";
-import type { AnalysisResult, Analyzer, ChunkKind, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, ChunkKind } from "../types.ts";
 import { assembleChunks, type Region } from "./assemble.ts";
 import { parserFor } from "./parser.ts";
 import { extractPythonReferences } from "./python-references.ts";
@@ -137,11 +137,7 @@ function collect(scope: Node[], owner: Found | undefined, found: Found[]): void 
  * declaration spans (decorators and docstrings included), and line numbers are 1-based and inclusive. Declarations
  * that contain syntax errors are skipped and reported in `warnings`.
  */
-export async function extractPythonChunks(
-  file: string,
-  source: string,
-  estimator: TokenEstimator,
-): Promise<AnalysisResult> {
+export async function extractPythonChunks(file: string, source: string): Promise<AnalysisResult> {
   const parser = await parserFor("python");
   const tree = parser.parse(source);
   if (!tree) throw new Error(`Tree-sitter could not parse ${file}`);
@@ -167,7 +163,6 @@ export async function extractPythonChunks(
       "python",
       regions,
       tree.rootNode.hasError && source.trim() !== "",
-      estimator,
       "declarations",
       extractPythonReferences(tree.rootNode),
     );
@@ -178,5 +173,5 @@ export async function extractPythonChunks(
 
 export const pythonAnalyzer: Analyzer = {
   languages: ["python"],
-  analyze: (file, estimator) => extractPythonChunks(file.path, file.source, estimator),
+  analyze: (file) => extractPythonChunks(file.path, file.source),
 };

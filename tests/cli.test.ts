@@ -126,20 +126,12 @@ test.each([
 
 const EMPTY = 'The task description is empty. Pass it in quotes: scope "<task>"';
 const FORMAT = "--format must be one of text, markdown, json";
-const budgetMsg = (got: string) => `--budget must be a positive integer (digits only): got "${got}"`;
 const NOT_DIR = `${FIXTURE}.TASK.md`;
 test.each([
   [[""], EMPTY],
   [["   "], EMPTY],
   [[TASK, "--format", "xml"], `${FORMAT}: got "xml"`],
   [[TASK, "--format", ""], `${FORMAT}: got ""`],
-  [[TASK, "--budget", "abc"], budgetMsg("abc")],
-  [[TASK, "--budget", ""], budgetMsg("")],
-  [[TASK, "--budget", "0"], budgetMsg("0")],
-  [[TASK, "--budget=-5"], budgetMsg("-5")],
-  [[TASK, "--budget", "1.5"], budgetMsg("1.5")],
-  [[TASK, "--budget", "1e3"], budgetMsg("1e3")],
-  [[TASK, "--budget", "NaN"], budgetMsg("NaN")],
   [[TASK, "--repo", ""], "--repo requires a path"],
   [[TASK, "--repo", "/nonexistent/dir"], "--repo does not exist or is not accessible: /nonexistent/dir"],
   [[TASK, "--repo", NOT_DIR], `--repo is not a directory: ${NOT_DIR}`],
@@ -163,10 +155,10 @@ test("--help documents every flag with its default", async () => {
   const run = capture();
   expect(await main(["--help"], run.io)).toBe(0);
   const help = run.stdout();
-  for (const flag of ["--repo", "--budget", "--format", "--output", "--explain", "--no-jev", "--help"])
+  for (const flag of ["--repo", "--format", "--output", "--explain", "--no-jev", "--help"])
     expect(help).toContain(flag);
   expect(help).toContain("(default: current directory)");
-  expect(help).toContain("(default: 8000)");
+  expect(help).not.toContain("--budget");
   expect(help).toContain("(default: text)");
   expect(help).toContain("(default: stdout)");
   expect(help).toContain("(default: off)");
@@ -238,11 +230,17 @@ test("no arguments prints help", async () => {
   expect(run.stdout()).toContain("Usage: scope");
 });
 
-test("the budget is respected", async () => {
-  const run = capture();
-  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--budget", "700"], run.io)).toBe(0);
-  expect(Math.ceil(run.stdout().length / 4)).toBeLessThanOrEqual(700);
-});
+test.each([[[TASK, "--budget", "700"]], [[TASK, "--budget=700"]], [[TASK, "--budget", "abc"]]])(
+  "--budget is removed: %j is a usage error that says so",
+  async (argv) => {
+    const run = capture();
+    expect(await main([...argv, "--repo", FIXTURE, "--no-jev"], run.io)).toBe(2);
+    expect(run.stdout()).toBe("");
+    expect(run.stderr()).toBe(
+      "scope: Unknown option '--budget'. Scope has no token budget: it returns everything relevant to the task.\n",
+    );
+  },
+);
 
 const built = existsSync(join(ROOT, "dist/cli.js"));
 test.skipIf(!built)("compiled CLI under Node: --no-jev works, default path without a key exits non-zero", async () => {

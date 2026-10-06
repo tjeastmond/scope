@@ -1,12 +1,5 @@
 import type { ScopeRegion, ScopeResult, SelectedChunk } from "../types.ts";
-import {
-  belowThresholdLines,
-  explainBlocks,
-  leftOutLines,
-  sanitizeInline,
-  summaryLines,
-  unmetLines,
-} from "./report.ts";
+import { belowThresholdLines, explainBlocks, sanitizeInline, summaryLines } from "./report.ts";
 import { labelOf } from "./text.ts";
 
 /** Longest run of consecutive backticks anywhere in `text` (0 when there are none). */
@@ -75,9 +68,7 @@ export function renderMarkdown(result: ScopeResult): string {
       out.push("", `### ${title}`, "", ...lines.map((line) => `- ${line}`));
     }
   }
-  const leftOut = [...leftOutLines(result, codeSpan), ...belowThresholdLines(result, codeSpan)];
+  const leftOut = belowThresholdLines(result, codeSpan);
   if (leftOut.length > 0) out.push("", "## Left out", "", ...leftOut.map((line) => `- ${line}`));
-  const unmet = unmetLines(result, codeSpan);
-  if (unmet.length > 0) out.push("", "## Unmet coherence", "", ...unmet.map((line) => `- ${line}`));
   return `${out.join("\n")}\n`;
 }

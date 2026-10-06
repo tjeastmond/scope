@@ -1,6 +1,6 @@
 import type { Node } from "web-tree-sitter";
 import { assembleChunks } from "./assemble.ts";
-import type { AnalysisResult, Analyzer, ChunkKind, Language, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, ChunkKind, Language } from "../types.ts";
 import { type Grammar, parserFor } from "./parser.ts";
 
 interface Found {
@@ -118,11 +118,7 @@ function formatFor(path: string) {
  * the exact source lines the entry spans and line numbers are 1-based and inclusive. Entries survive syntax errors
  * elsewhere in the file; any error adds a warning.
  */
-export async function extractConfigChunks(
-  file: string,
-  source: string,
-  estimator: TokenEstimator,
-): Promise<AnalysisResult> {
+export async function extractConfigChunks(file: string, source: string): Promise<AnalysisResult> {
   const { grammar, language, find } = formatFor(file);
   const parser = await parserFor(grammar);
   const tree = parser.parse(source);
@@ -151,7 +147,6 @@ export async function extractConfigChunks(
       language,
       unique,
       tree.rootNode.hasError,
-      estimator,
       "entries",
     );
     if (grammar === "json" && tree.rootNode.descendantsOfType("comment").length > 0) {
@@ -165,5 +160,5 @@ export async function extractConfigChunks(
 
 export const configAnalyzer: Analyzer = {
   languages: ["json", "yaml", "toml"],
-  analyze: (file, estimator) => extractConfigChunks(file.path, file.source, estimator),
+  analyze: (file) => extractConfigChunks(file.path, file.source),
 };

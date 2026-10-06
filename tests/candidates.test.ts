@@ -13,7 +13,6 @@ const chunk = (file: string, startLine: number, id: string, content = "", name =
   endLine: startLine + 1,
   content,
   references: [],
-  estimatedTokens: 0,
 });
 
 const SMALL = resolveRetrievalConfig({ shortlistSize: 3, expansion: { seedCount: 2, maxExpanded: 2 } });

@@ -18,7 +18,6 @@ function chunk(file: string, name: string, startLine: number, endLine: number, k
     endLine,
     content: `export function ${name}() {}`,
     references: [],
-    estimatedTokens: 5,
   } satisfies CodeChunk;
 }
 

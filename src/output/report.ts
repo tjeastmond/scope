@@ -16,13 +16,11 @@ export const sanitizeInline = (text: string): string => text.replace(CONTROL, "\
 export const scoreLabel = (relevance: number | undefined, score: number): string =>
   `${relevance === undefined ? "score" : "relevance"} ${(relevance ?? score).toFixed(2)}`;
 
-/** Mode, budget, artifact size, region count and retrieval version; the same facts in every human-readable format. */
+/** Mode, region count and retrieval version; the same facts in every human-readable format. */
 export function summaryLines(result: ScopeResult, quote: Quote): string[] {
-  const { mode, budget, estimatedTokens, estimator, characters, lines, regions, retrievalConfigVersion } = result;
+  const { mode, regions, retrievalConfigVersion } = result;
   return [
     `Mode: ${mode}`,
-    `Budget: ${budget} estimated tokens`,
-    `Artifact: ${estimatedTokens} estimated tokens (estimator ${quote(estimator)}), ${characters} characters, ${lines} lines`,
     `Regions: ${regions.length}`,
     ...(retrievalConfigVersion === undefined ? [] : [`Retrieval config: ${quote(retrievalConfigVersion)}`]),
   ];
@@ -33,12 +31,9 @@ export const location = (
   quote: Quote,
 ): string => quote(`${entry.file}:${entry.startLine}-${entry.endLine}${entry.name ? ` ${entry.name}` : ""}`);
 
-const skippedFor = (result: ScopeResult, reason: SkippedChunk["reason"]): SkippedChunk[] =>
-  result.skipped.filter((entry) => entry.reason === reason);
-
 /** Most relevant first, ties by location. */
 const mostRelevantFirst = (entries: SkippedChunk[]): SkippedChunk[] =>
-  entries.sort(
+  [...entries].sort(
     (a, b) =>
       (b.relevance ?? b.score) - (a.relevance ?? a.score) ||
       a.file.localeCompare(b.file) ||
@@ -46,41 +41,17 @@ const mostRelevantFirst = (entries: SkippedChunk[]): SkippedChunk[] =>
       a.chunkId.localeCompare(b.chunkId),
   );
 
-/** Most over-budget skips listed in text and Markdown; the rest are counted, so the list cannot starve the budget. */
-export const MAX_LEFT_OUT_LISTED = 5;
-
 /**
- * One line per relevant chunk that did not fit, most relevant first (ties by location), at most
- * `MAX_LEFT_OUT_LISTED`, then a count of the rest. Empty when nothing was left out for budget reasons. JSON lists all.
- */
-export function leftOutLines(result: ScopeResult, quote: Quote): string[] {
-  const ranked = mostRelevantFirst(skippedFor(result, "over-budget"));
-  const lines = ranked
-    .slice(0, MAX_LEFT_OUT_LISTED)
-    .map(
-      (entry) =>
-        `${location(entry, quote)} (${scoreLabel(entry.relevance, entry.score)}): ${entry.estimatedTokens} estimated tokens` +
-        (entry.minimumBudget === undefined ? "" : `, needs a budget of at least ${entry.minimumBudget}`),
-    );
-  const more = ranked.length - lines.length;
-  return more > 0 ? [...lines, `and ${more} more left out; --format json lists every one.`] : lines;
-}
-
-/**
- * Below-threshold skips are expected filtering, so by default they are only counted. Under `--explain` the most
- * relevant ones are listed too, capped like the over-budget list; JSON lists every one.
+ * Below-threshold skips are expected filtering, so by default they are only counted. Under `--explain` every one is
+ * listed, most relevant first (there are at most as many as the retrieval shortlist).
  */
 export function belowThresholdLines(result: ScopeResult, quote: Quote): string[] {
-  const ranked = mostRelevantFirst(skippedFor(result, "below-threshold"));
-  if (ranked.length === 0) return [];
-  if (!result.explain) return [`${ranked.length} candidate(s) scored below the relevance minimum and are not listed.`];
-  const lines = ranked
-    .slice(0, MAX_LEFT_OUT_LISTED)
-    .map(
-      (entry) => `${location(entry, quote)} (${scoreLabel(entry.relevance, entry.score)}): below the relevance minimum`,
-    );
-  const more = ranked.length - lines.length;
-  return more > 0 ? [...lines, `and ${more} more below the relevance minimum; --format json lists every one.`] : lines;
+  if (result.skipped.length === 0) return [];
+  if (!result.explain)
+    return [`${result.skipped.length} candidate(s) scored below the relevance minimum and are not listed.`];
+  return mostRelevantFirst(result.skipped).map(
+    (entry) => `${location(entry, quote)} (${scoreLabel(entry.relevance, entry.score)}): below the relevance minimum`,
+  );
 }
 
 /** Chunk ids resolved to `path:start-end name` where the result knows them, else `chunk <id>`. */
@@ -116,21 +87,9 @@ export function explainBlocks(result: ScopeResult, quote: Quote): ExplainBlock[]
         `Signals: ${found.length === 0 ? "none" : found.join(", ")}`,
         `Jev relevance: ${relevance === undefined ? "not judged" : relevance.toFixed(2)}`,
         `Score: ${score.toFixed(2)}`,
-        `Token cost: ${chunk.estimatedTokens} estimated tokens`,
         `Origin: ${source}`,
         `Reason: ${quote(reason)}`,
       ],
     };
   });
-}
-
-/** One line per unmet requirement, with chunk ids resolved to `path:start-end name` where the result knows them. */
-export function unmetLines(result: ScopeResult, quote: Quote): string[] {
-  const label = labeler(result, quote);
-  return result.unmetCoherence.map(
-    (entry) =>
-      `${label(entry.chunkId)} needs ${label(entry.requiredId)}: ${
-        entry.reason === "too-large" ? "too large to include as a supporting declaration" : "did not fit the budget"
-      } (${entry.reason})`,
-  );
 }

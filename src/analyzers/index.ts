@@ -1,4 +1,4 @@
-import type { AnalysisResult, Analyzer, CodeChunk, Language, SourceFile, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, CodeChunk, Language, SourceFile } from "../types.ts";
 import { configAnalyzer } from "./config.ts";
 import { ecmascriptAnalyzer } from "./ecmascript.ts";
 import { markdownAnalyzer } from "./markdown.ts";
@@ -58,22 +58,18 @@ export function textOnlySummary(paths: readonly string[], detailed: boolean): st
  * one that extracts nothing from non-blank source falls back to text windows over the whole file; an analyzer that
  * recovered chunks from a file with syntax errors keeps them and gets text windows over the uncovered lines only.
  */
-export async function analyzeFile(
-  file: SourceFile,
-  language: Language,
-  estimator: TokenEstimator,
-): Promise<AnalysisResult> {
+export async function analyzeFile(file: SourceFile, language: Language): Promise<AnalysisResult> {
   if (file.source.includes("\0")) return { chunks: [], warnings: [binaryWarning(file.path)] };
   const analyzer = analyzerFor(language);
   const fallback = (reason: string, covered: readonly CodeChunk[] = []) =>
-    textFallback(file.path, file.source, language, estimator, reason, covered);
+    textFallback(file.path, file.source, language, reason, covered);
   if (!analyzer) {
     const result = fallback(`no analyzer for language "${language}"`);
     return result.chunks.length > 0 ? { ...result, textOnly: true } : result;
   }
   let analysis: AnalysisResult;
   try {
-    analysis = await analyzer.analyze(file, estimator, language);
+    analysis = await analyzer.analyze(file, language);
   } catch (error) {
     return fallback(`analyzer failed (${briefly(error)})`);
   }

@@ -16,7 +16,6 @@ const chunk = (id: string, content = "code"): CodeChunk => ({
   endLine: 2,
   content,
   references: [],
-  estimatedTokens: 1,
 });
 
 function fakeClient(relevance: (ref: string) => unknown = () => 0.7) {
@@ -52,29 +51,29 @@ test("asks one Noul per candidate that names the candidate, and maps answers bac
   expect(result.latencyMs).toBeGreaterThanOrEqual(0);
 });
 
-test("splits candidates across requests within the token budget and sums usage", async () => {
+test("splits candidates across requests within the character limit and sums usage", async () => {
   const { client, calls } = fakeClient();
   const candidates = [chunk("a", "x".repeat(400)), chunk("b", "x".repeat(400)), chunk("c", "x".repeat(400))];
-  const result = await new JevDecisionProvider({ client, batchTokenBudget: 550 }).decide({ task: "t", candidates });
+  const result = await new JevDecisionProvider({ client, batchMaxChars: 2200 }).decide({ task: "t", candidates });
 
   expect(calls.map((call) => Object.keys(call.questions))).toEqual([["c0", "c1"], ["c2"]]);
   expect(result.judgments.map((j) => j.chunkId)).toEqual(["a", "b", "c"]);
   expect(result.usage).toEqual({ inputTokens: 20, outputTokens: 4 });
 });
 
-test("every emitted request fits the configured budget", async () => {
+test("every emitted request fits the configured character limit", async () => {
   const { client, calls } = fakeClient();
-  const budget = 400;
+  const limit = 1600;
   const candidates = Array.from({ length: 12 }, (_unused, i) => chunk(`k${i}`, "y".repeat(100 + i * 20)));
-  await new JevDecisionProvider({ client, batchTokenBudget: budget }).decide({ task: "t", candidates });
+  await new JevDecisionProvider({ client, batchMaxChars: limit }).decide({ task: "t", candidates });
 
   expect(calls.length).toBeGreaterThan(1);
-  for (const call of calls) expect(Math.ceil(JSON.stringify(call).length / 4)).toBeLessThanOrEqual(budget);
+  for (const call of calls) expect(JSON.stringify(call).length).toBeLessThanOrEqual(limit);
 });
 
 test("refuses to send a candidate too large for any request", async () => {
   const { client, calls } = fakeClient();
-  const provider = new JevDecisionProvider({ client, batchTokenBudget: 50 });
+  const provider = new JevDecisionProvider({ client, batchMaxChars: 200 });
   await expect(provider.decide({ task: "t", candidates: [chunk("a", "x".repeat(4000))] })).rejects.toThrow(
     JevRequestError,
   );
@@ -83,7 +82,7 @@ test("refuses to send a candidate too large for any request", async () => {
 
 test("rejects an oversized task before sending anything", async () => {
   const { client, calls } = fakeClient();
-  const provider = new JevDecisionProvider({ client, batchTokenBudget: 500 });
+  const provider = new JevDecisionProvider({ client, batchMaxChars: 2000 });
   await expect(provider.decide({ task: "x".repeat(4000), candidates: [chunk("a")] })).rejects.toThrow(
     /too large to send/,
   );

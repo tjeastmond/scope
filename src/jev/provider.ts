@@ -1,6 +1,5 @@
 import { TypeSafeClient, noul } from "@typesafe-ai/sdk";
-import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_TOKEN_BUDGET, JEV_DEADLINE_MS } from "../config.ts";
-import { heuristicEstimator } from "../context/tokens.ts";
+import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_MAX_CHARS, JEV_DEADLINE_MS } from "../config.ts";
 import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
 import { JevRequestError, JevUnavailableError } from "./errors.ts";
 import { validateRelevance } from "./validate.ts";
@@ -18,7 +17,7 @@ export interface JevClient {
 
 export interface JevProviderOptions {
   client?: JevClient;
-  batchTokenBudget?: number;
+  batchMaxChars?: number;
   deadlineMs?: number;
 }
 
@@ -66,24 +65,24 @@ function buildBatch(task: string, chunks: CodeChunk[], first: number): Batch {
   return { chunks, refs, request: { state, questions } };
 }
 
-const requestTokens = (batch: Batch) => heuristicEstimator.count(JSON.stringify(batch.request));
+const requestChars = (batch: Batch) => JSON.stringify(batch.request).length;
 
 /** Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). */
-function planBatches(task: string, candidates: readonly CodeChunk[], budget: number): Batch[] {
+function planBatches(task: string, candidates: readonly CodeChunk[], limit: number): Batch[] {
   const batches: Batch[] = [];
   let current: CodeChunk[] = [];
   let first = 0;
   for (const chunk of candidates) {
-    if (current.length > 0 && requestTokens(buildBatch(task, [...current, chunk], first)) > budget) {
+    if (current.length > 0 && requestChars(buildBatch(task, [...current, chunk], first)) > limit) {
       batches.push(buildBatch(task, current, first));
       first += current.length;
       current = [];
     }
     current.push(chunk);
-    const tokens = requestTokens(buildBatch(task, current, first));
-    if (current.length === 1 && tokens > budget) {
+    const size = requestChars(buildBatch(task, current, first));
+    if (current.length === 1 && size > limit) {
       throw new JevRequestError(
-        `${chunk.file}:${chunk.startLine} with the task is too large to send to Jev (~${tokens} tokens).`,
+        `${chunk.file}:${chunk.startLine} with the task is too large to send to Jev (${size} characters).`,
       );
     }
   }
@@ -110,12 +109,12 @@ function failure(error: unknown, signal: AbortSignal): JevUnavailableError {
 /** Asks Jev one yes/no relevance question per candidate (a Noul), batched within request limits. */
 export class JevDecisionProvider implements DecisionProvider {
   private readonly client: JevClient;
-  private readonly batchTokenBudget: number;
+  private readonly batchMaxChars: number;
   private readonly deadlineMs: number;
 
   constructor(options: JevProviderOptions = {}) {
     this.client = options.client ?? createJevClient();
-    this.batchTokenBudget = options.batchTokenBudget ?? JEV_BATCH_TOKEN_BUDGET;
+    this.batchMaxChars = options.batchMaxChars ?? JEV_BATCH_MAX_CHARS;
     this.deadlineMs = options.deadlineMs ?? JEV_DEADLINE_MS;
   }
 
@@ -127,7 +126,7 @@ export class JevDecisionProvider implements DecisionProvider {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for (const { chunks, refs, request } of planBatches(task, candidates, this.batchTokenBudget)) {
+    for (const { chunks, refs, request } of planBatches(task, candidates, this.batchMaxChars)) {
       let response;
       try {
         response = await this.client.systemOne(request, { signal: combined });

@@ -1,35 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tjeastmond/scope/docs/scope-result.schema.json",
-  "title": "Scope result (schemaVersion 1)",
+  "title": "Scope result (schemaVersion 2)",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "mode",
-    "task",
-    "budget",
-    "estimator",
-    "estimatedTokens",
-    "characters",
-    "lines",
-    "regions",
-    "warnings",
-    "unmetCoherence",
-    "skipped"
-  ],
+  "required": ["schemaVersion", "mode", "task", "regions", "warnings", "skipped"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "mode": { "enum": ["jev", "no-jev"] },
     "task": { "type": "string" },
-    "budget": { "type": "integer", "minimum": 1 },
-    "estimator": { "type": "string" },
-    "estimatedTokens": { "type": "integer", "minimum": 0 },
-    "characters": { "type": "integer", "minimum": 0 },
-    "lines": { "type": "integer", "minimum": 0 },
     "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
     "warnings": { "type": "array", "items": { "type": "string" } },
-    "unmetCoherence": { "type": "array", "items": { "$ref": "#/$defs/unmetCoherence" } },
     "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
     "retrievalConfigVersion": { "type": "string" },
     "explain": { "const": true }
@@ -102,24 +83,13 @@
         "reason": { "type": "string" },
         "supportFor": { "type": "array", "items": { "type": "string" } },
         "signals": { "type": "object", "additionalProperties": { "type": "number" } },
-        "origin": { "type": "string" },
-        "estimatedTokens": { "type": "integer", "minimum": 0 }
-      }
-    },
-    "unmetCoherence": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["chunkId", "requiredId", "reason"],
-      "properties": {
-        "chunkId": { "type": "string" },
-        "requiredId": { "type": "string" },
-        "reason": { "enum": ["too-large", "over-budget"] }
+        "origin": { "type": "string" }
       }
     },
     "skipped": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["chunkId", "file", "startLine", "endLine", "score", "estimatedTokens", "reason"],
+      "required": ["chunkId", "file", "startLine", "endLine", "score"],
       "properties": {
         "chunkId": { "type": "string" },
         "file": { "type": "string" },
@@ -127,10 +97,7 @@
         "endLine": { "$ref": "#/$defs/line" },
         "name": { "type": "string" },
         "relevance": { "$ref": "#/$defs/relevance" },
-        "score": { "$ref": "#/$defs/score" },
-        "estimatedTokens": { "type": "integer", "minimum": 0 },
-        "reason": { "enum": ["below-threshold", "over-budget"] },
-        "minimumBudget": { "type": "integer", "minimum": 1 }
+        "score": { "$ref": "#/$defs/score" }
       }
     }
   }

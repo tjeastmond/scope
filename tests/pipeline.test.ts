@@ -44,7 +44,7 @@ async function snapshot(root: string, directory = ""): Promise<Record<string, st
 
 test("--no-jev on the mixed fixture selects chunks across languages with no provisional-retrieval warning", async () => {
   expect(loaded.chunks.length).toBeGreaterThan(MAX_CANDIDATES);
-  const { result } = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, noJev: true, budget: 100_000 });
+  const { result } = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, noJev: true });
   const languages = new Set<string>(result.chunks.map((selected) => selected.chunk.language));
   for (const language of ["typescript", "python", "sql", "markdown"]) expect(languages).toContain(language);
   expect([...languages].some((language) => ["toml", "json", "yaml"].includes(language))).toBe(true);
@@ -81,8 +81,8 @@ test("default mode with a fake provider judges the same chunk inventory as --no-
       return inner.decide(request);
     },
   };
-  const offline = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, noJev: true, budget: 100_000 });
-  const online = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, provider, budget: 100_000 });
+  const offline = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, noJev: true });
+  const online = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, provider });
   expect(judged).toHaveLength(1);
   // The output order is by score density, so compare the inventories as sets.
   // Supporting declarations are pulled in unjudged, so they are not part of the judged inventory.

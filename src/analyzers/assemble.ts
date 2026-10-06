@@ -1,5 +1,5 @@
 import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, ChunkKind, CodeChunk, Language, Reference, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, ChunkKind, CodeChunk, Language, Reference } from "../types.ts";
 
 /** A container (class, namespace) of at most this many lines stays one chunk and its members are not chunks. */
 export const SMALL_CONTAINER_LINES = 5;
@@ -121,7 +121,6 @@ export function assembleChunks(
   language: Language,
   regions: readonly Region[],
   broken: boolean,
-  estimator: TokenEstimator,
   unit = "chunks",
   references: readonly RawReference[] = [],
 ): AnalysisResult {
@@ -146,7 +145,6 @@ export function assembleChunks(
       endLine,
       content,
       references: attach(startLine, endLine),
-      estimatedTokens: estimator.count(content),
       ...(parentId === undefined || region.parent === undefined
         ? {}
         : { parentId, ...(region.parent.name === undefined ? {} : { containerName: region.parent.name }) }),

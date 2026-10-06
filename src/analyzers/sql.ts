@@ -1,5 +1,5 @@
 import { assembleChunks, type Region } from "./assemble.ts";
-import type { AnalysisResult, Analyzer, ChunkKind, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, ChunkKind } from "../types.ts";
 
 // No WASM grammar loads for SQL (docs/grammars.md), so this is a small lexer plus a statement splitter.
 
@@ -332,11 +332,7 @@ function classify(tokens: Token[]): { kind: ChunkKind; name: string } {
  * VALUES, REPLACE), and `config` for everything else (indexes, ALTER, SET, PRAGMA, ...). Names derive from the
  * statement (`users`, `insert into users`, `alter table users`), never from an index.
  */
-export async function extractSqlChunks(
-  file: string,
-  source: string,
-  estimator: TokenEstimator,
-): Promise<AnalysisResult> {
+export async function extractSqlChunks(file: string, source: string): Promise<AnalysisResult> {
   const { tokens, comments, unterminated } = lex(source);
   const lineStarts = [0];
   for (let i = source.indexOf("\n"); i >= 0; i = source.indexOf("\n", i + 1)) lineStarts.push(i + 1);
@@ -369,7 +365,7 @@ export async function extractSqlChunks(
     }
     previousEnd = endLine;
   }
-  const { chunks, warnings } = assembleChunks(file, source, "sql", regions, false, estimator);
+  const { chunks, warnings } = assembleChunks(file, source, "sql", regions, false);
   if (unterminated) {
     warnings.push(
       `${file}: unterminated string, quoted identifier, comment or dollar-quoted body; the last statement runs to the end of the file`,
@@ -380,5 +376,5 @@ export async function extractSqlChunks(
 
 export const sqlAnalyzer: Analyzer = {
   languages: ["sql"],
-  analyze: (file, estimator) => extractSqlChunks(file.path, file.source, estimator),
+  analyze: (file) => extractSqlChunks(file.path, file.source),
 };

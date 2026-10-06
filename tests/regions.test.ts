@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { mergeRegions, toScopeRegion } from "../src/context/regions.ts";
-import { selectWithinBudget } from "../src/context/select.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
+import { selectByRelevance } from "../src/context/select.ts";
 import { renderResult } from "../src/output/text.ts";
 import { renderText } from "./helpers/render.ts";
 import { loadChunks } from "../src/scope.ts";
@@ -30,7 +29,6 @@ function slice(
     endLine: end,
     content,
     references: [],
-    estimatedTokens: heuristicEstimator.count(content),
   };
   if (name !== null) chunk.name = name;
   return { chunk, signals: {}, relevance, score: relevance, reason: "test" };
@@ -159,7 +157,7 @@ test("adjacent and overlapping slices of a real mixed-app chunk merge back into 
   }
 });
 
-// Cost on the union.
+// Overlap on the union.
 
 const textOf = (...entries: SelectedChunk[]) => renderText("do it", entries);
 /** Only the region blocks: the header and summary are covered by the format tests. */
@@ -170,36 +168,31 @@ const regionsOf = (...entries: SelectedChunk[]) => {
 const base = {
   task: "do it",
   mode: "jev" as const,
-  estimator: heuristicEstimator,
   chunks: new Map<string, CodeChunk>(),
 };
 const numbered = (count: number) =>
   Array.from({ length: count }, (_unused, i) => `const value${i} = compute(${i});`).join("\n");
 
-test("overlapping chunks cost less than the sum of their separate renderings", () => {
+test("overlapping chunks render shorter than the sum of their separate renderings", () => {
   const lines = numbered(30);
   const a = slice("a", lines, 1, 20);
   const b = slice("b", lines, 10, 30);
-  const merged = heuristicEstimator.count(textOf(a, b));
-  const separate = heuristicEstimator.count(textOf(a)) + heuristicEstimator.count(textOf(b));
+  const merged = textOf(a, b).length;
+  const separate = textOf(a).length + textOf(b).length;
   expect(merged).toBeLessThan(separate);
   expect(textOf(a, b).match(/const value15 /g)).toHaveLength(1);
 });
 
-test("the selector reports the cost of the merged text, with a chosen child recorded and not charged again", () => {
+test("the selector merges a chosen child into its parent's region and prints the lines once", () => {
   const lines = numbered(40);
   const parent = slice("parent", lines, 1, 40, { relevance: 0.9 });
   const child = slice("child", lines, 5, 10, { relevance: 0.8 });
-  const parentOnly = heuristicEstimator.count(textOf(parent));
-  const result = selectWithinBudget([parent, child], { ...base, budget: parentOnly + 40 });
+  const result = selectByRelevance([parent, child], base);
   expect(result.chunks.map((c) => c.chunk.id).sort()).toEqual(["child", "parent"]);
   expect(result.regions).toHaveLength(1);
   expect(result.regions[0]!.chunkIds).toEqual(["parent", "child"]);
   expect(result.regions[0]!.content).toBe(parent.chunk.content);
   const text = renderResult(result);
-  expect(result.estimatedTokens).toBe(heuristicEstimator.count(text));
-  expect(result.characters).toBe(text.length);
-  expect(result.lines).toBe(text.split("\n").length);
   expect(text.match(/^== /gm)).toHaveLength(1);
   expect(text.match(/const value7 /g)).toHaveLength(1);
 });
@@ -207,7 +200,7 @@ test("the selector reports the cost of the merged text, with a chosen child reco
 test("separate regions in the result are listed in file and line order", () => {
   const a = slice("a", SOURCE, 1, 2, { file: "z.ts" });
   const b = slice("b", SOURCE, 1, 2, { file: "a.ts" });
-  const result = selectWithinBudget([a, b], { ...base, budget: 1000 });
+  const result = selectByRelevance([a, b], base);
   expect(result.regions.map((r) => r.file)).toEqual(["a.ts", "z.ts"]);
 });
 

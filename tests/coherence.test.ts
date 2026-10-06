@@ -18,7 +18,6 @@ const chunk = (
   endLine: startLine + 2,
   content: `// ${id}`,
   references: [],
-  estimatedTokens: 3,
   ...extra,
 });
 

@@ -1,8 +1,6 @@
 Scope context for: Show each invoice's due date in the invoice list: render it in the frontend row (the API already returns dueDate).
 
 Mode: jev
-Budget: 8000 estimated tokens
-Artifact: 1276 estimated tokens (estimator scope-heuristic-v1), 3374 characters, 97 lines
 Regions: 12
 Retrieval config: retrieval-v3
 

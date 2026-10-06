@@ -81,7 +81,6 @@ function hostileResult(overrides: Partial<ScopeResult> = {}): ScopeResult {
         endLine: 1,
         content,
         references: [],
-        estimatedTokens: 1,
       },
       signals: {},
       relevance: 0.5,
@@ -91,18 +90,12 @@ function hostileResult(overrides: Partial<ScopeResult> = {}): ScopeResult {
     return { file: `src/f${i}.ts`, language: "typescript", startLine: 1, endLine: 1, content, chunkIds: [id] };
   });
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: "no-jev",
     task: "hostile ``` task\nwith `ticks` and\r\nnewlines\u0000",
-    budget: 100,
-    estimator: "est",
-    estimatedTokens: 5,
-    characters: 10,
-    lines: 20,
     chunks,
     regions,
     warnings: [],
-    unmetCoherence: [],
     skipped: [],
     ...overrides,
   };
@@ -177,21 +170,9 @@ describe("JSON contract", () => {
     expect(validate(payload)).toBe(true);
   });
 
-  test("hostile and skipped/unmet data validates", () => {
+  test("hostile and skipped data validates", () => {
     const result = hostileResult({
-      skipped: [
-        {
-          chunkId: "s",
-          file: "a.ts",
-          startLine: 1,
-          endLine: 2,
-          score: 0.2,
-          estimatedTokens: 9,
-          reason: "over-budget",
-          minimumBudget: 120,
-        },
-      ],
-      unmetCoherence: [{ chunkId: "id-0", requiredId: "id-1", reason: "too-large" }],
+      skipped: [{ chunkId: "s", file: "a.ts", startLine: 1, endLine: 2, score: 0.2 }],
       retrievalConfigVersion: "v1",
     });
     result.chunks[0]!.supportFor = ["id-1"];
@@ -204,8 +185,10 @@ describe("JSON contract", () => {
     ["an extra top-level key", (p) => (p.extra = 1)],
     ["an extra key on a region", (p) => (p.regions[0].extra = 1)],
     ["an extra key on a chunk", (p) => (p.regions[0].chunks[0].extra = 1)],
-    ["a wrong schemaVersion", (p) => (p.schemaVersion = 2)],
-    ["a missing field", (p) => delete p.estimatedTokens],
+    ["a wrong schemaVersion", (p) => (p.schemaVersion = 1)],
+    ["a missing field", (p) => delete p.warnings],
+    ["a removed size field", (p) => (p.estimatedTokens = 5)],
+    ["a removed budget field", (p) => (p.budget = 5)],
     ["a missing region content", (p) => delete p.regions[0].content],
     ["an unknown mode", (p) => (p.mode = "other")],
     ["a relevance above 1", (p) => (p.regions[0].chunks[0].relevance = 1.5)],
@@ -216,21 +199,11 @@ describe("JSON contract", () => {
     expect(validate(payload)).toBe(false);
   });
 
-  test("rejects an unknown skip reason and an extra key on a skipped entry", () => {
-    const base = {
-      chunkId: "s",
-      file: "a.ts",
-      startLine: 1,
-      endLine: 2,
-      score: 0.2,
-      estimatedTokens: 9,
-      reason: "over-budget",
-    };
-    const payload = JSON.parse(renderJson(hostileResult({ skipped: [{ ...base, reason: "over-budget" }] })));
-    payload.skipped[0].reason = "nope";
-    expect(validate(payload)).toBe(false);
+  test("rejects an extra key on a skipped entry", () => {
+    const base = { chunkId: "s", file: "a.ts", startLine: 1, endLine: 2, score: 0.2 };
+    const payload = JSON.parse(renderJson(hostileResult({ skipped: [base] })));
+    expect(validate(payload)).toBe(true);
     payload.skipped[0].reason = "over-budget";
-    payload.skipped[0].extra = true;
     expect(validate(payload)).toBe(false);
   });
 
@@ -242,14 +215,8 @@ describe("JSON contract", () => {
       "schemaVersion",
       "mode",
       "task",
-      "budget",
-      "estimator",
-      "estimatedTokens",
-      "characters",
-      "lines",
       "regions",
       "warnings",
-      "unmetCoherence",
       "skipped",
       ...(result.retrievalConfigVersion === undefined ? [] : ["retrievalConfigVersion"]),
     ]);
@@ -344,7 +311,6 @@ describe("Markdown fences", () => {
       chunk: { ...item.chunk, file: nasty[i]!, name: nasty[(i + 1) % nasty.length]! },
     }));
     result.warnings = ["warn\n## fake heading\n```"];
-    result.estimator = "est`\n# nope";
     const markdown = renderMarkdown(result);
     const { fences, headings } = parseMarkdown(markdown);
     expect(fences).toHaveLength(nasty.length + 1);
@@ -352,7 +318,6 @@ describe("Markdown fences", () => {
     expect(headings.filter((h) => h.startsWith("# "))).toEqual(["# Scope context"]);
     expect(markdown).not.toContain("\n## injected");
     expect(markdown).not.toContain("\n## fake heading");
-    expect(markdown).not.toContain("\n# nope");
     expect(markdown).not.toContain("\n## sneaky");
     // Every region heading is one well-formed code span: the delimiter run never occurs inside the span.
     const spans = headings.filter((h) => h.startsWith("## ") && h !== "## Warnings");
@@ -385,80 +350,52 @@ describe("result reporting in text and Markdown", () => {
     startLine: 1,
     endLine: 4,
     name: "x",
-    relevance: 0.8,
-    score: 0.8,
-    estimatedTokens: 120,
-    reason: "over-budget" as const,
-    minimumBudget: 500,
+    relevance: 0.4,
+    score: 0.4,
     ...over,
   });
 
-  test("both formats carry the same summary facts and no probability wording", () => {
+  test("both formats carry the same summary facts, no size or budget, and no probability wording", () => {
     const result = hostileResult({ retrievalConfigVersion: "cfg-7" });
     const text = renderFormat("text", result);
     const markdown = renderFormat("markdown", result);
     for (const out of [text, markdown]) {
-      expect(out).toContain(`Budget: ${result.budget} estimated tokens`);
-      expect(out).toContain(`${result.estimatedTokens} estimated tokens`);
-      expect(out).toContain(`${result.characters} characters, ${result.lines} lines`);
       expect(out).toContain(`Regions: ${result.regions.length}`);
       expect(out).toContain("cfg-7");
-      expect(out).not.toMatch(/probabilit|confidence/i);
+      expect(out).not.toMatch(/probabilit|confidence|budget|estimat|token/i);
     }
   });
 
   test("empty sections are omitted and the retrieval line only appears when known", () => {
-    const result = hostileResult({ skipped: [], unmetCoherence: [] });
+    const result = hostileResult({ skipped: [] });
     for (const format of ["text", "markdown"] as const) {
       const out = renderFormat(format, result);
-      expect(out).not.toMatch(/Left out|Unmet coherence|below the relevance minimum/);
+      expect(out).not.toMatch(/Left out|below the relevance minimum/);
       expect(out).not.toContain("Retrieval config");
     }
   });
 
-  test("below-threshold skips are only counted, over-budget skips are listed with their cost", () => {
-    const weak = {
-      ...skipped({}),
-      minimumBudget: undefined,
-      chunkId: "b.ts#y",
-      file: "b.ts",
-      name: "weakName",
-      reason: "below-threshold" as const,
-    };
-    const other = skipped({ chunkId: "c.ts#z", file: "c.ts", name: "zed" });
-    const result = hostileResult({ skipped: [skipped({}), other, weak] });
+  test("below-threshold skips are only counted, never listed, without --explain", () => {
+    const result = hostileResult({
+      skipped: [skipped({}), skipped({ chunkId: "c.ts#z", file: "c.ts", name: "weakName" })],
+    });
     for (const format of ["text", "markdown"] as const) {
       const out = renderFormat(format, result);
-      expect(out).toContain("a.ts:1-4 x");
-      expect(out).toContain("120 estimated tokens, needs a budget of at least 500");
-      expect(out).toContain("1 candidate(s) scored below the relevance minimum");
+      expect(out).toContain("2 candidate(s) scored below the relevance minimum");
       expect(out).not.toContain("weakName");
     }
   });
 
-  test("the left-out list is capped and says how many more exist", () => {
-    const many = Array.from({ length: 8 }, (_unused, i) =>
-      skipped({ chunkId: `a.ts#${i}`, name: `n${i}`, startLine: i }),
-    );
-    const out = renderFormat("text", hostileResult({ skipped: many }));
-    expect(out.match(/needs a budget of at least/g)).toHaveLength(5);
-    expect(out).toContain("and 3 more left out");
-  });
-
   test("hostile paths and names stay on one line in text and inside code spans in Markdown", () => {
     const evil = "bad\nname\u{2028}## injected";
-    const result = hostileResult({
-      skipped: [skipped({ name: evil, file: "p`q.ts" })],
-      unmetCoherence: [{ chunkId: "a.ts#x", requiredId: "gone\n# nope", reason: "over-budget" }],
-    });
+    const result = hostileResult({ explain: true, skipped: [skipped({ name: evil, file: "p`q.ts" })] });
     for (const format of ["text", "markdown"] as const) {
       const out = renderFormat(format, result);
       expect(out).not.toContain("\n## injected");
-      expect(out).not.toContain("\n# nope");
     }
     const markdown = renderFormat("markdown", result);
     const left = markdown.slice(markdown.indexOf("## Left out"));
-    expect(left.split("\n").filter((line) => line.startsWith("#"))).toEqual(["## Left out", "## Unmet coherence"]);
+    expect(left.split("\n").filter((line) => line.startsWith("#"))).toEqual(["## Left out"]);
   });
 
   test("JSON still carries every skip and keeps validating", () => {

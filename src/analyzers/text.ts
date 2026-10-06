@@ -1,4 +1,4 @@
-import type { AnalysisResult, CodeChunk, Language, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, CodeChunk, Language } from "../types.ts";
 import { assembleChunks, type Region } from "./assemble.ts";
 
 /** Preferred window size in lines; a window ends earlier or later only to land on a blank line. */
@@ -56,7 +56,6 @@ export function textFallback(
   file: string,
   source: string,
   language: Language,
-  estimator: TokenEstimator,
   reason: string,
   covered: readonly Pick<CodeChunk, "startLine" | "endLine">[] = [],
 ): AnalysisResult {
@@ -75,7 +74,7 @@ export function textFallback(
   if (windows.length === 0) return { chunks: [], warnings: [] };
   const whole = covered.length === 0 && windows.length === 1;
   const regions: Region[] = windows.map((window) => ({ ...window, kind: whole ? "file" : "section" }));
-  const { chunks } = assembleChunks(file, source, language, regions, false, estimator);
+  const { chunks } = assembleChunks(file, source, language, regions, false);
   const where = covered.length === 0 ? "" : " over the lines the parser did not recover";
   return {
     chunks,

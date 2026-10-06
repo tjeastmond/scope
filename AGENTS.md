@@ -4,7 +4,7 @@
 
 Scope selects the smallest useful code context for a software task. Given a task description and a local repository, it returns a compact, traceable set of code chunks (source locations, code, selection evidence) for a developer or coding agent. It does not solve the task, edit the target repository, or run its code.
 
-**Scope is built around Jev.** Static analysis (Tree-sitter chunking, lexical and graph retrieval) prepares a bounded candidate shortlist. Jev, through the official `@typesafe-ai/sdk`, judges the relevance of each candidate. TypeScript applies cost, coherence, and the token budget to make the final selection.
+**Scope is built around Jev.** Static analysis (Tree-sitter chunking, lexical and graph retrieval) prepares a bounded candidate shortlist. Jev, through the official `@typesafe-ai/sdk`, judges the relevance of each candidate. TypeScript selects everything Jev finds relevant, adds supporting declarations for coherence, and applies no size limit.
 
 - The default path always uses Jev and fails clearly if Jev cannot complete. It never silently falls back to deterministic results. `--no-jev` is an explicit diagnostic and benchmark baseline that needs no credentials or network.
 - Jev credentials come from `TYPESAFE_API_KEY`. Never log, print, persist, or commit it.

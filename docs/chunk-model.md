@@ -370,6 +370,6 @@ Choices:
   A file with nothing extractable returns only the warning; `analyzeFile` then applies the text fallback (below).
 - Identical same-line entries (`{"a": 1, "a": 2}`) collapse to one chunk so ids stay unique.
 
-## Budget and oversize chunks
+## Large chunks
 
-A chunk too large for the budget is skipped whole and reported, never truncated; see [budget-policy.md](budget-policy.md).
+Chunks have no size cap in selection: a relevant chunk is included whole, however large, and never truncated; see [selection-policy.md](selection-policy.md).

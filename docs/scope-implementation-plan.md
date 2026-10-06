@@ -18,21 +18,21 @@ Scope stops at context selection. It does not solve the task, modify source, gen
 
 ## Architecture decisions
 
-| Area              | Decision                                                                                                                                           |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Implementation    | One Node + TypeScript package; no monorepo.                                                                                                        |
-| Development tools | Bun for package management and `bun:test`; commit the lockfile.                                                                                    |
-| Runtime           | Compiled CLI runs on Node 24+ without Bun. Verify on Node 24 and Node 26. Avoid Bun-only runtime APIs.                                             |
-| CLI               | One task argument and a small set of flags; no interactive UI.                                                                                     |
-| Parsing           | Tree-sitter behind a language analyzer interface, with structural parsing and text fallbacks.                                                      |
-| Shared model      | Every analyzer produces normalized `CodeChunk` records.                                                                                            |
-| Graph             | Approximate local imports, references, styles, and test relationships; preserve uncertainty.                                                       |
-| Retrieval         | Deterministic lexical, symbol, path, and graph retrieval prepares a high-recall, bounded candidate set for Jev.                                    |
-| Jev               | Core relevance decision layer through the official `@typesafe-ai/sdk`, integrated in the first milestone and used by default.                      |
-| Selection         | Jev relevance supplies the primary utility signal; TypeScript applies cost, coherence, deduplication, stable tie-breaking, and budget constraints. |
-| Budget            | Pluggable token estimator; report estimated counts and estimator identity.                                                                         |
-| Output            | Text, Markdown, and versioned JSON, with optional explanations.                                                                                    |
-| Persistence       | In-memory analysis for the first prototype; late V1 milestone adds repository-local chunk caching and retrieval memory with incremental updates.   |
+| Area              | Decision                                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Implementation    | One Node + TypeScript package; no monorepo.                                                                                                                              |
+| Development tools | Bun for package management and `bun:test`; commit the lockfile.                                                                                                          |
+| Runtime           | Compiled CLI runs on Node 24+ without Bun. Verify on Node 24 and Node 26. Avoid Bun-only runtime APIs.                                                                   |
+| CLI               | One task argument and a small set of flags; no interactive UI.                                                                                                           |
+| Parsing           | Tree-sitter behind a language analyzer interface, with structural parsing and text fallbacks.                                                                            |
+| Shared model      | Every analyzer produces normalized `CodeChunk` records.                                                                                                                  |
+| Graph             | Approximate local imports, references, styles, and test relationships; preserve uncertainty.                                                                             |
+| Retrieval         | Deterministic lexical, symbol, path, and graph retrieval prepares a high-recall, bounded candidate set for Jev.                                                          |
+| Jev               | Core relevance decision layer through the official `@typesafe-ai/sdk`, integrated in the first milestone and used by default.                                            |
+| Selection         | Jev relevance decides what is relevant; TypeScript adds supporting declarations, merges overlapping ranges, and orders output deterministically. There is no size limit. |
+| Size              | None. Scope returns everything relevant (issue #164 removed the token budget and all token estimation).                                                                  |
+| Output            | Text, Markdown, and versioned JSON, with optional explanations.                                                                                                          |
+| Persistence       | In-memory analysis for the first prototype; late V1 milestone adds repository-local chunk caching and retrieval memory with incremental updates.                         |
 
 **Static analysis discovers structure. Jev judges relevance. TypeScript makes the final selection.**
 
@@ -43,7 +43,7 @@ Task + repository
   → deterministic retrieval + bounded relationship expansion
   → candidate shortlist (initial target: 20–30 chunks)
   → Jev relevance judgments (bypassed with --no-jev)
-  → score combination + budgeted selection
+  → relevance selection (everything at or above the minimum, plus supporting declarations)
   → context compiler → text / Markdown / JSON
 ```
 
@@ -52,20 +52,20 @@ Suggested source modules: `repository/`, `analyzers/`, `graph/`, `retrieval/`, `
 ## CLI contract
 
 ```bash
-scope "<task>" [--repo <path>] [--budget <tokens>]
+scope "<task>" [--repo <path>]
       [--format text|markdown|json] [--output <path>] [--no-jev] [--explain]
 ```
 
 - Default repository: current working directory.
 - Default format: text, including source locations and code snippets.
-- Proposed default budget: 8,000 estimated tokens; validate and document before release.
+- There is no size budget: Scope returns every relevant chunk (`--budget` is an unknown option, exit 2).
 - Default mode: deterministic candidate retrieval followed by Jev reranking; requires Jev credentials and network access.
 - Default destination: stdout; diagnostics go to stderr so JSON remains parseable.
 - `--output` writes the selected context artifact; it does not edit repository source.
 - The ordinary command sends shortlisted source context to TypeSafe/Jev. Document this default behavior and credential setup.
 - `--no-jev` is an explicit diagnostic/benchmark baseline, running deterministic-only selection without credentials or network access. It is not the primary product path.
 - Default execution fails clearly if Jev cannot complete; it does not silently substitute deterministic results. A user can explicitly rerun with `--no-jev`.
-- Reject empty tasks, invalid formats, inaccessible repositories, and nonpositive budgets with actionable errors.
+- Reject empty tasks, invalid formats, and inaccessible repositories with actionable errors.
 
 ## Core data contracts
 
@@ -93,17 +93,12 @@ interface CodeChunk {
   endLine: number; // 1-based, inclusive
   content: string;
   references: Reference[];
-  estimatedTokens: number;
-}
-
-interface TokenEstimator {
-  count(text: string): number;
 }
 ```
 
 Define `Language` and `Reference` alongside the model. References should record relationship kind, source location, optional resolved target, and resolution evidence. Use stable chunk IDs for unchanged source; handle duplicate names using file and range identity.
 
-Keep retrieval scores and selection reasons separate from source records. A result should include schema version, task, requested budget, estimator identity, estimated artifact tokens, characters, lines, selected chunks, warnings, and mode. Each selected chunk carries deterministic signal breakdown, optional Jev relevance, final score, and inclusion reason. Scores are ranking signals; do not present combined scores as calibrated probabilities.
+Keep retrieval scores and selection reasons separate from source records. A result should include schema version (2), task, selected chunks, merged regions, warnings, skipped candidates, and mode. Each selected chunk carries deterministic signal breakdown, optional Jev relevance, final score, and inclusion reason. Scores are ranking signals; do not present combined scores as calibrated probabilities.
 
 ## Milestone 1 — Working Jev-powered vertical slice
 
@@ -116,12 +111,12 @@ Keep retrieval scores and selection reasons separate from source records. A resu
 - [ ] Use a small bounded candidate list, initially all eligible fixture chunks, to isolate Jev behavior from retrieval quality.
 - [ ] Send the task and candidate IDs, paths, symbols, and code; ask one atomic usefulness question per candidate with an explicit candidate reference.
 - [ ] Map validated Jev answers back to chunks and use their relevance as the selection utility.
-- [ ] Add a basic token estimator, budget selector, and text output with exact source locations.
+- [ ] Add relevance selection and text output with exact source locations.
 - [ ] Provide credential setup guidance and clear failures; never turn a failed Jev call into an apparently successful default run.
 - [ ] Add fake-provider tests for ordinary CI and run a small opt-in real SDK contract test before accepting the milestone.
 - [ ] Record actual relevance judgments, selected context, request latency, and returned usage in the prototype evidence.
 
-**Acceptance:** a real Jev request influences the returned context on the fixture, output fits the configured estimated budget, and the compiled command runs under Node. Fake responses alone do not satisfy this milestone. If credentials are unavailable, report the live verification as blocked rather than declaring the integration complete.
+**Acceptance:** a real Jev request influences the returned context on the fixture, and the compiled command runs under Node. Fake responses alone do not satisfy this milestone. If credentials are unavailable, report the live verification as blocked rather than declaring the integration complete.
 
 ## Milestone 2 — Repository scanning and multi-language parsing
 
@@ -167,24 +162,22 @@ Keep retrieval scores and selection reasons separate from source records. A resu
 
 **Acceptance:** representative fixture tasks expose required symbols and supporting context to Jev; candidate recall is measured separately from final selection recall; identical inputs produce identical candidate ordering; cyclic and high-fan-out graphs remain bounded.
 
-## Milestone 4 — Budgeted context compiler, formats, and explanations
+## Milestone 4 — Context compiler, formats, and explanations
 
-**Outcome:** usable Jev-powered context artifacts with enforced budgets, all output formats, and inspectable decisions.
+**Outcome:** usable Jev-powered context artifacts in all output formats with inspectable decisions.
 
-- [ ] Implement a conservative general-purpose estimator behind `TokenEstimator` and document its limitations.
-- [ ] Rank using Jev relevance relative to token cost, with a small explicit coherence policy for supporting declarations and dependencies. Use deterministic signals for candidate preparation and stable tie-breaking; evaluate any score blending before adopting it.
-- [ ] Merge or deduplicate overlapping ranges before charging their cost.
-- [ ] Preserve complete useful chunks where possible; define handling of oversized chunks and insufficient budgets.
+- [ ] Select every candidate Jev judges relevant (at or above the minimum), plus a small explicit coherence policy for supporting declarations and dependencies. Use deterministic signals for candidate preparation and stable tie-breaking; evaluate any score blending before adopting it.
+- [ ] Merge or deduplicate overlapping ranges so no line is printed twice.
+- [ ] Include complete chunks whole; nothing is truncated or dropped for size.
 - [ ] Compile text, Markdown, and versioned JSON with paths, inclusive line ranges, names, languages, scores, and source content.
-- [ ] Reserve budget for headers, code fences, metadata, and explanations; remeasure the complete serialized artifact and prune until it fits.
-- [ ] Report characters, lines, estimated tokens, estimator identity, skipped chunks, and unmet coherence requirements.
-- [ ] Implement `--output` and `--explain`, including scoring evidence, dependency distance, token cost, and reasons for exclusions.
-- [ ] Define a clear insufficient-budget result/error if even the minimal valid artifact cannot fit; never silently exceed the reported estimator budget.
+- [ ] Report skipped (below-threshold) candidates.
+- [ ] Implement `--output` and `--explain`, including scoring evidence, dependency distance, and reasons for exclusions.
+- [ ] Report an empty result (nothing relevant) as a successful run with a warning.
 - [ ] Verify escaping, arbitrary source content, JSON validity, stdout/stderr separation, and output-file behavior.
 
-**Budget promise:** enforce the requested limit under the configured estimator for the entire emitted artifact. A general-purpose estimate cannot guarantee the same limit for every model's tokenizer; expose that distinction. Model-specific tokenizers are later extensions.
+**History:** this milestone originally included a token budget, a pluggable token estimator, cost-ranked selection, and an insufficient-budget error. TJ removed all of it in issue #164 (see [selection-policy.md](selection-policy.md)): the consumer decides how much to read, and Scope no longer guesses a tokenizer.
 
-**Acceptance:** all three formats are usable and traceable to original source; serialized results fit the estimator budget or report an explicit failure; explanations account for selection decisions; repeated offline results are stable.
+**Acceptance:** all three formats are usable and traceable to original source; explanations account for selection decisions; repeated offline results are stable.
 
 ## Milestone 5 — Jev reliability and operational hardening
 
@@ -194,14 +187,14 @@ Keep retrieval scores and selection reasons separate from source records. A resu
 - [ ] Harden the existing official SDK adapter and decision-provider interface; do not build a custom transport layer.
 - [ ] Send only the task and bounded shortlisted candidates with IDs, paths, symbols, and code.
 - [ ] Ask one atomic Noul relevance question per candidate, explicitly identifying the candidate in the question/state. Do not rely on question-map keys being transmitted.
-- [ ] Bound batch size and request payload; map responses back to candidate IDs and validate finite values in the expected range.
-- [ ] Preserve Jev relevance as the primary utility signal. Evaluate relevance thresholds and cost-aware selection on labeled tasks; adopt deterministic score blending only if held-out evidence supports it.
+- [ ] Bound batch size and request payload by serialized characters; map responses back to candidate IDs and validate finite values in the expected range.
+- [ ] Preserve Jev relevance as the primary utility signal. Evaluate relevance thresholds on labeled tasks; adopt deterministic score blending only if held-out evidence supports it.
 - [ ] Handle missing credentials, timeout, rate limits, malformed/partial responses, and service errors with explicit failures after bounded SDK retries. Show setup or retry guidance and the explicit `--no-jev` baseline alternative; do not automatically downgrade the default product path.
 - [ ] Use SDK retry behavior without stacking an independent retry loop; verify the total time bound.
 - [ ] Capture returned usage and request latency where available; keep API keys out of artifacts and logs.
 - [ ] Use a fake provider for normal tests and a tiny opt-in live contract suite for SDK/API behavior.
 
-**Acceptance:** default operation invokes Jev with configured credentials; failures are visible and never silently downgraded; `--no-jev` never contacts Jev or requires credentials; fake-provider tests cover success and failures; live tests verify candidate identification, response mapping, batching, and usage; Jev judgments cannot bypass budget enforcement.
+**Acceptance:** default operation invokes Jev with configured credentials; failures are visible and never silently downgraded; `--no-jev` never contacts Jev or requires credentials; fake-provider tests cover success and failures; live tests verify candidate identification, response mapping, batching, and usage; a single candidate too large for one request fails clearly.
 
 ## Milestone 6 — Persistent chunk cache and retrieval memory
 
@@ -213,14 +206,14 @@ This is how Scope improves with use: it accumulates a current structural map and
 First task → parse source → cache chunks and relationships → Jev review → record selection
 Later task → validate cached source fingerprints → refresh changed files
            → retrieve from cached index and prior task associations
-           → Jev reviews current candidates → budgeted output → update memory
+           → Jev reviews current candidates → relevance-selected output → update memory
 ```
 
 - [ ] Add a repository-scoped, versioned local store for file fingerprints, normalized chunks, relationships, lexical indexes, and retrieval history. SQLite is a candidate implementation; choose a Node 24-compatible storage approach after a small compatibility check.
-- [ ] Put generated data in a documented ignored local directory, proposed `.scope/`; partition by repository identity and store schema, parser, grammar, and estimator versions.
-- [ ] Cache source-derived chunks after analysis, including IDs, content fingerprints, names, ranges, references, and token estimates. Derive the initial warm index from real source rather than prior task selections alone.
+- [ ] Put generated data in a documented ignored local directory, proposed `.scope/`; partition by repository identity and store schema, parser, and grammar versions.
+- [ ] Cache source-derived chunks after analysis, including IDs, content fingerprints, names, ranges, and references. Derive the initial warm index from real source rather than prior task selections alone.
 - [ ] On each run, detect new, changed, renamed, and deleted files, including uncommitted changes. Reparse affected files and refresh impacted relationships; remove stale entries and recompute line ranges from current source.
-- [ ] Reuse parsing and indexing for unchanged files. Invalidate affected cache data when parser, grammar, ignore rules, or token estimator versions change.
+- [ ] Reuse parsing and indexing for unchanged files. Invalidate affected cache data when parser, grammar, or ignore rules change.
 - [ ] Record task-to-chunk associations, Jev relevance judgments, selection decisions, and bounded request metadata with source fingerprints and decision configuration provenance.
 - [ ] Use related prior tasks, recurring symbols, and confirmed useful relationships as additional candidate discovery signals. Combine history with fresh retrieval so unfamiliar tasks and new files remain discoverable.
 - [ ] Keep source-analysis reuse separate from decision reuse: similar tasks still receive fresh Jev review. Reuse a completed decision only for an exact matching task, candidate payload, source fingerprints, SDK/model configuration, and question version under a documented expiry policy.
@@ -242,14 +235,14 @@ Later task → validate cached source fingerprints → refresh changed files
 - [ ] Label required, useful, and irrelevant chunks using stable symbol/range identities; define coverage matching for merged or split ranges.
 - [ ] Separate tuning tasks from held-out evaluation tasks; freeze labels before comparing modes.
 - [ ] Implement `bun run eval` with machine-readable results and a generated Markdown report.
-- [ ] Compare a simple lexical baseline, deterministic Scope, and Scope + Jev at identical repository snapshots and budgets.
-- [ ] Measure required-context recall, precision, irrelevant-context rate, token reduction, budget utilization, latency, and budget violations.
-- [ ] Use the same eligible scanned source and estimator for the full-repository baseline; disclose scan exclusions.
+- [ ] Compare a simple lexical baseline, deterministic Scope, and Scope + Jev at identical repository snapshots.
+- [ ] Measure required-context recall, precision, irrelevant-context rate, context size relative to the eligible repository, and latency.
+- [ ] Use the same eligible scanned source for the full-repository baseline; disclose scan exclusions.
 - [ ] Report Jev input/output usage separately from selected-context size. Include combined token consumption and price-based cost only where current pricing and usage are known.
-- [ ] Repeat live Jev evaluations to show variability; record SDK/model identifiers where available, versions, scoring configuration, fixture revision, estimator, budgets, and timestamps.
+- [ ] Repeat live Jev evaluations to show variability; record SDK/model identifiers where available, versions, scoring configuration, fixture revision, and timestamps.
 - [ ] Compare cold and warm runs and memory enabled versus disabled; isolate parsing savings, exact decision reuse, and feedback-assisted candidate improvements. Keep held-out labels and test answers out of retrieval memory.
 - [ ] Publish per-task results and aggregates, including regressions and cases where Jev provides no improvement.
-- [ ] Set proposed release gates: zero budget violations and deterministic output drift on fixed inputs; establish recall/precision thresholds after baseline measurement and before final tuning.
+- [ ] Set proposed release gates: zero deterministic output drift on fixed inputs; establish recall/precision thresholds after baseline measurement and before final tuning.
 - [ ] Add CI for installation, build, type checking, linting, formatting, Bun tests, offline evaluation, and Node 24/26 packaged CLI smoke tests.
 - [ ] Document installation, examples, supported languages, fallback limitations, Jev source transmission, and benchmark reproduction.
 - [ ] Verify scoped npm package naming before publishing; retain `scope` as the CLI name. `@tjeastmond/scope` is a proposed package name, not a verified reservation.
@@ -258,23 +251,21 @@ Later task → validate cached source fingerprints → refresh changed files
 
 ## Evaluation metric definitions
 
-| Metric                  | Definition                                                                                                            |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Required recall         | Covered required labeled context units / total required units.                                                        |
-| Precision               | Selected required or useful labeled units / selected units, using the declared matching policy.                       |
-| Irrelevant-context rate | Selected estimated tokens labeled irrelevant / selected estimated source tokens. Report unlabeled context separately. |
-| Token reduction         | `1 - selected context tokens / eligible repository tokens`; specify whether output overhead is included.              |
-| Budget utilization      | Full serialized artifact estimate / requested budget.                                                                 |
-| Budget violations       | Runs whose full artifact estimate exceeds the budget.                                                                 |
-| Jev impact              | Paired quality and context-size differences at the same budget.                                                       |
-| Jev overhead            | Additional request latency and API usage; monetary cost only when verified.                                           |
+| Metric                  | Definition                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Required recall         | Covered required labeled context units / total required units.                                                   |
+| Precision               | Selected required or useful labeled units / selected units, using the declared matching policy.                  |
+| Irrelevant-context rate | Selected source characters labeled irrelevant / selected source characters. Report unlabeled context separately. |
+| Size reduction          | `1 - selected source characters / eligible repository characters`; specify whether output overhead is included.  |
+| Jev impact              | Paired quality and context-size differences on the same task.                                                    |
+| Jev overhead            | Additional request latency and API usage; monetary cost only when verified.                                      |
 
-Do not trade required recall for impressive token reduction without showing both. Label tasks whose budgets are too small to contain all required context; report feasible-budget and constrained-budget results separately.
+Do not trade required recall for impressive size reduction without showing both.
 
 ## Testing strategy
 
 - **Unit:** scanner policies, classification, extraction/ranges, reference resolution, lexical scoring, bounded graph traversal, deterministic tie-breaking, selection, serialization, and provider response validation.
-- **Integration:** real Tree-sitter parsing of mixed fixtures through the complete pipeline with a fake decision provider in CI; no parser mocks. Include malformed source, unknown languages, empty repositories, oversized chunks, cycles, and tight budgets.
+- **Integration:** real Tree-sitter parsing of mixed fixtures through the complete pipeline with a fake decision provider in CI; no parser mocks. Include malformed source, unknown languages, empty repositories, oversized chunks, cycles, and very large chunks.
 - **Runtime/package:** execute built and packed CLI artifacts with Node 24 and 26. Bun test success alone does not prove Node compatibility or native parser installation.
 - **Golden evaluation:** human-labeled context expectations and stable offline reports. Introduce fixtures during milestones 2–3, then complete the harness in milestone 7.
 - **Cache and memory:** incremental invalidation, cold/warm source equivalence, decision-cache provenance, feedback attribution, rollback, and isolation between repositories and evaluation splits.
@@ -288,10 +279,10 @@ Do not trade required recall for impressive token reduction without showing both
 - Jev model training and autonomous rewriting of Scope's implementation. Improvement in V1 means incremental indexing and evidence-backed retrieval adaptation.
 - MCP server, IDE plugin, web UI, interactive terminal UI, daemon, and watch mode.
 - Conversation compaction, agent execution integrations, and automatic implementation workflows.
-- Formal knapsack optimization and universal exact tokenization across all model families.
+- Any size budget, token estimation, or cost-aware (knapsack) selection (removed in issue #164).
 
 ## Delivery sequence and definition of done
 
 Start with milestone 1 to prove the real Jev-powered flow. Milestones 2–3 improve the source context and candidate supply feeding that flow. Milestone 4 completes the context artifact, milestone 5 hardens the existing integration, milestone 6 adds incremental caching and retrieval memory, and milestone 7 measures quality and prepares release. Introduce labeled tasks early. Offline baseline evaluations explicitly use `--no-jev`; default-path CI tests use a fake provider, while real SDK evidence remains required for integration acceptance.
 
-V1 is complete when a user can install the Node CLI, configure Jev credentials, provide a task and repository, and obtain a traceable Jev-reranked context artifact within the documented estimated budget by default; `--no-jev` provides offline selection without credentials; Jev reranking has tested failure handling; persistent chunk memory stays current as source changes; and the evaluation report exposes quality, cold/warm performance, savings, and external-service overhead. No implementation or execution of the user's requested code change belongs in this release.
+V1 is complete when a user can install the Node CLI, configure Jev credentials, provide a task and repository, and obtain a traceable Jev-reranked context artifact containing everything relevant to the task by default; `--no-jev` provides offline selection without credentials; Jev reranking has tested failure handling; persistent chunk memory stays current as source changes; and the evaluation report exposes quality, cold/warm performance, savings, and external-service overhead. No implementation or execution of the user's requested code change belongs in this release.
