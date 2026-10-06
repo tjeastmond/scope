@@ -16,5 +16,10 @@ test("the recall script prints per-task, per-split and aggregate candidate recal
   }
   expect(output).toMatch(/^tuning: \d+\/\d+/m);
   expect(output).toMatch(/^heldout: \d+\/\d+/m);
-  expect(output).toMatch(/^aggregate candidate recall: \d+\/\d+\s+\d+%/m);
+  const tasks = await loadLabeledTasks("mixed-app");
+  const total = tasks.reduce((sum, task) => sum + task.required.length, 0);
+  expect(output).toMatch(new RegExp(`^aggregate candidate recall: \\d+/${total}\\s+\\d+%`, "m"));
+  // A task whose required chunks are all direct matches must be fully recalled, and say so.
+  expect(output).toMatch(/mixed-app\/due-date-column \[tuning\]\s+2\/2\s+100%/);
+  expect(output).not.toMatch(/missed: web\/src\/components\/InvoiceRow/);
 });
