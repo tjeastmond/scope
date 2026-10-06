@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
@@ -93,7 +92,7 @@ const result: ScopeResult = {
 test.each([...FORMATS])("the %s format matches its golden file", async (format) => {
   const file = join(DIR, `result.${EXTENSIONS[format]}`);
   const actual = renderFormat(format, result);
-  if (process.env.UPDATE_GOLDEN === "1" || !existsSync(file)) {
+  if (process.env.UPDATE_GOLDEN === "1") {
     await mkdir(DIR, { recursive: true });
     await writeFile(file, actual);
   }
@@ -116,7 +115,7 @@ test.each([...FORMATS])("the %s format on the mixed fixture matches its golden f
     format,
   });
   const actual = renderFormat(format, run);
-  if (process.env.UPDATE_GOLDEN === "1" || !existsSync(file)) await writeFile(file, actual);
+  if (process.env.UPDATE_GOLDEN === "1") await writeFile(file, actual);
   expect(actual).toBe(await readFile(file, "utf8"));
   expect(run.estimatedTokens).toBeLessThanOrEqual(run.budget);
 });

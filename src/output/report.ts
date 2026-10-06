@@ -54,7 +54,7 @@ export function leftOutLines(result: ScopeResult, quote: Quote): string[] {
     .map(
       (entry) =>
         `${location(entry, quote)} (${scoreLabel(entry.relevance, entry.score)}): ${entry.estimatedTokens} estimated tokens` +
-        (entry.minimumBudget === undefined ? "" : `, fits alone in a budget of ${entry.minimumBudget}`),
+        (entry.minimumBudget === undefined ? "" : `, needs a budget of at least ${entry.minimumBudget}`),
     );
   const more = ranked.length - lines.length;
   return more > 0 ? [...lines, `and ${more} more left out; --format json lists every one.`] : lines;

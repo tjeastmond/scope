@@ -20,7 +20,7 @@ Text and Markdown share one set of facts (`src/output/report.ts`):
 - **Summary:** mode, budget, estimated tokens with the estimator id, characters, lines, number of regions, and
   `retrievalConfigVersion` when present. Numbers are estimates from the named estimator, not exact model token counts.
 - **Left out (over budget):** the relevant chunks that did not fit, most relevant first, with location, `relevance` or
-  `score`, estimated tokens and the budget in which the chunk fits alone. At most five are listed, then a count of the
+  `score`, estimated tokens and the minimum budget that would admit the chunk. At most five are listed, then a count of the
   rest. Candidates scored below the relevance minimum are only counted, never listed.
 - **Unmet coherence:** each selected chunk whose required supporting declaration is not included, with the reason
   (`too-large` or `over-budget`).

@@ -430,7 +430,7 @@ describe("result reporting in text and Markdown", () => {
     for (const format of ["text", "markdown"] as const) {
       const out = renderFormat(format, result);
       expect(out).toContain("a.ts:1-4 x");
-      expect(out).toContain("120 estimated tokens, fits alone in a budget of 500");
+      expect(out).toContain("120 estimated tokens, needs a budget of at least 500");
       expect(out).toContain("1 candidate(s) scored below the relevance minimum");
       expect(out).not.toContain("weakName");
     }
@@ -441,7 +441,7 @@ describe("result reporting in text and Markdown", () => {
       skipped({ chunkId: `a.ts#${i}`, name: `n${i}`, startLine: i }),
     );
     const out = renderFormat("text", hostileResult({ skipped: many }));
-    expect(out.match(/fits alone in a budget/g)).toHaveLength(5);
+    expect(out.match(/needs a budget of at least/g)).toHaveLength(5);
     expect(out).toContain("and 3 more left out");
   });
 
