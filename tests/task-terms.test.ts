@@ -22,6 +22,7 @@ describe("extractTaskTerms exact terms", () => {
     ["double quotes", 'Show the "overdue invoices" banner', ["overdue invoices"]],
     ["single quotes", "Show the 'overdue' banner", ["overdue"]],
     ["apostrophes are not quotes", "each invoice's due date and the customer's name", []],
+    ["apostrophes before a closing quote", "invoice's due date for the customers' name", []],
     ["call syntax", "Fix foo.bar() when it throws", ["foo.bar", "foo", "bar"]],
     ["plain call", "Call retry() twice.", ["retry"]],
     [
@@ -67,6 +68,10 @@ describe("extractTaskTerms variants", () => {
       expect.arrayContaining(["showdue", "showduedate", "duedate", "datecolumn", "duedatecolumn"]),
     );
     expect(variants.indexOf("showdue")).toBeLessThan(variants.indexOf("showduedate"));
+  });
+
+  test("a run ending at a stop word still joins", () => {
+    expect(extractTaskTerms("due date of invoices").variants).toContain("duedate");
   });
 
   test("stop words and punctuation break adjacency", () => {
