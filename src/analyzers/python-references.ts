@@ -41,16 +41,28 @@ function importFromStatement(statement: Node, line: number): RawReference[] {
   }));
 }
 
+/** The module argument of a call: the first positional argument, else the value of `name=`. */
+function moduleArgument(call: Node): Node | undefined {
+  const args =
+    call.childForFieldName("arguments")?.namedChildren.filter((c): c is Node => c !== null && c.type !== "comment") ??
+    [];
+  const positional = args.find((arg) => arg.type !== "keyword_argument");
+  if (positional) return positional;
+  return (
+    args
+      .find((arg) => arg.type === "keyword_argument" && arg.childForFieldName("name")?.text === "name")
+      ?.childForFieldName("value") ?? undefined
+  );
+}
+
 /** `__import__(x)` and `importlib.import_module(x)`: a literal argument is a plain reference, else `unresolved`. */
 function dynamicImport(call: Node): RawReference[] {
   const fn = call.childForFieldName("function");
   const isImport =
     (fn?.type === "identifier" && fn.text === "__import__") ||
     (fn?.type === "attribute" && fn.text.replace(/\s+/g, "") === "importlib.import_module");
-  const argument = call
-    .childForFieldName("arguments")
-    ?.namedChildren.find((child) => child && child.type !== "comment");
-  if (!isImport || !argument || argument.type === "keyword_argument") return [];
+  const argument = moduleArgument(call);
+  if (!isImport || !argument) return [];
   const line = call.startPosition.row + 1;
   const specifier = literalText(argument);
   return specifier === undefined
