@@ -15,11 +15,9 @@ export interface Expansion {
   evidence: string;
 }
 
-const CONFIDENCE_RANK: Record<NeighborConfidence, number> = { exact: 0, heuristic: 1 };
-
 /**
  * Expands the first `seedCount` positively scored entries of `scores` (already ranked) by one hop. Each seed takes at
- * most `maxNeighborsPerSeed` neighbours, exact edges before heuristic ones and then in the graph's own order; at most
+ * most `maxNeighborsPerSeed` neighbours, in the graph's own order (exact edges before heuristic ones); at most
  * `maxExpanded` are returned in total. Chunks that are seeds or already scored are not new candidates, a chunk is
  * expanded once (attributed to the first seed reaching it), and expanded chunks are never expanded again.
  */
@@ -33,14 +31,8 @@ export function expandNeighbors(
   const expansions: Expansion[] = [];
   for (const seed of seeds) {
     if (expansions.length >= config.maxExpanded) break;
-    const neighbors = graph
-      .neighbors(seed.chunkId)
-      .map((neighbor, index) => ({ neighbor, index }))
-      .sort(
-        (a, b) => CONFIDENCE_RANK[a.neighbor.confidence] - CONFIDENCE_RANK[b.neighbor.confidence] || a.index - b.index,
-      );
     let taken = 0;
-    for (const { neighbor } of neighbors) {
+    for (const neighbor of graph.neighbors(seed.chunkId)) {
       if (taken >= config.maxNeighborsPerSeed || expansions.length >= config.maxExpanded) break;
       if (visited.has(neighbor.chunkId)) continue;
       visited.add(neighbor.chunkId);
