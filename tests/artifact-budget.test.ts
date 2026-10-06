@@ -127,6 +127,31 @@ test("markdown and JSON overhead can leave less room than text for the same budg
   expect(ids(markdown).length).toBeGreaterThan(0);
 });
 
+test("the greedy pass charges the format's overhead, so a dense chunk is kept over a larger one that no longer fits", () => {
+  // `dense` is chosen first; `large` is more relevant and would fit as text, but not once markdown headers are added.
+  const dense = item("dense", 0.6, "const d = 1;");
+  const large = item("large", 0.95, "const large = compute(first, second);\n".repeat(2));
+  const both = [dense, large];
+  // The smallest budget in which markdown holds anything at all.
+  let budget = 1;
+  const attempt = () => {
+    try {
+      return selectWithinBudget(both, { ...base, budget, format: "markdown" });
+    } catch (error) {
+      expect(error).toBeInstanceOf(EmptySelectionError);
+      return undefined;
+    }
+  };
+  while (!attempt()) budget++;
+  // Text alone would already hold both here: only the markdown overhead leaves out `large`.
+  expect(heuristicEstimator.count(renderText(base.task, both))).toBeLessThanOrEqual(budget);
+
+  const result = attempt()!;
+  expect(ids(result)).toEqual(["dense"]);
+  expect(result.skipped.map((entry) => [entry.chunkId, entry.reason])).toEqual([["large", "over-budget"]]);
+  expect(heuristicEstimator.count(renderFormat("markdown", result))).toBeLessThanOrEqual(budget);
+});
+
 /** Two small chunks, then one that never fits: its skip entry only exists after the small ones were admitted. */
 const prunable = () => [
   item("x", 0.9, "const x = 1;"),
