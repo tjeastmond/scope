@@ -1,8 +1,11 @@
 import { expect, test } from "bun:test";
+import { join } from "node:path";
+import { MAX_SUPPORT_TOKENS } from "../src/config.ts";
 import { EmptySelectionError, selectWithinBudget } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
-import { renderResult } from "../src/output/text.ts";
-import type { SelectedChunk } from "../src/types.ts";
+import { renderResult, renderText } from "../src/output/text.ts";
+import { loadChunks } from "../src/scope.ts";
+import type { CodeChunk, SelectedChunk } from "../src/types.ts";
 
 const item = (id: string, score: number, content: string, file = `${id}.ts`, startLine = 1): SelectedChunk => ({
   chunk: {
@@ -23,7 +26,12 @@ const item = (id: string, score: number, content: string, file = `${id}.ts`, sta
   reason: "test",
 });
 
-const base = { task: "do it", mode: "jev" as const, estimator: heuristicEstimator };
+const base = {
+  task: "do it",
+  mode: "jev" as const,
+  estimator: heuristicEstimator,
+  chunks: new Map<string, CodeChunk>(),
+};
 const body = (n: number) => "x".repeat(n);
 
 test("drops candidates below the minimum relevance", () => {
@@ -80,4 +88,198 @@ test("fails clearly when nothing is relevant or nothing fits", () => {
   );
   expect(() => selectWithinBudget([item("a", 0.9, body(4000))], { ...base, budget: 100 })).toThrow(EmptySelectionError);
   expect(() => selectWithinBudget([item("a", 0.9, body(4000))], { ...base, budget: 100 })).toThrow(/--budget/);
+});
+
+// Coherence: supporting declarations pulled in next to a selected chunk.
+
+const asChunk = (entry: SelectedChunk): CodeChunk => entry.chunk;
+const lookupOf = (...chunks: CodeChunk[]) => new Map(chunks.map((c) => [c.id, c]));
+const cost = (...entries: SelectedChunk[]) => heuristicEstimator.count(renderText("do it", entries));
+const supportOf = (chunk: CodeChunk, supportFor: string[] = []): SelectedChunk => ({
+  chunk,
+  signals: {},
+  score: 0,
+  reason: "",
+  supportFor,
+});
+
+/** A class header chunk and one method of it; the method is the candidate, the header is not. */
+function classWithMethod(headerBody: number, score = 0.9, methodBody = 60) {
+  const header = item("Cls", 1, body(headerBody), "cls.ts", 1).chunk;
+  header.kind = "class";
+  const method = item("Cls.run", score, body(methodBody), "cls.ts", 10);
+  method.chunk.kind = "method";
+  method.chunk.parentId = "Cls";
+  return { header, method };
+}
+
+test("a selected method pulls in its class header, charged against the budget", () => {
+  const { header, method } = classWithMethod(80);
+  const needed = cost(supportOf(header), method);
+  expect(needed).toBeGreaterThan(cost(method));
+
+  const result = selectWithinBudget([method], { ...base, budget: needed, chunks: lookupOf(header, asChunk(method)) });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run"]);
+  expect(result.estimatedTokens).toBeLessThanOrEqual(needed);
+  expect(heuristicEstimator.count(renderResult(result))).toBe(result.estimatedTokens);
+  expect(result.unmetCoherence).toEqual([]);
+  expect(result.warnings).toEqual([]);
+
+  const [support, selected] = result.chunks;
+  expect(support?.relevance).toBeUndefined();
+  expect(support?.score).toBe(0);
+  expect(support?.signals).toEqual({});
+  expect(support?.supportFor).toEqual(["Cls.run"]);
+  expect(support?.reason).toBe("Supporting declaration for Cls.run");
+  expect(selected?.supportFor).toBeUndefined();
+  const text = renderResult(result);
+  expect(text).toContain("(supporting declaration) ==");
+  expect(text).toContain("(relevance 0.90)");
+});
+
+test("a support that does not fit with the chunk is unmet over-budget while the chunk stays", () => {
+  const { header, method } = classWithMethod(80);
+  const budget = cost(supportOf(header), method) - 1;
+  expect(budget).toBeGreaterThanOrEqual(cost(method));
+  const result = selectWithinBudget([method], { ...base, budget, chunks: lookupOf(header, asChunk(method)) });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls.run"]);
+  expect(result.unmetCoherence).toEqual([{ chunkId: "Cls.run", requiredId: "Cls", reason: "over-budget" }]);
+  expect(result.warnings).toEqual(["1 coherence requirement(s) could not be included; see unmetCoherence."]);
+});
+
+test("a support above the cheap cap is unmet too-large even with a huge budget", () => {
+  const { header, method } = classWithMethod(MAX_SUPPORT_TOKENS * 4);
+  expect(heuristicEstimator.count(header.content)).toBeGreaterThan(MAX_SUPPORT_TOKENS);
+  const result = selectWithinBudget([method], { ...base, budget: 100_000, chunks: lookupOf(header, asChunk(method)) });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls.run"]);
+  expect(result.unmetCoherence).toEqual([{ chunkId: "Cls.run", requiredId: "Cls", reason: "too-large" }]);
+});
+
+test("a support exactly at the cap is pulled in", () => {
+  let size = MAX_SUPPORT_TOKENS * 3;
+  const { header, method } = classWithMethod(size);
+  while (heuristicEstimator.count(header.content) > MAX_SUPPORT_TOKENS) header.content = body(--size);
+  expect(heuristicEstimator.count(header.content)).toBe(MAX_SUPPORT_TOKENS);
+  const result = selectWithinBudget([method], { ...base, budget: 100_000, chunks: lookupOf(header, asChunk(method)) });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run"]);
+});
+
+test("a shared header is included once and lists every chunk that needs it", () => {
+  const { header, method } = classWithMethod(60);
+  const other = item("Cls.other", 0.8, body(60), "cls.ts", 20);
+  other.chunk.kind = "method";
+  other.chunk.parentId = "Cls";
+  const chunks = lookupOf(header, asChunk(method), asChunk(other));
+  const result = selectWithinBudget([method, other], { ...base, budget: 100_000, chunks });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run", "Cls.other"]);
+  expect(result.chunks[0]?.supportFor).toEqual(["Cls.other", "Cls.run"]);
+  expect(result.chunks[0]?.reason).toBe("Supporting declaration for Cls.other, Cls.run");
+});
+
+test("a support that is also a selected candidate is not duplicated and keeps its own relevance", () => {
+  const { header, method } = classWithMethod(60);
+  const candidate = { ...item("Cls", 0.95, header.content, "cls.ts", 1), chunk: header };
+  for (const order of [
+    [method, candidate],
+    [candidate, method],
+  ]) {
+    const result = selectWithinBudget(order, { ...base, budget: 100_000, chunks: lookupOf(header, asChunk(method)) });
+    expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run"]);
+    expect(result.chunks[0]?.relevance).toBe(0.95);
+    expect(result.chunks[0]?.supportFor).toBeUndefined();
+    expect(result.unmetCoherence).toEqual([]);
+  }
+});
+
+test("a support below the minimum score is still pulled in as context", () => {
+  const { header, method } = classWithMethod(60);
+  const weak = { ...item("Cls", 0.1, header.content, "cls.ts", 1), chunk: header };
+  const chunks = lookupOf(header, asChunk(method));
+  const result = selectWithinBudget([method, weak], { ...base, budget: 100_000, chunks });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run"]);
+  expect(result.chunks[0]?.relevance).toBeUndefined();
+  expect(result.chunks[0]?.supportFor).toEqual(["Cls.run"]);
+});
+
+test("exact type references pull in the declaration; heuristic ones do not", () => {
+  const alias = item("Alias", 1, body(40), "types.ts", 1).chunk;
+  alias.kind = "type";
+  const user = item("use", 0.9, body(60), "use.ts", 1);
+  const reference = (evidence: "exact" | "heuristic") => ({
+    kind: "type" as const,
+    from: { file: "use.ts", line: 1 },
+    name: "Alias",
+    targetChunkId: "Alias",
+    evidence,
+  });
+  const chunks = lookupOf(alias, asChunk(user));
+  const ids = () => selectWithinBudget([user], { ...base, budget: 100_000, chunks }).chunks.map((c) => c.chunk.id);
+  user.chunk.references = [reference("exact")];
+  expect(ids()).toEqual(["Alias", "use"]);
+  user.chunk.references = [reference("heuristic")];
+  expect(ids()).toEqual(["use"]);
+});
+
+test("coherence output is identical regardless of candidate input order", () => {
+  const { header, method } = classWithMethod(60);
+  const other = item("Cls.other", 0.8, body(60), "cls.ts", 20);
+  other.chunk.kind = "method";
+  other.chunk.parentId = "Cls";
+  const lone = item("lone", 0.7, body(50), "lone.ts", 1);
+  const chunks = lookupOf(header, asChunk(method), asChunk(other), asChunk(lone));
+  for (const budget of [60, 100, 160, 100_000]) {
+    const run = (input: SelectedChunk[]) => {
+      try {
+        return selectWithinBudget(input, { ...base, budget, chunks });
+      } catch (error) {
+        return String(error);
+      }
+    };
+    const forward = run([method, other, lone]);
+    expect(run([lone, other, method])).toEqual(forward);
+    expect(run([other, lone, method])).toEqual(forward);
+  }
+});
+
+test("unmet requirements are sorted by chunk then required id", () => {
+  const big = (id: string) => {
+    const chunk = item(id, 1, body(MAX_SUPPORT_TOKENS * 4), `${id}.ts`, 1).chunk;
+    chunk.kind = "interface";
+    return chunk;
+  };
+  const [zeta, alpha] = [big("zeta"), big("alpha")] as [CodeChunk, CodeChunk];
+  const make = (id: string) => {
+    const entry = item(id, 0.9, body(30), `${id}.ts`, 50);
+    entry.chunk.references = [zeta, alpha].map((target) => ({
+      kind: "type" as const,
+      from: { file: `${id}.ts`, line: 50 },
+      name: target.id,
+      targetChunkId: target.id,
+      evidence: "exact" as const,
+    }));
+    return entry;
+  };
+  const [b, a] = [make("b"), make("a")] as [SelectedChunk, SelectedChunk];
+  const chunks = lookupOf(zeta, alpha, asChunk(a), asChunk(b));
+  const result = selectWithinBudget([b, a], { ...base, budget: 100_000, chunks });
+  expect(result.unmetCoherence.map((u) => `${u.chunkId}>${u.requiredId}`)).toEqual([
+    "a>alpha",
+    "a>zeta",
+    "b>alpha",
+    "b>zeta",
+  ]);
+});
+
+test("a real method pulls in its class header from the mixed-app fixture", async () => {
+  const { chunks } = await loadChunks(join(import.meta.dir, "../fixtures/mixed-app"));
+  const file = "api/src/services/invoiceService.ts";
+  const method = chunks.find((c) => c.file === file && c.name === "InvoiceService.markPaid")!;
+  const header = chunks.find((c) => c.file === file && c.name === "InvoiceService")!;
+  expect(method.parentId).toBe(header.id);
+  const entry: SelectedChunk = { chunk: method, signals: {}, relevance: 0.9, score: 0.9, reason: "test" };
+  const result = selectWithinBudget([entry], { ...base, budget: 8000, chunks: lookupOf(...chunks) });
+  expect(result.chunks.map((c) => c.chunk.name)).toEqual(["InvoiceService", "InvoiceService.markPaid"]);
+  expect(result.chunks[0]?.supportFor).toEqual([method.id]);
+  expect(result.estimatedTokens).toBeLessThanOrEqual(8000);
+  expect(result.unmetCoherence).toEqual([]);
 });

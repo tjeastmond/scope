@@ -5,10 +5,14 @@ export const byLocation = (a: SelectedChunk, b: SelectedChunk): number =>
   a.chunk.startLine - b.chunk.startLine ||
   a.chunk.id.localeCompare(b.chunk.id);
 
-function renderChunk({ chunk, relevance, score }: SelectedChunk): string {
+function renderChunk({ chunk, relevance, score, supportFor }: SelectedChunk): string {
   const symbol = chunk.name ? ` ${chunk.name}` : "";
-  const value = (relevance ?? score).toFixed(2);
-  return `== ${chunk.file}:${chunk.startLine}-${chunk.endLine}${symbol} (${relevance === undefined ? "score" : "relevance"} ${value}) ==\n${chunk.content}\n`;
+  // A pull-in was not judged, so it carries no score; printing one would misstate Jev's decision.
+  const label =
+    relevance === undefined && supportFor
+      ? "supporting declaration"
+      : `${relevance === undefined ? "score" : "relevance"} ${(relevance ?? score).toFixed(2)}`;
+  return `== ${chunk.file}:${chunk.startLine}-${chunk.endLine}${symbol} (${label}) ==\n${chunk.content}\n`;
 }
 
 /** Plain-text artifact: a task header, then each chunk under its exact `path:start-end` location. */
