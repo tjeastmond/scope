@@ -32,8 +32,6 @@ Scan and retrieval warnings and `retrievalConfigVersion` are measured too, becau
 
 ## Oversize chunks are skipped, never truncated
 
-## Oversize chunks are skipped, never truncated
-
 A relevant chunk that fits neither together with its supporting declarations nor alone, given what is already chosen,
 is **skipped whole**. Scope never emits a truncated or signature-only view: a parser-free cut could land mid-statement
 and mislead the reader. The greedy loop continues past the skipped chunk, so a huge chunk never starves the smaller
