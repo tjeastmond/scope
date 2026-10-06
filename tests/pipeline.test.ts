@@ -54,6 +54,7 @@ test("--no-jev on the mixed fixture selects chunks across languages with no prov
   expect(result.chunks.length).toBeLessThanOrEqual(MAX_CANDIDATES);
   expect(result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(false);
   expect(result.chunks.every((selected) => selected.origin !== undefined)).toBe(true);
+  expect(result.chunks.some((selected) => Object.keys(selected.signals).length > 0)).toBe(true);
 });
 
 test("default mode with a fake provider judges the same chunk inventory as --no-jev", async () => {
