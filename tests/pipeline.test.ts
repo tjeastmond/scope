@@ -8,14 +8,11 @@ import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
+import { loadLabeledTasks } from "./helpers/labels.ts";
 
 const FIXTURES = join(import.meta.dir, "../fixtures");
 const ROOT = join(FIXTURES, "mixed-app");
-const tasks = JSON.parse(await readFile(join(FIXTURES, "mixed-app.tasks.json"), "utf8")) as {
-  id: string;
-  task: string;
-  required: string[];
-}[];
+const tasks = await loadLabeledTasks("mixed-app");
 const dueDate = tasks.find((task) => task.id === "due-date-column")!;
 // Spans the frontend, the SQL layer, the Python worker, its TOML config and the docs, so every language is relevant.
 const CROSS_LANGUAGE_TASK =

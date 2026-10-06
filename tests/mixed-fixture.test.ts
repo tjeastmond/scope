@@ -102,6 +102,11 @@ describe("mixed-app labels", () => {
     expect(new Set(tasks.map((task) => task.id)).size).toBe(tasks.length);
   });
 
+  test("every task has a split, and both tuning and heldout tasks exist", () => {
+    expect(tasks.every((task) => task.split === "tuning" || task.split === "heldout")).toBe(true);
+    expect(new Set(tasks.map((task) => task.split))).toEqual(new Set(["tuning", "heldout"]));
+  });
+
   test("every label resolves to exactly one chunk", () => {
     const unresolved: string[] = [];
     for (const task of tasks) {
