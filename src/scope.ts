@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { analyzeFile, binaryWarning } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
-import { selectWithinBudget } from "./context/select.ts";
+import { EmptySelectionError, selectWithinBudget } from "./context/select.ts";
 import { charsPerTokenEstimator } from "./context/tokens.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
@@ -70,6 +70,10 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
 
   const { chunks, warnings: scanWarnings } = await loadChunks(repo);
   const { candidates, ranking, warning: retrievalWarning } = selectCandidates(task, chunks);
+  // Nothing to judge: surface retrieval's guidance instead of the generic empty-selection error, and skip Jev.
+  if (candidates.length === 0) {
+    throw new EmptySelectionError(retrievalWarning ?? "No candidate chunks were found in the repository.");
+  }
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   const decision = noJev

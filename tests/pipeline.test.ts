@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { lstat, readdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import { MAX_CANDIDATES } from "../src/config.ts";
+import { EmptySelectionError } from "../src/context/select.ts";
 import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
@@ -55,6 +56,20 @@ test("--no-jev on the mixed fixture selects chunks across languages with no prov
   expect(result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(false);
   expect(result.chunks.every((selected) => selected.origin !== undefined)).toBe(true);
   expect(result.chunks.some((selected) => Object.keys(selected.signals).length > 0)).toBe(true);
+});
+
+test("a task matching nothing keeps retrieval's guidance and never calls Jev", async () => {
+  let called = false;
+  const provider: DecisionProvider = {
+    async decide() {
+      called = true;
+      return { judgments: [] };
+    },
+  };
+  const run = runScope({ task: "quuxfrobnicate", repo: ROOT, provider });
+  await expect(run).rejects.toBeInstanceOf(EmptySelectionError);
+  await expect(run).rejects.toThrow(/No chunk matched the task/);
+  expect(called).toBe(false);
 });
 
 test("default mode with a fake provider judges the same chunk inventory as --no-jev", async () => {
