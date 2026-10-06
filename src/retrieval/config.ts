@@ -10,7 +10,7 @@ export interface RetrievalConfig {
    * Relative weight of each ranking signal. Illustrative starting guesses to be tuned from evaluation results; the
    * defaults sum to 1.0, which keeps a total score in [0, 1], but only finiteness and non-negativity are enforced.
    */
-  weights: { symbol: number; lexical: number; path: number; dependency: number; test: number };
+  weights: { symbol: number; lexical: number; path: number; dependency: number; test: number; proximity: number };
   /** Maximum candidates passed on to Jev (plan target: 20-30). */
   shortlistSize: number;
   /** Caps for one-hop graph expansion of the strongest matches. */
@@ -27,8 +27,8 @@ export interface RetrievalConfig {
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export const DEFAULT_RETRIEVAL_CONFIG: Readonly<RetrievalConfig> = Object.freeze({
-  version: "retrieval-v1",
-  weights: Object.freeze({ symbol: 0.3, lexical: 0.25, path: 0.15, dependency: 0.2, test: 0.1 }),
+  version: "retrieval-v2",
+  weights: Object.freeze({ symbol: 0.3, lexical: 0.2, path: 0.15, dependency: 0.2, test: 0.1, proximity: 0.05 }),
   shortlistSize: 30,
   expansion: Object.freeze({ seedCount: 5, maxNeighborsPerSeed: 4, maxExpanded: 10 }),
 });

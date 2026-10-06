@@ -32,8 +32,8 @@ function node(name: string, refs: Record<string, ReferenceEvidence> = {}): CodeC
 
 const score = (name: string, total = 1): ChunkScore => ({
   chunkId: `id-${name}`,
-  signals: { symbol: total, lexical: 0, path: 0 },
-  contributions: { symbol: total, lexical: 0, path: 0 },
+  signals: { symbol: total, lexical: 0, path: 0, dependency: 0, test: 0, proximity: 0 },
+  contributions: { symbol: total, lexical: 0, path: 0, dependency: 0, test: 0, proximity: 0 },
   total,
 });
 

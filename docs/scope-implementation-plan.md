@@ -162,7 +162,7 @@ Keep retrieval scores and selection reasons separate from source records. A resu
 - [ ] Expand strong matches by one dependency hop with caps on fan-out and candidate count.
 - [ ] Add graph distance, related tests, and module proximity to ranking; treat expanded neighbors as candidates rather than automatic inclusions.
 - [ ] Deduplicate candidates and define stable tie-breaking by path, range, and ID.
-- [ ] Keep weights in one versioned configuration; begin with illustrative symbol/lexical/path/dependency/test weights of 0.30/0.25/0.15/0.20/0.10, then tune from evaluations.
+- [ ] Keep weights in one versioned configuration; begin with illustrative symbol/lexical/path/dependency/test/proximity weights of 0.30/0.20/0.15/0.20/0.10/0.05 (proximity is a small same-directory bonus for chunks near the best match), then tune from evaluations.
 - [ ] Add initial labeled tasks now so later milestones can measure changes. Git relevance is optional and should wait unless evaluation justifies it.
 
 **Acceptance:** representative fixture tasks expose required symbols and supporting context to Jev; candidate recall is measured separately from final selection recall; identical inputs produce identical candidate ordering; cyclic and high-fan-out graphs remain bounded.
