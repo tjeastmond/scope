@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeFile } from "../src/analyzers/index.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import { scanRepository } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import type { CodeChunk, Language } from "../src/types.ts";
@@ -10,7 +10,7 @@ import { expectContainerInvariants } from "./helpers/chunk-invariants.ts";
 
 async function chunksOf(path: string, language: Language, ...sourceLines: string[]): Promise<CodeChunk[]> {
   const source = sourceLines.join("\n") + "\n";
-  const { chunks } = await analyzeFile({ path, source }, language, charsPerTokenEstimator);
+  const { chunks } = await analyzeFile({ path, source }, language, heuristicEstimator);
   expectContainerInvariants(chunks);
   return chunks;
 }
@@ -233,7 +233,7 @@ test("the invariant holds across the webhook-service fixture", async () => {
     const { chunks } = await analyzeFile(
       { path, source: await readFile(join(root, path), "utf8") },
       language,
-      charsPerTokenEstimator,
+      heuristicEstimator,
     );
     expectContainerInvariants(chunks);
   }

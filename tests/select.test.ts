@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { EmptySelectionError, selectWithinBudget } from "../src/context/select.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import { renderResult } from "../src/output/text.ts";
 import type { SelectedChunk } from "../src/types.ts";
 
@@ -15,7 +15,7 @@ const item = (id: string, score: number, content: string, file = `${id}.ts`, sta
     endLine: startLine + content.split("\n").length - 1,
     content,
     references: [],
-    estimatedTokens: charsPerTokenEstimator.count(content),
+    estimatedTokens: heuristicEstimator.count(content),
   },
   signals: {},
   relevance: score,
@@ -23,7 +23,7 @@ const item = (id: string, score: number, content: string, file = `${id}.ts`, sta
   reason: "test",
 });
 
-const base = { task: "do it", mode: "jev" as const, estimator: charsPerTokenEstimator };
+const base = { task: "do it", mode: "jev" as const, estimator: heuristicEstimator };
 const body = (n: number) => "x".repeat(n);
 
 test("drops candidates below the minimum relevance", () => {
@@ -49,8 +49,8 @@ test("the measured full output fits the budget and matches the reported estimate
   const candidates = Array.from({ length: 10 }, (_unused, i) => item(`c${i}`, 0.6 + i / 100, body(60 + i * 7)));
   const result = selectWithinBudget(candidates, { ...base, budget: 150 });
   const text = renderResult(result);
-  expect(charsPerTokenEstimator.count(text)).toBeLessThanOrEqual(150);
-  expect(result.estimatedTokens).toBe(charsPerTokenEstimator.count(text));
+  expect(heuristicEstimator.count(text)).toBeLessThanOrEqual(150);
+  expect(result.estimatedTokens).toBe(heuristicEstimator.count(text));
   expect(result.characters).toBe(text.length);
 });
 

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { extractMarkdownChunks, markdownAnalyzer } from "../src/analyzers/markdown.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const inventory = (chunks: CodeChunk[]) => chunks.map((c) => `${c.name}@${c.startLine}-${c.endLine}`);
-const analyze = (source: string, path = "docs/guide.md") => extractMarkdownChunks(path, source, charsPerTokenEstimator);
+const analyze = (source: string, path = "docs/guide.md") => extractMarkdownChunks(path, source, heuristicEstimator);
 const names = (source: string) => inventory(analyze(source).chunks);
 
 const GUIDE = `Intro text.
@@ -186,9 +186,9 @@ test("unicode headings", () => {
 
 test("registered for markdown and callable through analyzeFile", async () => {
   expect(markdownAnalyzer.languages).toEqual(["markdown"]);
-  const result = await analyzeFile({ path: "README.md", source: "# Hi\n" }, "markdown", charsPerTokenEstimator);
+  const result = await analyzeFile({ path: "README.md", source: "# Hi\n" }, "markdown", heuristicEstimator);
   expect(inventory(result.chunks)).toEqual(["Hi@1-1"]);
-  expect(result.chunks[0]!.estimatedTokens).toBe(charsPerTokenEstimator.count("# Hi"));
+  expect(result.chunks[0]!.estimatedTokens).toBe(heuristicEstimator.count("# Hi"));
 });
 
 test("a thematic break is not the first line of a setext paragraph", () => {

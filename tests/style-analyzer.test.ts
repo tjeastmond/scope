@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { extractStyleChunks, styleAnalyzer } from "../src/analyzers/style.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const CSS = `@charset "utf-8";
@@ -49,8 +49,8 @@ $map: (
 `;
 
 const inventory = (chunks: CodeChunk[]) => chunks.map((c) => `${c.kind}:${c.name}@${c.startLine}-${c.endLine}`);
-const css = (source: string) => extractStyleChunks("web/site.css", source, charsPerTokenEstimator);
-const scss = (source: string) => extractStyleChunks("web/site.scss", source, charsPerTokenEstimator);
+const css = (source: string) => extractStyleChunks("web/site.css", source, heuristicEstimator);
+const scss = (source: string) => extractStyleChunks("web/site.scss", source, heuristicEstimator);
 
 describe("css", () => {
   test("golden inventory: rules and at-rules as units, body-less statements as config", async () => {
@@ -211,9 +211,9 @@ describe("scss", () => {
 test("registered for css and scss and dispatched through the registry", async () => {
   expect(styleAnalyzer.languages).toEqual(["css", "scss"]);
   const source = "a { x: y }\n";
-  expect(inventory((await analyzeFile({ path: "a.css", source }, "css", charsPerTokenEstimator)).chunks)).toEqual([
+  expect(inventory((await analyzeFile({ path: "a.css", source }, "css", heuristicEstimator)).chunks)).toEqual([
     "style:a@1-1",
   ]);
-  const result = await analyzeFile({ path: "a.scss", source }, "scss", charsPerTokenEstimator);
+  const result = await analyzeFile({ path: "a.scss", source }, "scss", heuristicEstimator);
   expect(result.chunks.map((c) => c.language)).toEqual(["scss"]);
 });

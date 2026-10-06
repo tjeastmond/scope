@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { analyzeFile } from "../src/analyzers/index.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { AnalysisResult, CodeChunk, Language } from "../src/types.ts";
 import { expectContainerInvariants } from "./helpers/chunk-invariants.ts";
@@ -148,7 +148,7 @@ const CASES: Case[] = [
 ];
 
 const analyze = (c: Case, source: string): Promise<AnalysisResult> =>
-  analyzeFile({ path: c.path, source }, c.language, charsPerTokenEstimator);
+  analyzeFile({ path: c.path, source }, c.language, heuristicEstimator);
 
 const identity = (s: string) => s;
 const toCrlf = (s: string) => s.replace(/\n/g, "\r\n");

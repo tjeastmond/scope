@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { extractPythonChunks, pythonAnalyzer } from "../src/analyzers/python.ts";
-import { charsPerTokenEstimator } from "../src/context/tokens.ts";
+import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const WORKER = `#!/usr/bin/env python3
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
 const inventory = (chunks: CodeChunk[]) => chunks.map((c) => `${c.kind}:${c.name}@${c.startLine}-${c.endLine}`);
 
-const analyze = (path: string, source: string) => extractPythonChunks(path, source, charsPerTokenEstimator);
+const analyze = (path: string, source: string) => extractPythonChunks(path, source, heuristicEstimator);
 
 test("golden inventory for a Python worker module", async () => {
   const { chunks, warnings } = await analyze("worker/jobs.py", WORKER);
@@ -169,7 +169,7 @@ test("declarations inside control flow keep the enclosing scope", async () => {
     "                pass",
     "",
   ].join("\n");
-  const { chunks } = await extractPythonChunks("a.py", source, charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", source, heuristicEstimator);
   expect(chunks.map((c) => `${c.kind}:${c.name}`)).toEqual([
     "function:f",
     "function:g",
@@ -182,14 +182,14 @@ test("valid declarations survive malformed siblings inside a block", async () =>
   const { chunks } = await extractPythonChunks(
     "a.py",
     "if True:\n    def good():\n        pass\n    def broken(: pass\n",
-    charsPerTokenEstimator,
+    heuristicEstimator,
   );
   expect(chunks.map((c) => c.name)).toContain("good");
 });
 
 test("main guard detection reads operands, not whitespace", async () => {
   const names = async (source: string) =>
-    (await extractPythonChunks("a.py", source, charsPerTokenEstimator)).chunks.map((c) => c.name);
+    (await extractPythonChunks("a.py", source, heuristicEstimator)).chunks.map((c) => c.name);
   expect(await names('if (__name__ == "__main__"):\n    run()\n')).toEqual(["__main__"]);
   expect(await names("if '__main__' == __name__:\n    run()\n")).toEqual(["__main__"]);
   expect(await names('if (__name__ ==  # entry point\n    "__main__"):\n    run()\n')).toEqual(["__main__"]);
@@ -197,12 +197,12 @@ test("main guard detection reads operands, not whitespace", async () => {
 });
 
 test("chained assignments are not single-target constants", async () => {
-  const { chunks } = await extractPythonChunks("a.py", "A = B = 1\nC = 2\n", charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", "A = B = 1\nC = 2\n", heuristicEstimator);
   expect(chunks.map((c) => c.name)).toEqual(["C"]);
 });
 
 test("identical same-line declarations yield one chunk", async () => {
-  const { chunks } = await extractPythonChunks("a.py", "A = 1; A = 2\n", charsPerTokenEstimator);
+  const { chunks } = await extractPythonChunks("a.py", "A = 1; A = 2\n", heuristicEstimator);
   expect(chunks.map((c) => c.name)).toEqual(["A"]);
 });
 
@@ -272,6 +272,6 @@ class Reader:
 
 test("the analyzer is registered for python", async () => {
   expect(pythonAnalyzer.languages).toEqual(["python"]);
-  const result = await analyzeFile({ path: "a.py", source: "X = 1\n" }, "python", charsPerTokenEstimator);
+  const result = await analyzeFile({ path: "a.py", source: "X = 1\n" }, "python", heuristicEstimator);
   expect(inventory(result.chunks)).toEqual(["config:X@1-1"]);
 });
