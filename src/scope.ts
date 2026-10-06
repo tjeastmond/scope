@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { analyzeFile, binaryWarning } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
-import { EmptySelectionError, selectWithinBudget } from "./context/select.ts";
+import { selectWithinBudget } from "./context/select.ts";
 import { heuristicEstimator } from "./context/tokens.ts";
 import type { OutputFormat } from "./output/index.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
@@ -40,6 +40,8 @@ export interface ScopeRun {
 }
 
 export { UsageError };
+
+const NO_CHUNKS_WARNING = "No candidate chunks were found in the repository.";
 
 /** How much of a file the classifier sees, enough for a shebang line and a text check. */
 const HEAD_CHARS = 1024;
@@ -83,15 +85,13 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
 
   const { chunks, warnings: scanWarnings } = await loadChunks(repo);
   const { candidates, ranking, warning: retrievalWarning } = selectCandidates(task, chunks);
-  // Nothing to judge: surface retrieval's guidance instead of the generic empty-selection error, and skip Jev.
-  if (candidates.length === 0) {
-    throw new EmptySelectionError(retrievalWarning ?? "No candidate chunks were found in the repository.");
-  }
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
-  const decision = noJev
-    ? undefined
-    : await (options.provider ?? new JevDecisionProvider()).decide({ task, candidates, signal });
+  // With nothing to judge Jev is skipped; selection then returns an empty artifact carrying retrieval's guidance.
+  const decision =
+    noJev || candidates.length === 0
+      ? undefined
+      : await (options.provider ?? new JevDecisionProvider()).decide({ task, candidates, signal });
 
   const relevance = decision ? validateJudgments(candidates, decision.judgments) : new Map<string, number>();
   const scored: SelectedChunk[] = candidates.map((chunk) => {
@@ -116,7 +116,10 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     explain,
     estimator: heuristicEstimator,
     chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
-    leadingWarnings: [...scanWarnings, ...(retrievalWarning ? [retrievalWarning] : [])],
+    leadingWarnings: [
+      ...scanWarnings,
+      ...(retrievalWarning ? [retrievalWarning] : candidates.length === 0 ? [NO_CHUNKS_WARNING] : []),
+    ],
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
   });
   return { result, decision };
