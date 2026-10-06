@@ -151,14 +151,14 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
    * round's numbers, measure, repeat until the embedded numbers equal the measured ones. Bounded; if it does not settle
    * the per-field maximum seen is embedded so the artifact never under-reports its size.
    */
-  const settle = (build: (metrics: Metrics) => ScopeResult): { result: ScopeResult; text: string } => {
+  const settle = (build: (metrics: Metrics) => ScopeResult): { result: ScopeResult; text: string; exact: boolean } => {
     const seen: Metrics[] = [];
     let current: Metrics = { estimatedTokens: 0, characters: 0, lines: 1 };
     for (let round = 0; round < MAX_SETTLE_ROUNDS; round++) {
       const result = build(current);
       const text = renderFormat(format, result);
       const next = measure(text);
-      if (sameMetrics(next, current)) return { result, text };
+      if (sameMetrics(next, current)) return { result, text, exact: true };
       seen.push(next);
       current = next;
     }
@@ -168,7 +168,14 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
       lines: Math.max(...seen.map((m) => m.lines)),
     };
     const result = build(largest);
-    return { result, text: renderFormat(format, result) };
+    const text = renderFormat(format, result);
+    const final = measure(text);
+    // Only a bound if it really covers the artifact it was embedded in; otherwise the caller treats it as not fitting.
+    const exact =
+      final.estimatedTokens <= largest.estimatedTokens &&
+      final.characters <= largest.characters &&
+      final.lines <= largest.lines;
+    return { result, text, exact };
   };
 
   // Phase 1 reservation: the numbers and warnings that are only known after selection are charged at their worst
@@ -266,8 +273,11 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     if (overBudget > 0) warnings.push(overBudgetWarning(overBudget));
     if (unmetCoherence.length > 0) warnings.push(unmetWarning(unmetCoherence.length));
 
-    const { result, text } = settle((metrics) => assemble(selected, skippedChunks, unmetCoherence, warnings, metrics));
-    if (estimator.count(text) <= budget) return result;
+    const { result, text, exact } = settle((metrics) =>
+      assemble(selected, skippedChunks, unmetCoherence, warnings, metrics),
+    );
+    if (chosen.size === 0) break;
+    if (exact && estimator.count(text) <= budget) return result;
 
     const victim = [...chosen.values()].filter((entry) => !pulledIn.has(entry.chunk.id)).sort(pruneOrder)[0];
     if (!victim || rounds === 0) break;

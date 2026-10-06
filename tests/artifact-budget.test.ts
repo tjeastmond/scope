@@ -220,6 +220,23 @@ test("pruning removes the lowest relevance first, not the last chosen", () => {
   expect(sawPrune).toBe(true);
 });
 
+test("pruning the last chunk never yields a successful empty artifact", () => {
+  const candidates = [item("x", 0.9, "const x = 1;"), item("z", 0.7, "z ".repeat(3000))];
+  let fitted = 0;
+  for (const format of FORMATS) {
+    for (let budget = 1; budget < 1500; budget++) {
+      try {
+        const result = selectWithinBudget(candidates, { ...base, budget, format });
+        fitted++;
+        expect(result.chunks.length).toBeGreaterThan(0);
+      } catch (error) {
+        expect(error).toBeInstanceOf(EmptySelectionError);
+      }
+    }
+  }
+  expect(fitted).toBeGreaterThan(0);
+});
+
 describe("the measurement loops are bounded", () => {
   // Digits in the artifact change its size unpredictably, so the embedded metrics never settle.
   const adversarial: TokenEstimator = {
@@ -243,7 +260,12 @@ describe("the measurement loops are bounded", () => {
         try {
           const result = selectWithinBudget(candidates, { ...base, estimator: adversarial, budget, format });
           fitted++;
-          expect(adversarial.count(renderFormat(format, result))).toBeLessThanOrEqual(budget);
+          const text = renderFormat(format, result);
+          expect(adversarial.count(text)).toBeLessThanOrEqual(budget);
+          // Whatever the loop settled on, the embedded numbers never under-report the artifact they sit in.
+          expect(result.estimatedTokens).toBeGreaterThanOrEqual(adversarial.count(text));
+          expect(result.characters).toBeGreaterThanOrEqual(text.length);
+          expect(result.lines).toBeGreaterThanOrEqual(text.split("\n").length);
         } catch (error) {
           expect(error).toBeInstanceOf(EmptySelectionError);
         }
