@@ -72,11 +72,11 @@ const unmetKey = (chunkId: string, requiredId: string) => `${chunkId}\u0000${req
  * Includes candidates (best score-per-token first) while the full rendered artifact, not just chunk bodies, still
  * fits the budget. The artifact merges touching or overlapping chunks into regions, so cost is measured on the union:
  * a chunk contained in an already chosen one adds only its label and is still recorded with its provenance.
- * Candidates below the minimum score are dropped. A relevant chunk that fits neither with its supports nor alone is
- * skipped whole, never truncated (a cut could land mid-statement), and the loop moves on to smaller candidates; every
- * dropped candidate is recorded in `skipped` with its cost (see docs/budget-policy.md). A chosen chunk also pulls in the cheap supporting declarations it
- * needs (see `requiredSupports`), charged against the budget; supports that are too large or do not fit are reported
- * in `unmetCoherence`.
+ * A relevant chunk that fits neither with its supports nor alone is skipped whole, never truncated (a cut could land
+ * mid-statement), and the loop moves on to smaller candidates. Every dropped candidate is recorded in `skipped` with
+ * its cost (see docs/budget-policy.md). A chosen chunk also pulls in the cheap supporting declarations it needs (see
+ * `requiredSupports`), charged against the budget; supports that are too large or do not fit are reported in
+ * `unmetCoherence`.
  */
 export function selectWithinBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): ScopeResult {
   const { task, mode, budget, estimator, chunks, minScore = MIN_RELEVANCE } = options;
