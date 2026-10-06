@@ -1,0 +1,2 @@
+# Fixture files whose exact bytes matter (CRLF line endings) must never be normalized by git.
+fixtures/mixed-app/api/src/util/csv.ts -text

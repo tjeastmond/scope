@@ -1,0 +1,12 @@
+{
+  "currency": "EUR",
+  "locale": "de-DE",
+  "features": {
+    "remindersEnabled": true,
+    "csvExport": true
+  },
+  "limits": {
+    "maxInvoiceLines": 50,
+    "maxPageSize": 100
+  }
+}

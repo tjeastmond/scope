@@ -1,0 +1,15 @@
+:root {
+  --text: #1b1b1b;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f1f1f1;
+  }
+}
