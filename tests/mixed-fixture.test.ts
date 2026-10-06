@@ -6,20 +6,11 @@ import { charsPerTokenEstimator } from "../src/context/tokens.ts";
 import { scanRepository, type SkippedPath } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import { loadChunks } from "../src/scope.ts";
-import type { CodeChunk } from "../src/types.ts";
+import { FIXTURES, labelsOf, loadLabeledTasks, resolve } from "./helpers/labels.ts";
 
-const FIXTURES = join(import.meta.dir, "../fixtures");
 const ROOT = join(FIXTURES, "mixed-app");
 const CRLF_FILE = "api/src/util/csv.ts";
 const BROKEN_FILE = "api/src/broken/report.ts";
-
-interface LabeledTask {
-  id: string;
-  task: string;
-  required: string[];
-  useful: string[];
-  irrelevant: string[];
-}
 
 const EXPECTED_ELIGIBLE = [
   "README.md",
@@ -70,31 +61,8 @@ const EXPECTED_SKIPPED: SkippedPath[] = [
   { path: "web/src/vendor/tracker.min.js", reason: "minified" },
 ];
 
-const tasks = JSON.parse(await readFile(join(FIXTURES, "mixed-app.tasks.json"), "utf8")) as LabeledTask[];
+const tasks = await loadLabeledTasks("mixed-app");
 const loaded = await loadChunks(ROOT);
-
-/** Resolves a label (`path::symbol`, `path::symbol@start-end` or a bare whole-file `path`) to the chunks it matches. */
-function resolve(label: string, chunks: readonly CodeChunk[]): CodeChunk[] {
-  const split = label.indexOf("::");
-  if (split < 0) {
-    const inFile = chunks.filter((chunk) => chunk.file === label);
-    return inFile.length === 1 && inFile[0]?.kind === "file" ? inFile : [];
-  }
-  const path = label.slice(0, split);
-  const symbol = label.slice(split + 2);
-  const ranged = /^(.*)@(\d+)-(\d+)$/.exec(symbol);
-  const [name, start, end] = ranged
-    ? [ranged[1], Number(ranged[2]), Number(ranged[3])]
-    : [symbol, undefined, undefined];
-  return chunks.filter(
-    (chunk) =>
-      chunk.file === path &&
-      chunk.name === name &&
-      (start === undefined || (chunk.startLine === start && chunk.endLine === end)),
-  );
-}
-
-const labelsOf = (task: LabeledTask) => [...task.required, ...task.useful, ...task.irrelevant];
 
 describe("mixed-app scan", () => {
   test("eligible files are exactly the intended list", async () => {
