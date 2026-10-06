@@ -4,6 +4,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
 import type { CodeChunk, ScopeResult, SelectedChunk } from "../src/types.ts";
+import { runScope } from "../src/scope.ts";
+import { fakeProvider } from "./helpers/fake-provider.ts";
+import { loadLabeledTasks } from "./helpers/labels.ts";
 
 /**
  * Golden files pin the exact bytes of each format for one hand-built result that exercises every section: summary,
@@ -95,4 +98,25 @@ test.each([...FORMATS])("the %s format matches its golden file", async (format) 
     await writeFile(file, actual);
   }
   expect(actual).toBe(await readFile(file, "utf8"));
+});
+
+/** The same three formats on the real mixed-app fixture: a fake provider judges the due-date task's labeled chunks. */
+const fixtureTask = (await loadLabeledTasks("mixed-app")).find((task) => task.id === "due-date-column")!;
+const judged: Record<string, number> = {};
+for (const label of fixtureTask.required) judged[label.split("::")[1]!] = 0.95;
+for (const label of fixtureTask.useful) judged[label.split("::")[1]!] = 0.7;
+
+test.each([...FORMATS])("the %s format on the mixed fixture matches its golden file", async (format) => {
+  const file = join(DIR, `mixed-app.${EXTENSIONS[format]}`);
+  const { result: run } = await runScope({
+    task: fixtureTask.task,
+    repo: join(import.meta.dir, "../fixtures/mixed-app"),
+    provider: fakeProvider({ relevance: judged, fallback: 0.1 }),
+    budget: 8000,
+    format,
+  });
+  const actual = renderFormat(format, run);
+  if (process.env.UPDATE_GOLDEN === "1" || !existsSync(file)) await writeFile(file, actual);
+  expect(actual).toBe(await readFile(file, "utf8"));
+  expect(run.estimatedTokens).toBeLessThanOrEqual(run.budget);
 });
