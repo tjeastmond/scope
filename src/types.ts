@@ -99,6 +99,8 @@ export interface AnalysisResult {
   warnings: string[];
   /** Set when the file had syntax errors and the chunks cover only what the parser recovered. */
   partial?: boolean;
+  /** The language has no analyzer, so the text fallback was expected, not a problem; callers may summarize it. */
+  textOnly?: true;
 }
 
 /** Turns one source file into normalized chunks. Async because Tree-sitter initialization is. */

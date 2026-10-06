@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { analyzeFile, binaryWarning } from "./analyzers/index.ts";
+import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { selectWithinBudget } from "./context/select.ts";
@@ -46,9 +46,17 @@ const NO_CHUNKS_WARNING = "No candidate chunks were found in the repository.";
 /** How much of a file the classifier sees, enough for a shebang line and a text check. */
 const HEAD_CHARS = 1024;
 
-export async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
+/**
+ * Scans and analyzes the repository. Files read as plain text only because their language has no analyzer are expected,
+ * so they get one summary warning (`detailed` lists more of them); every other fallback still warns per file.
+ */
+export async function loadChunks(
+  repo: string,
+  { detailed = false }: { detailed?: boolean } = {},
+): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
+  const textOnly: string[] = [];
   const { files, warnings } = await scanRepository(root);
   for (const file of files) {
     const bytes = await readFile(join(root, file));
@@ -64,8 +72,11 @@ export async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; w
     const source = redactSecrets(text);
     const analysis = await analyzeFile({ path: file, source }, language, heuristicEstimator);
     chunks.push(...analysis.chunks);
-    warnings.push(...analysis.warnings);
+    if (analysis.textOnly) textOnly.push(file);
+    else warnings.push(...analysis.warnings);
   }
+  const summary = textOnlySummary(textOnly, detailed);
+  if (summary) warnings.push(summary);
   return { chunks, warnings };
 }
 
@@ -83,7 +94,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   if (!task.trim()) throw new UsageError("A task description is required.");
   if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
-  const { chunks, warnings: scanWarnings } = await loadChunks(repo);
+  const { chunks, warnings: scanWarnings } = await loadChunks(repo, { detailed: explain });
   const { candidates, ranking, warning: retrievalWarning } = selectCandidates(task, chunks);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
