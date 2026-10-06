@@ -58,12 +58,21 @@ If nothing fits at all, `EmptySelectionError` is raised as before.
 
 `SkipReason` has exactly two members, and each has one meaning:
 
-| Reason            | Meaning                                                       | Shown in text and Markdown  |
-| ----------------- | ------------------------------------------------------------- | --------------------------- |
-| `below-threshold` | The relevance (or `no-jev` score) was under the minimum.      | Only as a count             |
-| `over-budget`     | The chunk was relevant but did not fit, or was pruned to fit. | Listed, with cost and floor |
+| Reason            | Meaning                                                       | Shown in text and Markdown     |
+| ----------------- | ------------------------------------------------------------- | ------------------------------ |
+| `below-threshold` | The relevance (or `no-jev` score) was under the minimum.      | Count; listed with `--explain` |
+| `over-budget`     | The chunk was relevant but did not fit, or was pruned to fit. | Listed, with cost and floor    |
 
 Text and Markdown list at most five `over-budget` skips (most relevant first) and then count the rest, so the report
 cannot starve the budget it is reporting on; JSON always lists every skip. The "Left out" and "Unmet coherence"
 sections and the summary block are part of the artifact, so the selector reserves room for them (the skips and unmet
 requirements recorded so far) while choosing and measures them in the final check.
+
+### `--explain` counts toward the budget
+
+The explanation section (text and Markdown) and the extra JSON fields (`signals`, `origin`, `estimatedTokens`,
+`explain`) are part of the artifact, so `ScopeResult.explain` is threaded into selection and every candidate artifact
+is measured with the evidence rendered. The evidence depends only on the chosen set and the skip list, which the
+phase 1 reservation and the phase 2 final check already render, so `estimatedTokens <= budget` holds with it on. A
+budget that fits a selection without `--explain` can therefore select fewer chunks with it. Under `--explain` the
+below-threshold skips are also listed (capped at five, then a count), which is counted in the same measurement.

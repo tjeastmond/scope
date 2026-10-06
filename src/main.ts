@@ -1,6 +1,7 @@
 import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
 import { parseArgs } from "node:util";
 import { DEFAULT_BUDGET } from "./config.ts";
+import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
 import { UsageError } from "./errors.ts";
 import { resolveRepository } from "./repository/root.ts";
@@ -16,13 +17,13 @@ Options:
   --repo <path>      Repository to analyze (default: current directory)
   --budget <tokens>  Estimated token budget, a positive integer (default: ${DEFAULT_BUDGET})
   --format <format>  Output format: ${FORMATS.join(", ")} (default: text)
-  --output <path>    Write the result to a file instead of stdout (default: stdout)
-  --explain          Include selection evidence in the output (default: off)
+  --output <path>    Write the artifact to a file instead of stdout (default: stdout)
+  --explain          Add selection evidence for every chunk; it counts toward the budget (default: off)
   --no-jev           Skip Jev and use the offline baseline (no credentials or network)
   -h, --help         Show this help
 
-Not yet implemented: --output and --explain are accepted and validated, but have no effect yet. Only the
-artifact goes to stdout, in every format; warnings and Jev usage go to stderr.
+Only the artifact goes to stdout (or to the --output file); warnings, Jev usage and the final "wrote" line go to
+stderr. --output refuses to overwrite a source file of the repository and replaces other files atomically.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
 `;
@@ -109,7 +110,7 @@ function describeError(error: unknown): string {
   return label ? `${label}: ${error.message}` : error.message;
 }
 
-/** Runs the CLI and returns the exit code. Results go to stdout only on success; everything else to stderr. */
+/** Runs the CLI and returns the exit code. Results go to stdout (or the --output file) only on success. */
 export async function main(argv: string[], io: Io): Promise<number> {
   try {
     const options = parseCli(argv);
@@ -117,29 +118,49 @@ export async function main(argv: string[], io: Io): Promise<number> {
       io.stdout(HELP);
       return 0;
     }
-    const { result, decision } = await runScope({
-      task: options.task,
-      repo: options.repo,
-      budget: options.budget,
-      format: options.format,
-      noJev: options.noJev,
-      provider: io.provider,
-    });
-    for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
-    if (decision) {
-      const { inputTokens, outputTokens } = decision.usage ?? {};
-      const metrics = [
-        decision.latencyMs === undefined ? undefined : `${decision.latencyMs}ms`,
-        inputTokens === undefined || outputTokens === undefined
-          ? undefined
-          : `${inputTokens} input / ${outputTokens} output tokens`,
-      ].filter((metric) => metric !== undefined);
-      io.stderr(`scope: Jev ${metrics.length > 0 ? metrics.join(", ") : "usage not reported"}\n`);
+    // Checked, and the temporary file created, before the (possibly paid) Jev request.
+    const output =
+      options.output === undefined
+        ? undefined
+        : await prepareOutput(resolveRepository(options.repo).root, options.output);
+    try {
+      await run(options, io, output);
+      return 0;
+    } finally {
+      await output?.discard();
     }
-    io.stdout(renderFormat(options.format, result));
-    return 0;
   } catch (error) {
     io.stderr(`scope: ${describeError(error)}\n`);
     return error instanceof UsageError ? 2 : 1;
+  }
+}
+
+async function run(options: CliOptions, io: Io, output: PreparedOutput | undefined): Promise<void> {
+  const { result, decision } = await runScope({
+    task: options.task,
+    repo: options.repo,
+    budget: options.budget,
+    format: options.format,
+    explain: options.explain,
+    noJev: options.noJev,
+    provider: io.provider,
+  });
+  for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
+  if (decision) {
+    const { inputTokens, outputTokens } = decision.usage ?? {};
+    const metrics = [
+      decision.latencyMs === undefined ? undefined : `${decision.latencyMs}ms`,
+      inputTokens === undefined || outputTokens === undefined
+        ? undefined
+        : `${inputTokens} input / ${outputTokens} output tokens`,
+    ].filter((metric) => metric !== undefined);
+    io.stderr(`scope: Jev ${metrics.length > 0 ? metrics.join(", ") : "usage not reported"}\n`);
+  }
+  const artifact = renderFormat(options.format, result);
+  if (output) {
+    await output.commit(artifact);
+    io.stderr(`scope: wrote ${options.output}\n`);
+  } else {
+    io.stdout(artifact);
   }
 }

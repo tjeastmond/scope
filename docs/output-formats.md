@@ -1,12 +1,50 @@
 # Output formats
 
 `--format text|markdown|json` renders one in-memory `ScopeResult`. Every format carries the same regions (merged
-blocks of source, no line repeated) and the same provenance. Only the artifact goes to stdout; warnings and Jev usage
-go to stderr, so JSON on stdout is always parseable on its own.
+blocks of source, no line repeated) and the same provenance. Only the artifact goes to stdout (or to the `--output`
+file); warnings and Jev usage go to stderr, so JSON on stdout is always parseable on its own.
 
 The budget is enforced on the whole artifact in the requested format, so Markdown and JSON, which carry more
 structure, select less source than text for the same `--budget` (see [budget-policy.md](budget-policy.md)). The entry
 point is `renderFormat(format, result)` in `src/output/index.ts`.
+
+## Flags
+
+- `--output <path>`: write the artifact to a file instead of stdout. The file holds exactly the bytes stdout would have
+  received; stdout stays empty. Warnings, Jev usage and a final `scope: wrote <path>` line go to stderr.
+- `--explain`: add the selection evidence described under [Explanation](#explanation---explain). The evidence is part
+  of the artifact, so it counts toward `--budget` (see [budget-policy.md](budget-policy.md)).
+
+### Output file safety (`--output`)
+
+- **Never overwrites repository source.** The target is resolved through symlinks (the file's real path when it
+  exists, otherwise its parent directory's real path plus the file name) and compared with the files Scope scans
+  (the eligible set: not ignored, not binary, not secret). If it is one of them, Scope refuses with a one-line message
+  and exit code 1, and writes nothing. A target inside the repository that is not scanned (for example an ignored
+  path) and any file outside it, such as a previous Scope output, may be overwritten. A directory target is refused.
+- **Checked before the Jev request.** After parsing, and before any request is sent, Scope runs the check above and
+  creates the temporary file, so a missing or unwritable directory fails immediately (exit code 1) instead of after a
+  paid run.
+- **Atomic.** The artifact is written to a temporary file in the target's directory (exclusive create, named
+  `.<name>.<16 random hex digits>.tmp`) and renamed over the target, so a reader sees the old file or the complete new
+  one. The temporary file is removed on every failure path.
+
+## Explanation (`--explain`)
+
+For every chunk in the result, including supporting declarations pulled in for coherence, the evidence is: the
+deterministic retrieval signals (names sorted), Jev's relevance (or `not judged`), the ranking score, the chunk's
+estimated token cost, its origin and the reason it was included. Origin is `direct` (dependency distance 0),
+`expanded from <location>` (a graph neighbour of that chunk, distance 1) or `supporting declaration for <locations>`.
+Under `--explain` the below-threshold candidates are also listed (most relevant first, at most five, then a count)
+in addition to the over-budget list; without it they are only counted.
+
+- **Text:** a `-- Explanation --` section after the regions, one block per chunk; repo-derived text is sanitized.
+- **Markdown:** `## Explanation` with one `###` section per chunk; repo-derived text is in code spans.
+- **JSON:** each region chunk gains `signals` (object, keys sorted), `origin` (when known) and `estimatedTokens`, and
+  the document gains `"explain": true`. These are additive optional properties; `schemaVersion` stays `1`. Without
+  `--explain` the JSON is unchanged.
+
+The text and Markdown lines are built once in `src/output/report.ts`, so the formats cannot drift.
 
 ## Text (default)
 
@@ -53,12 +91,13 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
 ```
 { schemaVersion: 1, mode, task, budget, estimator, estimatedTokens, characters, lines,
   regions: [{ file, language, startLine, endLine, content,
-              chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor? }] }],
-  warnings, unmetCoherence, skipped, retrievalConfigVersion? }
+              chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
+                         signals?, origin?, estimatedTokens? }] }],
+  warnings, unmetCoherence, skipped, retrievalConfigVersion?, explain? }
 ```
 
 Source content appears once, on the region; chunk entries carry provenance only. `relevance` is absent in `no-jev`
-mode. Selection signals and retrieval origin are not included yet (they arrive with `--explain`, issue #55).
+mode. `signals`, `origin` and `estimatedTokens` on a chunk, and the top-level `explain`, appear only with `--explain`.
 
 ### schemaVersion
 

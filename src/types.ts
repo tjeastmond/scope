@@ -220,4 +220,6 @@ export interface ScopeResult {
   skipped: SkippedChunk[];
   /** Version of the retrieval weights and caps that prepared the candidates. */
   retrievalConfigVersion?: string;
+  /** Set by `--explain`: renderers add the selection evidence, which is part of the artifact and so of its budget. */
+  explain?: true;
 }

@@ -28,6 +28,8 @@ export interface ScopeOptions {
   provider?: DecisionProvider;
   /** Format of the emitted artifact; the budget is enforced on the whole artifact in this format (default text). */
   format?: OutputFormat;
+  /** Include selection evidence in the artifact; it counts toward the budget. */
+  explain?: boolean;
   signal?: AbortSignal;
 }
 
@@ -67,7 +69,15 @@ export async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; w
 
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
-  const { task, repo = ".", budget = DEFAULT_BUDGET, noJev = false, format = "text", signal } = options;
+  const {
+    task,
+    repo = ".",
+    budget = DEFAULT_BUDGET,
+    noJev = false,
+    format = "text",
+    explain = false,
+    signal,
+  } = options;
   if (!task.trim()) throw new UsageError("A task description is required.");
   if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
@@ -103,6 +113,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     mode,
     budget,
     format,
+    explain,
     estimator: heuristicEstimator,
     chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
     leadingWarnings: [...scanWarnings, ...(retrievalWarning ? [retrievalWarning] : [])],

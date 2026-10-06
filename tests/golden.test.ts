@@ -99,6 +99,30 @@ test.each([...FORMATS])("the %s format matches its golden file", async (format) 
   expect(actual).toBe(await readFile(file, "utf8"));
 });
 
+/** `--explain` on the same result, with signals, origins and a supporting declaration to explain. */
+const explained: ScopeResult = {
+  ...result,
+  chunks: [
+    { ...pick(total, 0.91, 0.91), signals: { symbol: 0.5, lexical: 0.25, path: 0.2 }, origin: "direct" },
+    { ...pick(due, 0.6, 0.6), signals: { dependency: 1 }, origin: `expanded-from:${total.id}` },
+    {
+      chunk: chunk("src/invoices.ts#Money", "Money", 1, 1, "type Money = number;"),
+      signals: {},
+      score: 0,
+      reason: "Supporting declaration for total",
+      supportFor: [total.id],
+    },
+  ],
+  explain: true,
+};
+
+test.each([...FORMATS])("the %s format with --explain matches its golden file", async (format) => {
+  const file = join(DIR, `result.explain.${EXTENSIONS[format]}`);
+  const actual = renderFormat(format, explained);
+  if (process.env.UPDATE_GOLDEN === "1") await writeFile(file, actual);
+  expect(actual).toBe(await readFile(file, "utf8"));
+});
+
 /** The same three formats on the real mixed-app fixture: a fake provider judges the due-date task's labeled chunks. */
 const fixtureTask = (await loadLabeledTasks("mixed-app")).find((task) => task.id === "due-date-column")!;
 const judged: Record<string, number> = {};
