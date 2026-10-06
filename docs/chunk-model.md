@@ -172,6 +172,10 @@ errors.
 - **Warnings:** each fallback that produces chunks adds `<path>: <reason>; text fallback produced N line window(s)`
   (plus ` over the lines the parser did not recover` when filling gaps), after the analyzer's own warnings. They flow
   into `ScopeResult.warnings`. A file with no non-blank line to cover (empty, blank-only) gets no chunks and no warning.
+  `analyzeFile` still returns the per-file warning for a language with no analyzer, but marks the result `textOnly`: that
+  fallback is expected (Go, `.txt`, `requirements.txt`), so `loadChunks` replaces those warnings with one summary,
+  `N file(s) have no analyzer and were read as plain text windows (for example a, b, c)` (up to 20 paths, without "for
+  example", under `--explain`). Unexpected fallbacks (analyzer threw, extracted nothing, syntax errors) still warn per file.
 - **Binary content:** the scanner sniffs only the first 8 KiB, so a NUL after that reaches `analyzeFile`, which skips the
   file with a warning rather than parsing it or sending it anywhere. Files that do not look like text are never read as
   text (classification `skip`).

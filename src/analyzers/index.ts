@@ -36,6 +36,22 @@ function briefly(error: unknown): string {
 /** The warning for a file with a NUL byte, which is never analyzed or sent. */
 export const binaryWarning = (path: string): string => `${path}: binary content (NUL byte); skipped`;
 
+/** Paths listed in a text-only summary: a few examples by default, more when the caller asked for detail. */
+const SUMMARY_EXAMPLES = 3;
+const SUMMARY_DETAILED = 20;
+
+/**
+ * One warning for every file read as text windows only because its language has no analyzer (Go, `.txt`, ...), which
+ * is expected and would otherwise drown the warnings that matter (syntax errors, analyzer failures). `detailed` lists
+ * more paths, for `--explain`.
+ */
+export function textOnlySummary(paths: readonly string[], detailed: boolean): string | undefined {
+  if (paths.length === 0) return undefined;
+  const shown = paths.slice(0, detailed ? SUMMARY_DETAILED : SUMMARY_EXAMPLES);
+  const more = paths.length > shown.length ? `, and ${paths.length - shown.length} more` : "";
+  return `${paths.length} file(s) have no analyzer and were read as plain text windows (${detailed ? "" : "for example "}${shown.join(", ")}${more})`;
+}
+
 /**
  * Analyzes a file with the analyzer for its language and guarantees usable chunks anyway. A file with a NUL byte is
  * binary: it is not analyzed, gets no chunks and a warning. A language with no analyzer, an analyzer that throws, or
@@ -51,7 +67,10 @@ export async function analyzeFile(
   const analyzer = analyzerFor(language);
   const fallback = (reason: string, covered: readonly CodeChunk[] = []) =>
     textFallback(file.path, file.source, language, estimator, reason, covered);
-  if (!analyzer) return fallback(`no analyzer for language "${language}"`);
+  if (!analyzer) {
+    const result = fallback(`no analyzer for language "${language}"`);
+    return result.chunks.length > 0 ? { ...result, textOnly: true } : result;
+  }
   let analysis: AnalysisResult;
   try {
     analysis = await analyzer.analyze(file, estimator, language);

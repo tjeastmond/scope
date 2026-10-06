@@ -44,7 +44,7 @@ test("an unknown extension becomes one file chunk and a warning naming file and 
   ]);
   expect(result.chunks[0]!.chunk.content).toBe("first line\nsecond line");
   expect(result.warnings).toEqual([
-    'notes.zzz: no analyzer for language "text"; text fallback produced 1 line window(s)',
+    "1 file(s) have no analyzer and were read as plain text windows (for example notes.zzz)",
   ]);
 });
 

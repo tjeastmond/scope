@@ -8,7 +8,7 @@ Show each invoice's due date in the invoice list: render it in the frontend row 
 
 - Mode: jev
 - Budget: 8000 estimated tokens
-- Artifact: 1824 estimated tokens (estimator ` scope-heuristic-v1 `), 4679 characters, 184 lines
+- Artifact: 1825 estimated tokens (estimator ` scope-heuristic-v1 `), 4682 characters, 184 lines
 - Regions: 12
 - Retrieval config: ` retrieval-v3 `
 
@@ -17,7 +17,7 @@ Show each invoice's due date in the invoice list: render it in the frontend row 
 - ` api/src/broken/report.ts: syntax errors; extracted 1 declarations from the parseable regions `
 - ` api/src/broken/report.ts: syntax errors; text fallback produced 2 line window(s) over the lines the parser did not recover `
 - ` web/src/main.tsx: analyzer extracted no chunks; text fallback produced 1 line window(s) `
-- ` worker/requirements.txt: no analyzer for language "text"; text fallback produced 1 line window(s) `
+- ` 1 file(s) have no analyzer and were read as plain text windows (for example worker/requirements.txt) `
 
 ## ` api/src/models/invoice.ts:1-1 `
 

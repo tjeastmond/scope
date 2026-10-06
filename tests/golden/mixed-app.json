@@ -5,7 +5,7 @@
   "budget": 8000,
   "estimator": "scope-heuristic-v1",
   "estimatedTokens": 5113,
-  "characters": 13937,
+  "characters": 13938,
   "lines": 475,
   "regions": [
     {
@@ -246,7 +246,7 @@
     "api/src/broken/report.ts: syntax errors; extracted 1 declarations from the parseable regions",
     "api/src/broken/report.ts: syntax errors; text fallback produced 2 line window(s) over the lines the parser did not recover",
     "web/src/main.tsx: analyzer extracted no chunks; text fallback produced 1 line window(s)",
-    "worker/requirements.txt: no analyzer for language \"text\"; text fallback produced 1 line window(s)"
+    "1 file(s) have no analyzer and were read as plain text windows (for example worker/requirements.txt)"
   ],
   "unmetCoherence": [],
   "skipped": [
