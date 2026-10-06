@@ -31,7 +31,8 @@
     "warnings": { "type": "array", "items": { "type": "string" } },
     "unmetCoherence": { "type": "array", "items": { "$ref": "#/$defs/unmetCoherence" } },
     "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
-    "retrievalConfigVersion": { "type": "string" }
+    "retrievalConfigVersion": { "type": "string" },
+    "explain": { "const": true }
   },
   "$defs": {
     "language": {
@@ -99,7 +100,10 @@
         "relevance": { "$ref": "#/$defs/relevance" },
         "score": { "$ref": "#/$defs/score" },
         "reason": { "type": "string" },
-        "supportFor": { "type": "array", "items": { "type": "string" } }
+        "supportFor": { "type": "array", "items": { "type": "string" } },
+        "signals": { "type": "object", "additionalProperties": { "type": "number" } },
+        "origin": { "type": "string" },
+        "estimatedTokens": { "type": "integer", "minimum": 0 }
       }
     },
     "unmetCoherence": {

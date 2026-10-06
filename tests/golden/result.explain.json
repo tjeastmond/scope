@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "mode": "jev",
+  "task": "Validate invoice totals",
+  "budget": 900,
+  "estimator": "scope-heuristic-v1",
+  "estimatedTokens": 312,
+  "characters": 1100,
+  "lines": 40,
+  "regions": [
+    {
+      "file": "src/invoices.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 1,
+      "content": "type Money = number;",
+      "chunks": [
+        {
+          "id": "src/invoices.ts#Money",
+          "name": "Money",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 1,
+          "score": 0,
+          "reason": "Supporting declaration for total",
+          "supportFor": [
+            "src/invoices.ts#total"
+          ],
+          "signals": {},
+          "estimatedTokens": 10
+        }
+      ]
+    },
+    {
+      "file": "src/invoices.ts",
+      "language": "typescript",
+      "startLine": 3,
+      "endLine": 5,
+      "content": "function total(a: number, b: number) {\n  return a + b;\n}",
+      "chunks": [
+        {
+          "id": "src/invoices.ts#total",
+          "name": "total",
+          "kind": "function",
+          "startLine": 3,
+          "endLine": 5,
+          "relevance": 0.91,
+          "score": 0.91,
+          "reason": "golden",
+          "signals": {
+            "lexical": 0.25,
+            "path": 0.2,
+            "symbol": 0.5
+          },
+          "origin": "direct",
+          "estimatedTokens": 10
+        }
+      ]
+    },
+    {
+      "file": "src/invoices.ts",
+      "language": "typescript",
+      "startLine": 7,
+      "endLine": 9,
+      "content": "function due(day: string) {\n  return day;\n}",
+      "chunks": [
+        {
+          "id": "src/invoices.ts#due",
+          "name": "due",
+          "kind": "function",
+          "startLine": 7,
+          "endLine": 9,
+          "relevance": 0.6,
+          "score": 0.6,
+          "reason": "golden",
+          "signals": {
+            "dependency": 1
+          },
+          "origin": "expanded-from:src/invoices.ts#total",
+          "estimatedTokens": 10
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "7 relevant chunk(s) were left out to stay within the budget."
+  ],
+  "unmetCoherence": [
+    {
+      "chunkId": "src/invoices.ts#total",
+      "requiredId": "src/types.ts#Money",
+      "reason": "too-large"
+    },
+    {
+      "chunkId": "src/invoices.ts#due",
+      "requiredId": "src/big.ts#big1",
+      "reason": "over-budget"
+    }
+  ],
+  "skipped": [
+    {
+      "chunkId": "src/big.ts#big1",
+      "file": "src/big.ts",
+      "startLine": 10,
+      "endLine": 15,
+      "name": "big1",
+      "relevance": 0.89,
+      "score": 0.5,
+      "estimatedTokens": 101,
+      "reason": "over-budget",
+      "minimumBudget": 401
+    },
+    {
+      "chunkId": "src/big.ts#big2",
+      "file": "src/big.ts",
+      "startLine": 20,
+      "endLine": 25,
+      "name": "big2",
+      "relevance": 0.88,
+      "score": 0.5,
+      "estimatedTokens": 102,
+      "reason": "over-budget",
+      "minimumBudget": 402
+    },
+    {
+      "chunkId": "src/big.ts#big3",
+      "file": "src/big.ts",
+      "startLine": 30,
+      "endLine": 35,
+      "name": "big3",
+      "relevance": 0.87,
+      "score": 0.5,
+      "estimatedTokens": 103,
+      "reason": "over-budget",
+      "minimumBudget": 403
+    },
+    {
+      "chunkId": "src/big.ts#big4",
+      "file": "src/big.ts",
+      "startLine": 40,
+      "endLine": 45,
+      "name": "big4",
+      "relevance": 0.86,
+      "score": 0.5,
+      "estimatedTokens": 104,
+      "reason": "over-budget",
+      "minimumBudget": 404
+    },
+    {
+      "chunkId": "src/big.ts#big5",
+      "file": "src/big.ts",
+      "startLine": 50,
+      "endLine": 55,
+      "name": "big5",
+      "relevance": 0.85,
+      "score": 0.5,
+      "estimatedTokens": 105,
+      "reason": "over-budget",
+      "minimumBudget": 405
+    },
+    {
+      "chunkId": "src/big.ts#big6",
+      "file": "src/big.ts",
+      "startLine": 60,
+      "endLine": 65,
+      "name": "big6",
+      "relevance": 0.8400000000000001,
+      "score": 0.5,
+      "estimatedTokens": 106,
+      "reason": "over-budget",
+      "minimumBudget": 406
+    },
+    {
+      "chunkId": "src/big.ts#big7",
+      "file": "src/big.ts",
+      "startLine": 70,
+      "endLine": 75,
+      "name": "big7",
+      "relevance": 0.8300000000000001,
+      "score": 0.5,
+      "estimatedTokens": 107,
+      "reason": "over-budget",
+      "minimumBudget": 407
+    },
+    {
+      "chunkId": "src/big.ts#big8",
+      "file": "src/big.ts",
+      "startLine": 80,
+      "endLine": 85,
+      "name": "big8",
+      "score": 0.5,
+      "estimatedTokens": 108,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "src/big.ts#big9",
+      "file": "src/big.ts",
+      "startLine": 90,
+      "endLine": 95,
+      "name": "big9",
+      "score": 0.5,
+      "estimatedTokens": 109,
+      "reason": "below-threshold"
+    }
+  ],
+  "retrievalConfigVersion": "golden-1",
+  "explain": true
+}

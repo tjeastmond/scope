@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { mergeRegions, toScopeRegion } from "../src/context/regions.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
 import type { CodeChunk, ScopeResult, SelectedChunk } from "../src/types.ts";
 import { runScope } from "../src/scope.ts";
@@ -96,6 +97,32 @@ test.each([...FORMATS])("the %s format matches its golden file", async (format) 
     await mkdir(DIR, { recursive: true });
     await writeFile(file, actual);
   }
+  expect(actual).toBe(await readFile(file, "utf8"));
+});
+
+/** `--explain` on the same result, with signals, origins and a supporting declaration to explain. */
+const explainedChunks: SelectedChunk[] = [
+  { ...pick(total, 0.91, 0.91), signals: { symbol: 0.5, lexical: 0.25, path: 0.2 }, origin: "direct" },
+  { ...pick(due, 0.6, 0.6), signals: { dependency: 1 }, origin: `expanded-from:${total.id}` },
+  {
+    chunk: chunk("src/invoices.ts#Money", "Money", 1, 1, "type Money = number;"),
+    signals: {},
+    score: 0,
+    reason: "Supporting declaration for total",
+    supportFor: [total.id],
+  },
+];
+const explained: ScopeResult = {
+  ...result,
+  chunks: explainedChunks,
+  regions: mergeRegions(explainedChunks).map(toScopeRegion),
+  explain: true,
+};
+
+test.each([...FORMATS])("the %s format with --explain matches its golden file", async (format) => {
+  const file = join(DIR, `result.explain.${EXTENSIONS[format]}`);
+  const actual = renderFormat(format, explained);
+  if (process.env.UPDATE_GOLDEN === "1") await writeFile(file, actual);
   expect(actual).toBe(await readFile(file, "utf8"));
 });
 

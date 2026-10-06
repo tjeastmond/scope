@@ -35,6 +35,8 @@ export interface SelectionOptions {
   leadingWarnings?: readonly string[];
   /** Embedded in the artifact (JSON), so it is measured. */
   retrievalConfigVersion?: string;
+  /** `--explain`: the artifact carries selection evidence, so it is part of what is measured. */
+  explain?: boolean;
 }
 
 /** Rounds of metric re-measurement before giving up and reporting the largest values seen. */
@@ -143,6 +145,7 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
       ...(options.retrievalConfigVersion === undefined
         ? {}
         : { retrievalConfigVersion: options.retrievalConfigVersion }),
+      ...(options.explain ? { explain: true as const } : {}),
     };
   };
 

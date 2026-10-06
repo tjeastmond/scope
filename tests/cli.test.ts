@@ -159,7 +159,7 @@ test("an unknown flag exits 2 on stderr", async () => {
   expect(run.stderr()).toStartWith("scope: ");
 });
 
-test("--help documents every flag with its default and says the output flags are not implemented", async () => {
+test("--help documents every flag with its default", async () => {
   const run = capture();
   expect(await main(["--help"], run.io)).toBe(0);
   const help = run.stdout();
@@ -170,20 +170,22 @@ test("--help documents every flag with its default and says the output flags are
   expect(help).toContain("(default: text)");
   expect(help).toContain("(default: stdout)");
   expect(help).toContain("(default: off)");
-  expect(help).toContain("Not yet implemented: --output and --explain");
+  expect(help).not.toContain("Not yet implemented");
   expect(help).not.toContain("--format, --output");
 });
 
-test.each([[["--output", "out.txt"]], [["--explain"]]])(
-  "accepted but not yet implemented flags %j still produce text output",
-  async (flags) => {
-    const baseline = capture();
-    await main([TASK, "--repo", FIXTURE, "--no-jev"], baseline.io);
-    const run = capture();
-    expect(await main([TASK, "--repo", FIXTURE, "--no-jev", ...flags], run.io)).toBe(0);
-    expect(run.stdout()).toBe(baseline.stdout());
-  },
-);
+test.each([
+  ["text", "-- Explanation --"],
+  ["markdown", "## Explanation"],
+  ["json", '"explain": true'],
+])("--explain adds the evidence to %s output and its absence leaves it out", async (format, marker) => {
+  const explained = capture();
+  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--format", format, "--explain"], explained.io)).toBe(0);
+  expect(explained.stdout()).toContain(marker);
+  const plain = capture();
+  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--format", format], plain.io)).toBe(0);
+  expect(plain.stdout()).not.toContain(marker);
+});
 
 test("--format json prints only parseable, schema-valid JSON on stdout; warnings stay on stderr", async () => {
   const run = capture(retryProvider);

@@ -1,3 +1,4 @@
+import { signalPairs } from "./report.ts";
 import type {
   ChunkKind,
   Language,
@@ -19,6 +20,10 @@ export interface JsonChunk {
   score: number;
   reason: string;
   supportFor?: string[];
+  /** `--explain` only: the retrieval signals (keys sorted), how the chunk was found, and its own cost. */
+  signals?: Record<string, number>;
+  origin?: string;
+  estimatedTokens?: number;
 }
 
 /** An emitted block of source. The content lives here once; no line is repeated across regions or chunks. */
@@ -49,9 +54,14 @@ export interface JsonPayload {
   unmetCoherence: UnmetCoherence[];
   skipped: SkippedChunk[];
   retrievalConfigVersion?: string;
+  /** Present (true) only under `--explain`. */
+  explain?: true;
 }
 
-const toJsonChunk = ({ chunk, relevance, score, reason, supportFor }: SelectedChunk): JsonChunk => ({
+const toJsonChunk = (
+  { chunk, relevance, score, reason, supportFor, signals, origin }: SelectedChunk,
+  explain: boolean,
+): JsonChunk => ({
   id: chunk.id,
   ...(chunk.name === undefined ? {} : { name: chunk.name }),
   kind: chunk.kind,
@@ -61,6 +71,13 @@ const toJsonChunk = ({ chunk, relevance, score, reason, supportFor }: SelectedCh
   score,
   reason,
   ...(supportFor === undefined ? {} : { supportFor }),
+  ...(explain
+    ? {
+        signals: Object.fromEntries(signalPairs(signals)),
+        ...(origin === undefined ? {} : { origin }),
+        estimatedTokens: chunk.estimatedTokens,
+      }
+    : {}),
 });
 
 // Keys are written out explicitly so their order is fixed and the output deterministic.
@@ -97,13 +114,14 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
       chunks: region.chunkIds.map((id) => {
         const found = byId.get(id);
         if (!found) throw new Error(`Region ${region.file}:${region.startLine} names unknown chunk ${id}`);
-        return toJsonChunk(found);
+        return toJsonChunk(found, result.explain === true);
       }),
     })),
     warnings: result.warnings,
     unmetCoherence: result.unmetCoherence.map(({ chunkId, requiredId, reason }) => ({ chunkId, requiredId, reason })),
     skipped: result.skipped.map(toJsonSkipped),
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
+    ...(result.explain ? { explain: true as const } : {}),
   };
 }
 

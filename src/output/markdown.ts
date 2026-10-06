@@ -1,5 +1,12 @@
 import type { ScopeRegion, ScopeResult, SelectedChunk } from "../types.ts";
-import { belowThresholdLine, leftOutLines, sanitizeInline, summaryLines, unmetLines } from "./report.ts";
+import {
+  belowThresholdLines,
+  explainBlocks,
+  leftOutLines,
+  sanitizeInline,
+  summaryLines,
+  unmetLines,
+} from "./report.ts";
 import { labelOf } from "./text.ts";
 
 /** Longest run of consecutive backticks anywhere in `text` (0 when there are none). */
@@ -62,17 +69,14 @@ export function renderMarkdown(result: ScopeResult): string {
     out.push("", "## Warnings", "", ...result.warnings.map((warning) => `- ${codeSpan(warning)}`));
   }
   for (const region of result.regions) out.push("", renderRegion(region, byId));
-  const leftOut = leftOutLines(result, codeSpan);
-  const below = belowThresholdLine(result);
-  if (leftOut.length > 0 || below !== undefined) {
-    out.push(
-      "",
-      "## Left out",
-      "",
-      ...leftOut.map((line) => `- ${line}`),
-      ...(below === undefined ? [] : [`- ${below}`]),
-    );
+  if (result.explain) {
+    out.push("", "## Explanation");
+    for (const { title, lines } of explainBlocks(result, codeSpan)) {
+      out.push("", `### ${title}`, "", ...lines.map((line) => `- ${line}`));
+    }
   }
+  const leftOut = [...leftOutLines(result, codeSpan), ...belowThresholdLines(result, codeSpan)];
+  if (leftOut.length > 0) out.push("", "## Left out", "", ...leftOut.map((line) => `- ${line}`));
   const unmet = unmetLines(result, codeSpan);
   if (unmet.length > 0) out.push("", "## Unmet coherence", "", ...unmet.map((line) => `- ${line}`));
   return `${out.join("\n")}\n`;
