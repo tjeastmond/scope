@@ -142,11 +142,11 @@ function smallestWorkingBudget(candidates: readonly SelectedChunk[], options: Se
     }
   };
   let failing = options.budget;
-  let working = failing * 2;
+  let working = Math.min(failing * 2, MAX_PROBE_BUDGET);
   while (!works(working)) {
-    if (working > MAX_PROBE_BUDGET) return undefined;
+    if (working >= MAX_PROBE_BUDGET) return undefined;
     failing = working;
-    working *= 2;
+    working = Math.min(working * 2, MAX_PROBE_BUDGET);
   }
   while (working - failing > 1) {
     const middle = Math.floor((failing + working) / 2);

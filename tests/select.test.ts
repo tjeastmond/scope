@@ -343,3 +343,16 @@ test("the Unmet coherence section recorded so far is reserved, so a later chunk 
   expect(result.skipped.map((s) => [s.chunkId, s.reason])).toEqual([["big", "over-budget"]]);
   expect(result.estimatedTokens).toBeLessThanOrEqual(320);
 });
+
+test("the minimum-budget search gives up at its limit instead of probing beyond it", () => {
+  const huge = { id: "huge", count: () => 2 ** 40 + 1 };
+  const thrown = (() => {
+    try {
+      selectWithinBudget([item("a", 0.9, body(10))], { ...base, estimator: huge, budget: 100 });
+    } catch (error) {
+      return error as Error;
+    }
+  })();
+  expect(thrown).toBeInstanceOf(BudgetTooSmallError);
+  expect(thrown?.message).not.toContain("--budget must be at least");
+});
