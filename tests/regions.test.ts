@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { mergeRegions, toScopeRegion } from "../src/context/regions.ts";
 import { selectWithinBudget } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
-import { renderResult, renderText } from "../src/output/text.ts";
+import { renderResult } from "../src/output/text.ts";
+import { renderText } from "./helpers/render.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk, SelectedChunk } from "../src/types.ts";
 
@@ -161,6 +162,11 @@ test("adjacent and overlapping slices of a real mixed-app chunk merge back into 
 // Cost on the union.
 
 const textOf = (...entries: SelectedChunk[]) => renderText("do it", entries);
+/** Only the region blocks: the header and summary are covered by the format tests. */
+const regionsOf = (...entries: SelectedChunk[]) => {
+  const text = textOf(...entries);
+  return text.slice(text.indexOf("== "));
+};
 const base = {
   task: "do it",
   mode: "jev" as const,
@@ -209,17 +215,15 @@ test("separate regions in the result are listed in file and line order", () => {
 
 test("a single-chunk region renders exactly as a lone chunk always did", () => {
   const entry = slice("f", "function f() {\n  return 1;\n}", 1, 3, { file: "src/f.ts" });
-  expect(textOf(entry)).toBe(
-    "Scope context for: do it\n\n== src/f.ts:1-3 f (relevance 0.90) ==\nfunction f() {\n  return 1;\n}\n",
-  );
+  expect(regionsOf(entry)).toBe("== src/f.ts:1-3 f (relevance 0.90) ==\nfunction f() {\n  return 1;\n}\n");
   const unnamed = slice("g", SOURCE, 1, 1, { name: null });
   unnamed.relevance = undefined;
   unnamed.score = 1;
-  expect(textOf(unnamed)).toBe("Scope context for: do it\n\n== a.ts:1-1 (score 1.00) ==\nline 1\n");
+  expect(regionsOf(unnamed)).toBe("== a.ts:1-1 (score 1.00) ==\nline 1\n");
   const support = slice("h", SOURCE, 1, 1);
   support.relevance = undefined;
   support.supportFor = ["x"];
-  expect(textOf(support)).toBe("Scope context for: do it\n\n== a.ts:1-1 h (supporting declaration) ==\nline 1\n");
+  expect(regionsOf(support)).toBe("== a.ts:1-1 h (supporting declaration) ==\nline 1\n");
 });
 
 test("a merged region has one header listing every member with its own label", () => {
@@ -230,9 +234,8 @@ test("a merged region has one header listing every member with its own label", (
   const support = slice("s", SOURCE, 7, 8, { name: "Helper" });
   support.relevance = undefined;
   support.supportFor = ["m"];
-  expect(textOf(support, method, cls)).toBe(
-    "Scope context for: do it\n\n" +
-      "== a.ts:1-8 Cart, Cart.add, Helper (Cart relevance 0.87; Cart.add score 1.00; Helper supporting declaration) ==\n" +
+  expect(regionsOf(support, method, cls)).toBe(
+    "== a.ts:1-8 Cart, Cart.add, Helper (Cart relevance 0.87; Cart.add score 1.00; Helper supporting declaration) ==\n" +
       SOURCE.split("\n").slice(0, 8).join("\n") +
       "\n",
   );

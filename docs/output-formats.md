@@ -10,7 +10,26 @@ point is `renderFormat(format, result)` in `src/output/index.ts`.
 
 ## Text (default)
 
-A `Scope context for: <task>` header, then each region as `== path:start-end names (labels) ==` followed by the source.
+A `Scope context for: <task>` header, a summary block, then each region as `== path:start-end names (labels) ==`
+followed by the source, then the report sections below.
+
+### Summary and report sections (text and Markdown)
+
+Text and Markdown share one set of facts (`src/output/report.ts`):
+
+- **Summary:** mode, budget, estimated tokens with the estimator id, characters, lines, number of regions, and
+  `retrievalConfigVersion` when present. Numbers are estimates from the named estimator, not exact model token counts.
+- **Left out (over budget):** the relevant chunks that did not fit, most relevant first, with location, `relevance` or
+  `score`, estimated tokens and the minimum budget that would admit the chunk. At most five are listed, then a count of the
+  rest. Candidates scored below the relevance minimum are only counted, never listed.
+- **Unmet coherence:** each selected chunk whose required supporting declaration is not included, with the reason
+  (`too-large` or `over-budget`).
+- Empty sections are omitted. `relevance` is Jev's judgment; `score` is a ranking signal. Neither is a probability or
+  a confidence.
+- JSON keeps its structure and lists every skip and unmet entry in full.
+
+Golden files for all three formats live in `tests/golden/`; regenerate with
+`UPDATE_GOLDEN=1 bun test tests/golden.test.ts` and review the diff.
 
 ## Markdown
 
@@ -19,6 +38,7 @@ A `Scope context for: <task>` header, then each region as `== path:start-end nam
 - One section per region, headed with the `path:start-end` location as a code span: language, one line per chunk
   (name, kind, lines, and `relevance 0.87`, `score 1.00` or `supporting declaration`), then the source in a fenced
   block tagged with the language. Scores are ranking signals, not probabilities.
+- After the regions: `## Left out` and `## Unmet coherence` when they have content (see below).
 - **Fence rule.** A fence is a run of backticks longer than the longest backtick run anywhere inside the fenced content,
   and never shorter than 3. Content is emitted unchanged inside the fence: CR, NUL, ANSI escapes, U+2028/2029, BOMs and
   very long lines are not altered.

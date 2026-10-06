@@ -23,10 +23,10 @@ test("fixture + real parser + fake provider selects the relevant chunks with exa
 });
 
 test("a small budget keeps the artifact within it", async () => {
-  const { result } = await runScope({ task: TASK, repo: FIXTURE, provider, budget: 180 });
+  const { result } = await runScope({ task: TASK, repo: FIXTURE, provider, budget: 400 });
   expect(result.chunks.length).toBeGreaterThan(0);
   expect(result.chunks.length).toBeLessThan(3);
-  expect(result.estimatedTokens).toBeLessThanOrEqual(180);
+  expect(result.estimatedTokens).toBeLessThanOrEqual(400);
 });
 
 test.each([

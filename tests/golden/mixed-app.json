@@ -1,0 +1,474 @@
+{
+  "schemaVersion": 1,
+  "mode": "jev",
+  "task": "Show each invoice's due date in the invoice list: render it in the frontend row (the API already returns dueDate).",
+  "budget": 8000,
+  "estimator": "scope-heuristic-v1",
+  "estimatedTokens": 5113,
+  "characters": 13937,
+  "lines": 475,
+  "regions": [
+    {
+      "file": "api/src/models/invoice.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 1,
+      "content": "export namespace Billing {",
+      "chunks": [
+        {
+          "id": "65c24047fe3f",
+          "name": "Billing",
+          "kind": "section",
+          "startLine": 1,
+          "endLine": 1,
+          "score": 0,
+          "reason": "Supporting declaration for Billing.Invoice",
+          "supportFor": [
+            "d1f06f3980ca"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "api/src/models/invoice.ts",
+      "language": "typescript",
+      "startLine": 10,
+      "endLine": 14,
+      "content": "  export interface Invoice extends InvoiceInput {\n    id: string;\n    status: Status;\n    dueDate: string;\n  }",
+      "chunks": [
+        {
+          "id": "d1f06f3980ca",
+          "name": "Billing.Invoice",
+          "kind": "interface",
+          "startLine": 10,
+          "endLine": 14,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "api/src/routes/invoices.ts",
+      "language": "typescript",
+      "startLine": 13,
+      "endLine": 16,
+      "content": "export async function listInvoices(status: Billing.Status, res: Response): Promise<void> {\n  const invoices = await service.listByStatus(status);\n  res.end(JSON.stringify(invoices.map((invoice) => ({ ...invoice, total: format(invoice.totalCents) }))));\n}",
+      "chunks": [
+        {
+          "id": "f136926c6ca3",
+          "name": "listInvoices",
+          "kind": "function",
+          "startLine": 13,
+          "endLine": 16,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "api/src/services/invoiceService.ts",
+      "language": "typescript",
+      "startLine": 3,
+      "endLine": 5,
+      "content": "export class InvoiceService {\n  private readonly store = new Map<string, Billing.Invoice>();\n  private sequence = 0;",
+      "chunks": [
+        {
+          "id": "e56f35e738a9",
+          "name": "InvoiceService",
+          "kind": "class",
+          "startLine": 3,
+          "endLine": 5,
+          "score": 0,
+          "reason": "Supporting declaration for InvoiceService.listByStatus, InvoiceService.dueDateFrom",
+          "supportFor": [
+            "6582e9db8b05",
+            "756f6f04c956"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "api/src/services/invoiceService.ts",
+      "language": "typescript",
+      "startLine": 14,
+      "endLine": 16,
+      "content": "  async listByStatus(status: Billing.Status): Promise<Billing.Invoice[]> {\n    return [...this.store.values()].filter((invoice) => invoice.status === status);\n  }",
+      "chunks": [
+        {
+          "id": "6582e9db8b05",
+          "name": "InvoiceService.listByStatus",
+          "kind": "method",
+          "startLine": 14,
+          "endLine": 16,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "api/src/services/invoiceService.ts",
+      "language": "typescript",
+      "startLine": 25,
+      "endLine": 29,
+      "content": "  private dueDateFrom(start: Date): string {\n    const due = new Date(start);\n    due.setDate(due.getDate() + 30);\n    return due.toISOString().slice(0, 10);\n  }",
+      "chunks": [
+        {
+          "id": "756f6f04c956",
+          "name": "InvoiceService.dueDateFrom",
+          "kind": "method",
+          "startLine": 25,
+          "endLine": 29,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "db/migrations/001_create_invoices.sql",
+      "language": "sql",
+      "startLine": 8,
+      "endLine": 16,
+      "content": "CREATE TABLE invoices (\n  id text PRIMARY KEY,\n  number text NOT NULL UNIQUE,\n  customer_id text NOT NULL REFERENCES customers (id),\n  total_cents integer NOT NULL CHECK (total_cents >= 0),\n  status text NOT NULL DEFAULT 'open',\n  due_date date NOT NULL,\n  reminded_at timestamptz\n);",
+      "chunks": [
+        {
+          "id": "75a9e2909acd",
+          "name": "invoices",
+          "kind": "table",
+          "startLine": 8,
+          "endLine": 16,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "web/src/components/InvoiceList.tsx",
+      "language": "typescript",
+      "startLine": 9,
+      "endLine": 18,
+      "content": "export function InvoiceList({ invoices }: InvoiceListProps) {\n  if (invoices.length === 0) return <p className={styles.empty}>No invoices yet.</p>;\n  return (\n    <ul className={styles.list}>\n      {invoices.map((invoice) => (\n        <InvoiceRow key={invoice.id} invoice={invoice} />\n      ))}\n    </ul>\n  );\n}",
+      "chunks": [
+        {
+          "id": "569f16fb0075",
+          "name": "InvoiceList",
+          "kind": "component",
+          "startLine": 9,
+          "endLine": 18,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "web/src/components/InvoiceRow.tsx",
+      "language": "typescript",
+      "startLine": 5,
+      "endLine": 13,
+      "content": "export function InvoiceRow({ invoice }: { invoice: InvoiceDto }) {\n  const overdue = invoice.status === \"overdue\";\n  return (\n    <li className={overdue ? styles.overdue : styles.row}>\n      <span>{invoice.number}</span>\n      <span>{format(invoice.totalCents, \"EUR\")}</span>\n    </li>\n  );\n}",
+      "chunks": [
+        {
+          "id": "f9f834866fec",
+          "name": "InvoiceRow",
+          "kind": "component",
+          "startLine": 5,
+          "endLine": 13,
+          "relevance": 0.95,
+          "score": 0.95,
+          "reason": "Jev relevance 0.95"
+        }
+      ]
+    },
+    {
+      "file": "web/src/hooks/useInvoices.ts",
+      "language": "typescript",
+      "startLine": 3,
+      "endLine": 8,
+      "content": "export interface InvoiceDto {\n  id: string;\n  number: string;\n  status: \"open\" | \"paid\" | \"overdue\";\n  totalCents: number;\n}",
+      "chunks": [
+        {
+          "id": "d47e52a4e656",
+          "name": "InvoiceDto",
+          "kind": "interface",
+          "startLine": 3,
+          "endLine": 8,
+          "relevance": 0.95,
+          "score": 0.95,
+          "reason": "Jev relevance 0.95"
+        }
+      ]
+    },
+    {
+      "file": "web/src/lib/format.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 3,
+      "content": "export function format(cents: number, currency: string): string {\n  return new Intl.NumberFormat(\"de-DE\", { style: \"currency\", currency }).format(cents / 100);\n}",
+      "chunks": [
+        {
+          "id": "c9c98b3ef277",
+          "name": "format",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 3,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    },
+    {
+      "file": "web/src/styles/invoice.module.css",
+      "language": "css",
+      "startLine": 7,
+      "endLine": 11,
+      "content": ".row {\n  display: flex;\n  justify-content: space-between;\n  padding: 0.5rem 0;\n}",
+      "chunks": [
+        {
+          "id": "18eff2571885",
+          "name": ".row",
+          "kind": "style",
+          "startLine": 7,
+          "endLine": 11,
+          "relevance": 0.7,
+          "score": 0.7,
+          "reason": "Jev relevance 0.70"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "api/src/broken/report.ts: syntax errors; extracted 1 declarations from the parseable regions",
+    "api/src/broken/report.ts: syntax errors; text fallback produced 2 line window(s) over the lines the parser did not recover",
+    "web/src/main.tsx: analyzer extracted no chunks; text fallback produced 1 line window(s)",
+    "worker/requirements.txt: no analyzer for language \"text\"; text fallback produced 1 line window(s)"
+  ],
+  "unmetCoherence": [],
+  "skipped": [
+    {
+      "chunkId": "5cc408734908",
+      "file": "api/src/broken/report.ts",
+      "startLine": 8,
+      "endLine": 10,
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 57,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "66b5dc2b692b",
+      "file": "api/src/routes/invoices.ts",
+      "startLine": 18,
+      "endLine": 27,
+      "name": "createInvoice",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 120,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "24a839e6abba",
+      "file": "api/src/routes/invoices.ts",
+      "startLine": 29,
+      "endLine": 33,
+      "name": "handleInvoices",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 128,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "e976f1439f69",
+      "file": "api/src/services/invoiceService.ts",
+      "startLine": 7,
+      "endLine": 12,
+      "name": "InvoiceService.create",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 104,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "3ee66ff74cae",
+      "file": "api/tests/invoiceService.test.ts",
+      "startLine": 5,
+      "endLine": 17,
+      "name": "describe: InvoiceService",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 196,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "ccdf3c712735",
+      "file": "api/tests/invoiceService.test.ts",
+      "startLine": 19,
+      "endLine": 21,
+      "name": "test: validate rejects a missing customer",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 61,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "a8b4b9fe45e2",
+      "file": "db/migrations/002_add_status_index.sql",
+      "startLine": 1,
+      "endLine": 2,
+      "name": "create index idx_invoices_status_due",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 40,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "31a2e4bfb254",
+      "file": "db/queries/invoices.sql",
+      "startLine": 1,
+      "endLine": 5,
+      "name": "select from invoices",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 81,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "cbf263447c96",
+      "file": "db/queries/invoices.sql",
+      "startLine": 10,
+      "endLine": 11,
+      "name": "select from invoices",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 46,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "95fc08ae89dd",
+      "file": "docs/api.md",
+      "startLine": 1,
+      "endLine": 13,
+      "name": "HTTP API",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 78,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "e7395a487977",
+      "file": "docs/api.md",
+      "startLine": 3,
+      "endLine": 6,
+      "name": "HTTP API > GET /invoices",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 27,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "fcfff666ba6f",
+      "file": "docs/api.md",
+      "startLine": 7,
+      "endLine": 10,
+      "name": "HTTP API > POST /invoices",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 28,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "88803b81dbf5",
+      "file": "docs/architecture.md",
+      "startLine": 1,
+      "endLine": 23,
+      "name": "Architecture",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 195,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "4205b4923a44",
+      "file": "docs/architecture.md",
+      "startLine": 5,
+      "endLine": 12,
+      "name": "Architecture > API",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 70,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "f9f81da691af",
+      "file": "docs/architecture.md",
+      "startLine": 21,
+      "endLine": 23,
+      "name": "Architecture > Frontend",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 22,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "3fced31f4f33",
+      "file": "web/src/App.tsx",
+      "startLine": 5,
+      "endLine": 14,
+      "name": "App",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 112,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "2b24a2988c3b",
+      "file": "web/src/components/InvoiceList.tsx",
+      "startLine": 5,
+      "endLine": 7,
+      "name": "InvoiceListProps",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 20,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "d25dd5f39977",
+      "file": "web/src/hooks/useInvoices.ts",
+      "startLine": 10,
+      "endLine": 24,
+      "name": "useInvoices",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 190,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "b04233fb7927",
+      "file": "web/src/styles/invoice.module.css",
+      "startLine": 1,
+      "endLine": 5,
+      "name": ".list",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 25,
+      "reason": "below-threshold"
+    },
+    {
+      "chunkId": "667f177f8155",
+      "file": "worker/tasks.py",
+      "startLine": 34,
+      "endLine": 38,
+      "name": "schedule",
+      "relevance": 0.1,
+      "score": 0.1,
+      "estimatedTokens": 44,
+      "reason": "below-threshold"
+    }
+  ],
+  "retrievalConfigVersion": "retrieval-v3"
+}

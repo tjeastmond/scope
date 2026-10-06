@@ -187,12 +187,13 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     characters: Number(widest(budget * 16)),
     lines: Number(widest(budget * 16)),
   };
-  // The skip list recorded so far (below-threshold and earlier over-budget entries) is part of the artifact.
+  // The skip list recorded so far (below-threshold and earlier over-budget entries, which the text and Markdown
+  // "Left out" section lists) and the unmet requirements recorded so far (their section) are part of the artifact.
   const provisional = (set: Iterable<SelectedChunk>) =>
     assemble(
       [...set],
       [...skipped.values()],
-      [],
+      [...unmet.values()],
       [...leadingWarnings, overBudgetWarning(worstCount), unmetWarning(worstCount)],
       reservedMetrics,
     );

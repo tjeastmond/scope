@@ -1,0 +1,96 @@
+Scope context for: Show each invoice's due date in the invoice list: render it in the frontend row (the API already returns dueDate).
+
+Mode: jev
+Budget: 8000 estimated tokens
+Artifact: 1276 estimated tokens (estimator scope-heuristic-v1), 3374 characters, 97 lines
+Regions: 12
+Retrieval config: retrieval-v3
+
+== api/src/models/invoice.ts:1-1 Billing (supporting declaration) ==
+export namespace Billing {
+
+== api/src/models/invoice.ts:10-14 Billing.Invoice (relevance 0.70) ==
+  export interface Invoice extends InvoiceInput {
+    id: string;
+    status: Status;
+    dueDate: string;
+  }
+
+== api/src/routes/invoices.ts:13-16 listInvoices (relevance 0.70) ==
+export async function listInvoices(status: Billing.Status, res: Response): Promise<void> {
+  const invoices = await service.listByStatus(status);
+  res.end(JSON.stringify(invoices.map((invoice) => ({ ...invoice, total: format(invoice.totalCents) }))));
+}
+
+== api/src/services/invoiceService.ts:3-5 InvoiceService (supporting declaration) ==
+export class InvoiceService {
+  private readonly store = new Map<string, Billing.Invoice>();
+  private sequence = 0;
+
+== api/src/services/invoiceService.ts:14-16 InvoiceService.listByStatus (relevance 0.70) ==
+  async listByStatus(status: Billing.Status): Promise<Billing.Invoice[]> {
+    return [...this.store.values()].filter((invoice) => invoice.status === status);
+  }
+
+== api/src/services/invoiceService.ts:25-29 InvoiceService.dueDateFrom (relevance 0.70) ==
+  private dueDateFrom(start: Date): string {
+    const due = new Date(start);
+    due.setDate(due.getDate() + 30);
+    return due.toISOString().slice(0, 10);
+  }
+
+== db/migrations/001_create_invoices.sql:8-16 invoices (relevance 0.70) ==
+CREATE TABLE invoices (
+  id text PRIMARY KEY,
+  number text NOT NULL UNIQUE,
+  customer_id text NOT NULL REFERENCES customers (id),
+  total_cents integer NOT NULL CHECK (total_cents >= 0),
+  status text NOT NULL DEFAULT 'open',
+  due_date date NOT NULL,
+  reminded_at timestamptz
+);
+
+== web/src/components/InvoiceList.tsx:9-18 InvoiceList (relevance 0.70) ==
+export function InvoiceList({ invoices }: InvoiceListProps) {
+  if (invoices.length === 0) return <p className={styles.empty}>No invoices yet.</p>;
+  return (
+    <ul className={styles.list}>
+      {invoices.map((invoice) => (
+        <InvoiceRow key={invoice.id} invoice={invoice} />
+      ))}
+    </ul>
+  );
+}
+
+== web/src/components/InvoiceRow.tsx:5-13 InvoiceRow (relevance 0.95) ==
+export function InvoiceRow({ invoice }: { invoice: InvoiceDto }) {
+  const overdue = invoice.status === "overdue";
+  return (
+    <li className={overdue ? styles.overdue : styles.row}>
+      <span>{invoice.number}</span>
+      <span>{format(invoice.totalCents, "EUR")}</span>
+    </li>
+  );
+}
+
+== web/src/hooks/useInvoices.ts:3-8 InvoiceDto (relevance 0.95) ==
+export interface InvoiceDto {
+  id: string;
+  number: string;
+  status: "open" | "paid" | "overdue";
+  totalCents: number;
+}
+
+== web/src/lib/format.ts:1-3 format (relevance 0.70) ==
+export function format(cents: number, currency: string): string {
+  return new Intl.NumberFormat("de-DE", { style: "currency", currency }).format(cents / 100);
+}
+
+== web/src/styles/invoice.module.css:7-11 .row (relevance 0.70) ==
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+}
+
+20 candidate(s) scored below the relevance minimum and are not listed.

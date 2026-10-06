@@ -238,8 +238,8 @@ test("no arguments prints help", async () => {
 
 test("the budget is respected", async () => {
   const run = capture();
-  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--budget", "300"], run.io)).toBe(0);
-  expect(Math.ceil(run.stdout().length / 4)).toBeLessThanOrEqual(300);
+  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--budget", "700"], run.io)).toBe(0);
+  expect(Math.ceil(run.stdout().length / 4)).toBeLessThanOrEqual(700);
 });
 
 const built = existsSync(join(ROOT, "dist/cli.js"));
