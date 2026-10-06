@@ -1,16 +1,20 @@
 import type { CodeChunk, ReferenceEvidence } from "../types.ts";
 import { importEdges } from "./imports.ts";
+import { createImportResolver } from "./resolve.ts";
 import { testEdges } from "./tests.ts";
 import type { FileImport, GraphEdge, ImportResolver, Neighbor, NeighborConfidence, RepositoryGraph } from "./types.ts";
 
 export type { FileImport, GraphEdge, ImportResolution, ImportResolver, Neighbor, RepositoryGraph } from "./types.ts";
 
 export interface GraphOptions {
-  /** Resolves import specifiers to scanned files. */
+  /** Resolves import specifiers to scanned files. Defaults to `createImportResolver(files)`. */
   resolveImport?: ImportResolver;
+  /**
+   * Scanned repository paths the default resolver may resolve to. Defaults to the files of the chunks, which misses
+   * files with no chunks (a barrel file of pure re-exports has none); pass the scan result to include them.
+   */
+  files?: Iterable<string>;
 }
-
-const unavailable: ImportResolver = () => ({ unresolved: "import resolution not available" });
 
 type SortKey = readonly (string | number)[];
 
@@ -42,7 +46,10 @@ export function buildGraph(chunks: readonly CodeChunk[], options: GraphOptions =
   const byId = new Map(sorted.map((chunk) => [chunk.id, chunk]));
   const byFile = groupBy(sorted, (chunk) => chunk.file);
 
-  const imports = importEdges({ byFile, byId }, options.resolveImport ?? unavailable);
+  const imports = importEdges(
+    { byFile, byId },
+    options.resolveImport ?? createImportResolver(options.files ?? byFile.keys()),
+  );
   const edgeKey = (e: GraphEdge): SortKey => [
     order.get(e.from)!,
     e.kind,

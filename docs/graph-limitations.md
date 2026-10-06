@@ -4,7 +4,10 @@ The graph (`src/graph/`) links chunks through their import `references` and link
 built to be cheap and traceable, not complete. Every edge carries `confidence` (`exact`, `heuristic`, `unresolved`) and
 human-readable `evidence`.
 
-- **Resolution is minimal.** Aliases (`@/x`, tsconfig `paths`), package `exports`, workspaces and bundler resolution
+- **Resolution is minimal.** `createImportResolver` (`src/graph/resolve.ts`) resolves only against the scanned files:
+  relative TypeScript/JavaScript specifiers (exact path, appended extension, `index` file, and `.js` specifiers mapped
+  to `.ts` sources) and Python relative imports and local modules. It never leaves the repository root. A file with no
+  chunks (a barrel of pure re-exports) is unknown to the default resolver unless `buildGraph` is given `files`. Aliases (`@/x`, tsconfig `paths`), package `exports`, workspaces and bundler resolution
   are not resolved. Bare package specifiers (`react`, `logging`) are external. Such imports stay as dangling
   `unresolved` edges with the reason; they are never dropped.
 - **Dynamic imports are unresolved.** `import(expr)`, `require(expr)`, `__import__(expr)` and template or concatenated
@@ -24,4 +27,7 @@ human-readable `evidence`.
   same-stem file of the same language is linked by naming convention (`heuristic`); with several candidates, the one
   sharing the longest directory prefix wins, and a tie keeps all of them, marked ambiguous. Test edges are anchored on
   the first chunk of the test file and point at a file, not a chunk.
-- **Python absolute imports** of local modules resolve only if the configured resolver says so.
+- **Python absolute imports** (`import a.b`, `from a.b import c`) resolve only to `a/b.py` or `a/b/__init__.py` under
+  the repository root or the importer's top-level directory. Namespace packages, `sys.path` changes and installed
+  packages are not considered. `import x` and `from x import x` are indistinguishable, so a chunk named `x` in module
+  `x` is linked as the symbol.

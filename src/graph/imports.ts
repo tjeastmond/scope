@@ -13,17 +13,18 @@ function mentions(content: string, name: string): boolean {
   return new RegExp(`(?<![\\p{L}\\p{N}_$])${escapeRegExp(name)}(?![\\p{L}\\p{N}_$])`, "u").test(content);
 }
 
-const isName = (ref: Reference, name: string) => IDENTIFIER.test(name) && name !== "default" && name !== ref.specifier;
+/** A name that can be looked up in code: an identifier other than `default` (not `*`, a path or dynamic source). */
+const isName = (name: string) => IDENTIFIER.test(name) && name !== "default";
 
 /** The name the importing file's code uses: the alias, else `name`; unusable for `*`, side-effect and dynamic imports. */
 function bindingName(ref: Reference): string | undefined {
   const name = ref.local ?? ref.name;
-  return isName(ref, name) ? name : undefined;
+  return isName(name) ? name : undefined;
 }
 
 /** The name to find among the target file's chunks. A namespace binding names the module, not a symbol in it. */
 function exportedName(ref: Reference): string | undefined {
-  return ref.namespace || !isName(ref, ref.name) ? undefined : ref.name;
+  return ref.namespace || !isName(ref.name) ? undefined : ref.name;
 }
 
 /**

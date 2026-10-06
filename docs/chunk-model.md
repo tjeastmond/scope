@@ -220,7 +220,8 @@ Preserve uncertainty, never guess silently: an analyzer must pick the weakest ev
 ### Import references (JavaScript, TypeScript, Python)
 
 The JS/TS and Python analyzers record import and export relationships; nothing else (`call`, `type`, ... ) is emitted
-yet. Targets are never resolved here (that is M3), so `targetChunkId` is always absent. Every reference is
+yet. The analyzers never resolve targets, so `targetChunkId` is always absent; the repository graph (`src/graph/`)
+resolves imports from `specifier` afterwards (see `docs/graph-limitations.md`). Every reference is
 `{ kind: "import", from: { file, line }, name, specifier?, evidence? }` (`src/types.ts`):
 
 - `from.line` is the 1-based first line of the statement or call it occurs in, so every binding of a multi-line
