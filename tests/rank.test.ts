@@ -167,6 +167,15 @@ describe("rankCandidates on synthetic repositories", () => {
     expect(map.get(weak.id)).toMatchObject({ origin: "direct", signals: { dependency: 0.6 } });
   });
 
+  test("a chunk linked to two seeds keeps the stronger dependency signal", () => {
+    // Seed a (ranked first) reaches shared over a heuristic edge, seed b (ranked second) over an exact one.
+    const shared = chunk("src/shared.ts", "shared");
+    const a = chunk("src/a.ts", "a", { [shared.id]: "heuristic" });
+    const b = chunk("src/b.ts", "b", { [shared.id]: "exact" });
+    const ranked = byId(rank([a, b, shared], [direct(a, 1), direct(b, 0.9)]));
+    expect(ranked.get(shared.id)?.signals.dependency).toBe(1);
+  });
+
   test("expansion caps include test-derived candidates", () => {
     const src = chunk("lib/thing.ts", "thing", { "lib/dep1.ts#d1": "exact", "lib/dep2.ts#d2": "exact" });
     const pair = [
