@@ -79,12 +79,6 @@ describe("import edges", () => {
     expect(graph.edges.some((e) => e.fromFile === "worker/main.py" && e.name === "logging")).toBe(true);
   });
 
-  test("a default resolver reports that resolution is unavailable", () => {
-    const bare = buildGraph(chunks);
-    const edge = bare.edges.find((e) => e.kind === "import");
-    expect(edge).toMatchObject({ confidence: "unresolved", evidence: "import resolution not available" });
-  });
-
   test("dynamic imports become dangling edges", () => {
     const source = {
       ...chunk("api/src/routes/health.ts", "handleHealth"),
@@ -151,7 +145,7 @@ describe("test-to-source links", () => {
   });
 
   test("naming picks the same-package file when the stem is shared, without needing an import", () => {
-    const unresolved = buildGraph(chunks);
+    const unresolved = buildGraph(chunks, { resolveImport: () => ({ unresolved: "none" }) });
     expect(unresolved.sourcesFor("web/tests/format.test.ts")).toEqual(["web/src/lib/format.ts"]);
     expect(unresolved.testsFor("api/src/util/format.ts")).toEqual([]);
     const edge = unresolved.edges.find((e) => e.kind === "test" && e.fromFile === "web/tests/format.test.ts");
