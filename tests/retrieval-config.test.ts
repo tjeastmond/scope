@@ -9,13 +9,14 @@ import { fakeProvider } from "./helpers/fake-provider.ts";
 
 describe("DEFAULT_RETRIEVAL_CONFIG", () => {
   test("holds the documented illustrative values and is valid", () => {
-    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v1");
+    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v2");
     expect(DEFAULT_RETRIEVAL_CONFIG.weights).toEqual({
       symbol: 0.3,
-      lexical: 0.25,
+      lexical: 0.2,
       path: 0.15,
       dependency: 0.2,
       test: 0.1,
+      proximity: 0.05,
     });
     expect(Object.values(DEFAULT_RETRIEVAL_CONFIG.weights).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1, 10);
     expect(DEFAULT_RETRIEVAL_CONFIG.expansion).toEqual({ seedCount: 5, maxNeighborsPerSeed: 4, maxExpanded: 10 });
@@ -61,7 +62,11 @@ describe("resolveRetrievalConfig", () => {
     ["negative weight", { weights: { symbol: -0.1 } }, "weights.symbol"],
     ["NaN weight", { weights: { lexical: Number.NaN } }, "weights.lexical"],
     ["infinite weight", { weights: { dependency: Number.POSITIVE_INFINITY } }, "weights.dependency"],
-    ["all-zero weights", { weights: { symbol: 0, lexical: 0, path: 0, dependency: 0, test: 0 } }, "weights"],
+    [
+      "all-zero weights",
+      { weights: { symbol: 0, lexical: 0, path: 0, dependency: 0, test: 0, proximity: 0 } },
+      "weights",
+    ],
     ["fractional shortlist", { shortlistSize: 2.5 }, "shortlistSize"],
     ["zero shortlist", { shortlistSize: 0 }, "shortlistSize"],
     ["negative seed count", { expansion: { seedCount: -1 } }, "expansion.seedCount"],

@@ -1,5 +1,6 @@
 // Lexical candidate scoring: symbol-name, source-text and file-path signals, each normalized to [0, 1] and kept
-// separate so a score can be explained. Graph signals (dependency, test) are added by later stages.
+// separate so a score can be explained. A ChunkScore has a slot for every signal; the graph signals (dependency,
+// test, proximity) are 0 here and filled in by `rankCandidates`.
 
 import { DEFAULT_RETRIEVAL_CONFIG, type RetrievalConfig } from "./config.ts";
 import {
@@ -15,7 +16,31 @@ import { stemmedWords, type TaskTerms } from "./terms.ts";
 /** The lexical signals' share of the configured weights. */
 export type ScoringWeights = Pick<RetrievalConfig["weights"], "symbol" | "lexical" | "path">;
 
-type Signal = keyof ScoringWeights;
+export type Signal = keyof RetrievalConfig["weights"];
+
+/** Signals in the order their contributions are summed. */
+const SIGNALS: readonly Signal[] = ["symbol", "lexical", "path", "dependency", "test", "proximity"];
+
+/** A score from signals in [0, 1]: contributions are weight times signal (a missing weight is 0), total their sum. */
+export function weighSignals(
+  chunkId: string,
+  signals: Record<Signal, number>,
+  weights: Partial<Record<Signal, number>>,
+): ChunkScore {
+  const contributions = {} as Record<Signal, number>;
+  let total = 0;
+  for (const signal of SIGNALS) {
+    contributions[signal] = (weights[signal] ?? 0) * signals[signal];
+    total += contributions[signal];
+  }
+  return { chunkId, signals, contributions, total };
+}
+
+/** Total descending, then file, start line and id (the order of `indexes.chunks`), so ties never depend on input. */
+export function compareScores(indexes: RetrievalIndexes): (a: ChunkScore, b: ChunkScore) => number {
+  const position = new Map(indexes.chunks.map((chunk, index) => [chunk.id, index]));
+  return (a, b) => b.total - a.total || (position.get(a.chunkId) ?? 0) - (position.get(b.chunkId) ?? 0);
+}
 
 export interface ChunkScore {
   chunkId: string;
@@ -121,16 +146,12 @@ export function scoreChunks(
       symbol: all.symbol.get(chunkId) ?? 0,
       lexical: all.lexical.get(chunkId) ?? 0,
       path: all.path.get(chunkId) ?? 0,
+      dependency: 0,
+      test: 0,
+      proximity: 0,
     };
-    const contributions = {
-      symbol: weights.symbol * signals.symbol,
-      lexical: weights.lexical * signals.lexical,
-      path: weights.path * signals.path,
-    };
-    const total = contributions.symbol + contributions.lexical + contributions.path;
-    if (total > 0) scores.push({ chunkId, signals, contributions, total });
+    const score = weighSignals(chunkId, signals, weights);
+    if (score.total > 0) scores.push(score);
   }
-  // `indexes.chunks` is already sorted by file, start line and id, which is the tie-break order.
-  const position = new Map(indexes.chunks.map((chunk, index) => [chunk.id, index]));
-  return scores.sort((a, b) => b.total - a.total || (position.get(a.chunkId) ?? 0) - (position.get(b.chunkId) ?? 0));
+  return scores.sort(compareScores(indexes));
 }
