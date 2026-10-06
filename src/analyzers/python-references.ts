@@ -24,7 +24,7 @@ function nameAndAlias(node: Node): { name: string; alias?: string } {
 function importStatement(statement: Node, line: number): RawReference[] {
   return namedChildren(statement).map((item) => {
     const { name, alias } = nameAndAlias(item);
-    return { kind: "import", line, name: alias ?? name, specifier: name };
+    return { kind: "import", line, name: alias ?? name, specifier: name, namespace: true };
   });
 }
 
@@ -33,12 +33,13 @@ function importFromStatement(statement: Node, line: number): RawReference[] {
   const module = statement.childForFieldName("module_name");
   const specifier = module ? module.text.replace(/\s+/g, "") : "__future__";
   const names = namedChildren(statement).filter((child) => child.id !== module?.id);
-  return names.map((item) => ({
-    kind: "import" as const,
-    line,
-    name: item.type === "wildcard_import" ? "*" : nameAndAlias(item).name,
-    specifier,
-  }));
+  return names.map((item) => {
+    const { name, alias } = nameAndAlias(item);
+    const base = { kind: "import" as const, line, specifier };
+    return item.type === "wildcard_import"
+      ? { ...base, name: "*" }
+      : { ...base, name, ...(alias === undefined || alias === name ? {} : { local: alias }) };
+  });
 }
 
 /** The module argument of a call: the first positional argument, else the value of `name=`. */

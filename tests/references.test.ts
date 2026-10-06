@@ -231,3 +231,33 @@ test("Python dynamic imports: **kwargs does not override an explicit name= keywo
     [4, "other", undefined],
   ]);
 });
+
+test("local bindings and namespace imports are recorded", async () => {
+  const ts = await extractEcmascript(
+    "a.ts",
+    [
+      'import def from "./a";',
+      'import { one, two as second } from "./b";',
+      'import * as ns from "./c";',
+      "export const x = 1;",
+    ].join("\n"),
+    charsPerTokenEstimator,
+  );
+  const byName = new Map(ts.chunks.flatMap((c) => c.references).map((r) => [r.name, r]));
+  expect(byName.get("default")?.local).toBe("def");
+  expect(byName.get("one")?.local).toBeUndefined();
+  expect(byName.get("two")?.local).toBe("second");
+  expect(byName.get("ns")).toMatchObject({ namespace: true });
+  expect(byName.get("ns")?.local).toBeUndefined();
+
+  const py = await extractPythonChunks(
+    "a.py",
+    ["import a.b as ab", "from x import y as z, w", "", "def f():", "    pass"].join("\n"),
+    charsPerTokenEstimator,
+  );
+  const pyRefs = new Map(py.chunks.flatMap((c) => c.references).map((r) => [r.name, r]));
+  expect(pyRefs.get("ab")).toMatchObject({ namespace: true, specifier: "a.b" });
+  expect(pyRefs.get("y")?.local).toBe("z");
+  expect(pyRefs.get("w")?.local).toBeUndefined();
+  expect(pyRefs.get("w")?.namespace).toBeUndefined();
+});

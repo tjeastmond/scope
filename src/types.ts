@@ -50,6 +50,10 @@ export interface Reference {
   name: string;
   /** Raw module specifier of an import as written (`"./retry.ts"`, `"..pkg"`); never resolved. Absent when dynamic. */
   specifier?: string;
+  /** Import only: the name the file binds when it differs from `name` (`b` in `import { a as b }`). */
+  local?: string;
+  /** Import only: the binding is the whole module (`import * as ns`, Python `import a.b`), not a symbol in it. */
+  namespace?: true;
   /** Chunk the reference resolves to, when known. */
   targetChunkId?: string;
   /** Absent means no resolution was attempted; consumers treat that like "unresolved". */
