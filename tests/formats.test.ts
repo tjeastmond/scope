@@ -425,7 +425,8 @@ describe("result reporting in text and Markdown", () => {
       name: "weakName",
       reason: "below-threshold" as const,
     };
-    const result = hostileResult({ skipped: [skipped({}), weak] });
+    const other = skipped({ chunkId: "c.ts#z", file: "c.ts", name: "zed" });
+    const result = hostileResult({ skipped: [skipped({}), other, weak] });
     for (const format of ["text", "markdown"] as const) {
       const out = renderFormat(format, result);
       expect(out).toContain("a.ts:1-4 x");
