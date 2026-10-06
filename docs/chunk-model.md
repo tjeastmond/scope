@@ -49,6 +49,15 @@ A class (JavaScript, TypeScript, Python, including nested classes) and a TypeScr
   inside their chunk (as before), so nothing overlaps.
 - Ids still hash `file:startLine-endLine:kind:name`, so a header's id differs from the id the whole class had.
 
+### Selected chunks merge into regions
+
+Selection never charges or prints the same line twice. `mergeRegions` (`src/context/regions.ts`) merges selected
+chunks of one file into a **region** when they overlap, nest, or are adjacent (`next.startLine <= current.endLine + 1`);
+a gap of one or more lines keeps them apart. A region spans the union of the lines, its text takes each line once, and
+the output prints one `path:start-end` header per region. Cost is measured on the rendered union, so a selected child
+inside a selected container adds nothing. The original chunks stay as provenance: `ScopeResult.chunks` lists every
+selected chunk and `ScopeResult.regions[].chunkIds` names the chunks merged into each printed region.
+
 ## Python
 
 `src/analyzers/python.ts` handles `.py` and `.pyi`. It extracts boundaries and names, plus import references (see "References");

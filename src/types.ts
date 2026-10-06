@@ -164,6 +164,19 @@ export interface UnmetCoherence {
   reason: "too-large" | "over-budget";
 }
 
+/** An emitted block of source: the union of adjacent, overlapping or nested selected chunks of one file. */
+export interface ScopeRegion {
+  file: string;
+  language: Language;
+  /** 1-based, inclusive. */
+  startLine: number;
+  /** 1-based, inclusive. */
+  endLine: number;
+  content: string;
+  /** Ids of the selected chunks merged into this region, sorted by start line then id. */
+  chunkIds: string[];
+}
+
 export interface ScopeResult {
   schemaVersion: 1;
   mode: ScopeMode;
@@ -174,7 +187,10 @@ export interface ScopeResult {
   estimatedTokens: number;
   characters: number;
   lines: number;
+  /** Per-chunk selection provenance. */
   chunks: SelectedChunk[];
+  /** What is printed: `chunks` merged so no line appears twice; cost is measured on these. */
+  regions: ScopeRegion[];
   warnings: string[];
   /** Supporting declarations a selected chunk needs but that are not included, sorted by chunk then required id. */
   unmetCoherence: UnmetCoherence[];

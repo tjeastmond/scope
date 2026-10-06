@@ -2,6 +2,7 @@ import { MAX_SUPPORT_TOKENS, MIN_RELEVANCE } from "../config.ts";
 import { byLocation, renderText } from "../output/text.ts";
 import type { CodeChunk, ScopeMode, ScopeResult, SelectedChunk, TokenEstimator, UnmetCoherence } from "../types.ts";
 import { requiredSupports } from "./coherence.ts";
+import { mergeRegions, toScopeRegion } from "./regions.ts";
 
 /** Nothing scored high enough, or nothing fit the budget, so there is no useful output to print. */
 export class EmptySelectionError extends Error {
@@ -44,7 +45,8 @@ const unmetKey = (chunkId: string, requiredId: string) => `${chunkId}\u0000${req
 
 /**
  * Includes candidates (best score-per-token first) while the full rendered artifact, not just chunk bodies, still
- * fits the budget. Candidates below the minimum score are dropped. A chosen chunk also pulls in the cheap supporting
+ * fits the budget. The artifact merges touching or overlapping chunks into regions, so cost is measured on the union:
+ * a chunk contained in an already chosen one adds only its label and is still recorded with its provenance. Candidates below the minimum score are dropped. A chosen chunk also pulls in the cheap supporting
  * declarations it needs (see `requiredSupports`), charged against the budget; supports that are too large or do not
  * fit are reported in `unmetCoherence`.
  */
@@ -126,6 +128,7 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     characters: text.length,
     lines: text.split("\n").length,
     chunks: selected.sort(byLocation),
+    regions: mergeRegions(selected).map(toScopeRegion),
     warnings,
     unmetCoherence,
   };
