@@ -168,10 +168,10 @@ describe("rankCandidates on synthetic repositories", () => {
   });
 
   test("a chunk linked to two seeds keeps the stronger dependency signal", () => {
-    // Seed a (ranked first) reaches shared over a heuristic edge, seed b (ranked second) over an exact one.
+    // Seed a (ranked first) reaches shared over an exact edge, seed b (ranked second) over a heuristic one.
     const shared = chunk("src/shared.ts", "shared");
-    const a = chunk("src/a.ts", "a", { [shared.id]: "heuristic" });
-    const b = chunk("src/b.ts", "b", { [shared.id]: "exact" });
+    const a = chunk("src/a.ts", "a", { [shared.id]: "exact" });
+    const b = chunk("src/b.ts", "b", { [shared.id]: "heuristic" });
     const ranked = byId(rank([a, b, shared], [direct(a, 1), direct(b, 0.9)]));
     expect(ranked.get(shared.id)?.signals.dependency).toBe(1);
   });
