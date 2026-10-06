@@ -1,13 +1,5 @@
 import { signalPairs } from "./report.ts";
-import type {
-  ChunkKind,
-  Language,
-  ScopeMode,
-  ScopeResult,
-  SelectedChunk,
-  SkippedChunk,
-  UnmetCoherence,
-} from "../types.ts";
+import type { ChunkKind, Language, ScopeMode, ScopeResult, SelectedChunk, SkippedChunk } from "../types.ts";
 
 /** Provenance of one chunk inside a region. `relevance` is absent in `no-jev` mode; `score` is not a probability. */
 export interface JsonChunk {
@@ -20,10 +12,9 @@ export interface JsonChunk {
   score: number;
   reason: string;
   supportFor?: string[];
-  /** `--explain` only: the retrieval signals (keys sorted), how the chunk was found, and its own cost. */
+  /** `--explain` only: the retrieval signals (keys sorted) and how the chunk was found. */
   signals?: Record<string, number>;
   origin?: string;
-  estimatedTokens?: number;
 }
 
 /** An emitted block of source. The content lives here once; no line is repeated across regions or chunks. */
@@ -41,17 +32,11 @@ export interface JsonRegion {
  * type); additive fields are declared here and in `docs/scope-result.schema.json`. See docs/output-formats.md.
  */
 export interface JsonPayload {
-  schemaVersion: 1;
+  schemaVersion: 2;
   mode: ScopeMode;
   task: string;
-  budget: number;
-  estimator: string;
-  estimatedTokens: number;
-  characters: number;
-  lines: number;
   regions: JsonRegion[];
   warnings: string[];
-  unmetCoherence: UnmetCoherence[];
   skipped: SkippedChunk[];
   retrievalConfigVersion?: string;
   /** Present (true) only under `--explain`. */
@@ -75,7 +60,6 @@ const toJsonChunk = (
     ? {
         signals: Object.fromEntries(signalPairs(signals)),
         ...(origin === undefined ? {} : { origin }),
-        estimatedTokens: chunk.estimatedTokens,
       }
     : {}),
 });
@@ -89,22 +73,14 @@ const toJsonSkipped = (item: SkippedChunk): SkippedChunk => ({
   ...(item.name === undefined ? {} : { name: item.name }),
   ...(item.relevance === undefined ? {} : { relevance: item.relevance }),
   score: item.score,
-  estimatedTokens: item.estimatedTokens,
-  reason: item.reason,
-  ...(item.minimumBudget === undefined ? {} : { minimumBudget: item.minimumBudget }),
 });
 
 export function toJsonPayload(result: ScopeResult): JsonPayload {
   const byId = new Map(result.chunks.map((item) => [item.chunk.id, item]));
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: result.mode,
     task: result.task,
-    budget: result.budget,
-    estimator: result.estimator,
-    estimatedTokens: result.estimatedTokens,
-    characters: result.characters,
-    lines: result.lines,
     regions: result.regions.map((region) => ({
       file: region.file,
       language: region.language,
@@ -118,7 +94,6 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
       }),
     })),
     warnings: result.warnings,
-    unmetCoherence: result.unmetCoherence.map(({ chunkId, requiredId, reason }) => ({ chunkId, requiredId, reason })),
     skipped: result.skipped.map(toJsonSkipped),
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
     ...(result.explain ? { explain: true as const } : {}),

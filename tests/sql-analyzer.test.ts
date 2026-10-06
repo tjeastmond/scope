@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { extractSqlChunks, sqlAnalyzer } from "../src/analyzers/sql.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const MIGRATION = `-- Migration 0042: accounts
@@ -70,7 +69,7 @@ SELECT 1`;
 
 const inventory = (chunks: CodeChunk[]) => chunks.map((c) => `${c.kind}:${c.name}@${c.startLine}-${c.endLine}`);
 
-const analyze = (path: string, source: string) => extractSqlChunks(path, source, heuristicEstimator);
+const analyze = (path: string, source: string) => extractSqlChunks(path, source);
 
 test("golden inventory for a migration file", async () => {
   const { chunks, warnings } = await analyze("db/0042.sql", MIGRATION);
@@ -230,7 +229,7 @@ test("empty, whitespace-only, comment-only and bare-semicolon files yield nothin
 
 test("the analyzer is registered for sql", async () => {
   expect(sqlAnalyzer.languages).toEqual(["sql"]);
-  const result = await analyzeFile({ path: "a.sql", source: "SELECT 1;" }, "sql", heuristicEstimator);
+  const result = await analyzeFile({ path: "a.sql", source: "SELECT 1;" }, "sql");
   expect(inventory(result.chunks)).toEqual(["query:select@1-1"]);
 });
 

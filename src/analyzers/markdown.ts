@@ -1,4 +1,4 @@
-import type { AnalysisResult, Analyzer, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer } from "../types.ts";
 import { assembleChunks, type Region } from "./assemble.ts";
 
 export const MARKDOWN_EXTENSIONS = [".md", ".markdown", ".mdx"] as const;
@@ -90,7 +90,7 @@ function findHeadings(lines: string[], from: number): Heading[] {
  * same or a higher level, so a parent covers its children, and is named by its heading path (`Parent > Child`);
  * skipped levels (an h3 straight under an h1) attach to the nearest shallower heading. Ranges are 1-based, inclusive.
  */
-export function extractMarkdownChunks(file: string, source: string, estimator: TokenEstimator): AnalysisResult {
+export function extractMarkdownChunks(file: string, source: string): AnalysisResult {
   const lines = source.split("\n");
   if (lines.at(-1) === "") lines.pop();
   const scanned = lines.map((line) => line.replace(/\r$/, ""));
@@ -118,10 +118,10 @@ export function extractMarkdownChunks(file: string, source: string, estimator: T
     kind: "section",
     name,
   }));
-  return assembleChunks(file, source, "markdown", regions, false, estimator);
+  return assembleChunks(file, source, "markdown", regions, false);
 }
 
 export const markdownAnalyzer: Analyzer = {
   languages: ["markdown"],
-  analyze: async (file, estimator) => extractMarkdownChunks(file.path, file.source, estimator),
+  analyze: async (file) => extractMarkdownChunks(file.path, file.source),
 };

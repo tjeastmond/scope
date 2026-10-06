@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { extractHtmlChunks, markupAnalyzer } from "../src/analyzers/markup.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import type { CodeChunk } from "../src/types.ts";
 
 const PAGE = `<!DOCTYPE html>
@@ -40,7 +39,7 @@ const PAGE = `<!DOCTYPE html>
 
 const inventory = (chunks: CodeChunk[]) => chunks.map((c) => `${c.kind}:${c.name}@${c.startLine}-${c.endLine}`);
 
-const analyze = (source: string, path = "web/index.html") => extractHtmlChunks(path, source, heuristicEstimator);
+const analyze = (source: string, path = "web/index.html") => extractHtmlChunks(path, source);
 
 test("golden inventory: landmarks, inline script and style with exact ranges", async () => {
   const { chunks, warnings } = await analyze(PAGE);
@@ -169,6 +168,6 @@ test("plain text with no landmarks gives no chunks", async () => {
 
 test("registered for html and dispatched through the registry", async () => {
   expect(markupAnalyzer.languages).toEqual(["html"]);
-  const result = await analyzeFile({ path: "a.html", source: "<main>x</main>\n" }, "html", heuristicEstimator);
+  const result = await analyzeFile({ path: "a.html", source: "<main>x</main>\n" }, "html");
   expect(inventory(result.chunks)).toEqual(["section:main@1-1"]);
 });

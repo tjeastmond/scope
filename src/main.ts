@@ -1,6 +1,5 @@
 import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
 import { parseArgs } from "node:util";
-import { DEFAULT_BUDGET } from "./config.ts";
 import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
 import { UsageError } from "./errors.ts";
@@ -8,17 +7,16 @@ import { resolveRepository } from "./repository/root.ts";
 import { runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
 
-const HELP = `Usage: scope "<task>" [--repo <path>] [--budget <tokens>] [--format text|markdown|json]
+const HELP = `Usage: scope "<task>" [--repo <path>] [--format text|markdown|json]
              [--output <path>] [--no-jev] [--explain]
 
 Select the smallest useful code context for a task.
 
 Options:
   --repo <path>      Repository to analyze (default: current directory)
-  --budget <tokens>  Estimated token budget, a positive integer (default: ${DEFAULT_BUDGET})
   --format <format>  Output format: ${FORMATS.join(", ")} (default: text)
   --output <path>    Write the artifact to a file instead of stdout (default: stdout)
-  --explain          Add selection evidence for every chunk; it counts toward the budget (default: off)
+  --explain          Add selection evidence for every chunk (default: off)
   --no-jev           Skip Jev and use the offline baseline (no credentials or network)
   -h, --help         Show this help
 
@@ -39,7 +37,6 @@ export interface CliOptions {
   help: boolean;
   task: string;
   repo: string;
-  budget: number;
   format: OutputFormat;
   /** Destination file; undefined means stdout. */
   output?: string;
@@ -56,7 +53,6 @@ export function parseCli(argv: string[]): CliOptions {
       allowPositionals: true,
       options: {
         repo: { type: "string" },
-        budget: { type: "string" },
         format: { type: "string" },
         output: { type: "string" },
         explain: { type: "boolean" },
@@ -65,12 +61,20 @@ export function parseCli(argv: string[]): CliOptions {
       },
     });
   } catch (error) {
-    throw new UsageError((error as Error).message);
+    const { code, message } = error as NodeJS.ErrnoException;
+    if (code !== "ERR_PARSE_ARGS_UNKNOWN_OPTION") throw new UsageError(message);
+    // The default hint is about positional arguments; what a caller needs is the list of real options.
+    const unknown = message.split(". ")[0]!;
+    throw new UsageError(
+      unknown.includes("'--budget'")
+        ? `${unknown}. Scope has no token budget: it returns everything relevant to the task.`
+        : `${unknown}. Run scope --help for the options.`,
+    );
   }
   const { values, positionals } = parsed;
   const base = { noJev: values["no-jev"] ?? false, explain: values.explain ?? false };
   if (values.help || argv.length === 0) {
-    return { ...base, help: true, task: "", repo: ".", budget: DEFAULT_BUDGET, format: "text" };
+    return { ...base, help: true, task: "", repo: ".", format: "text" };
   }
   if (positionals.length !== 1)
     throw new UsageError('Expected exactly one task description, in quotes: scope "<task>"');
@@ -81,20 +85,13 @@ export function parseCli(argv: string[]): CliOptions {
   if (!(FORMATS as readonly string[]).includes(format))
     throw new UsageError(`--format must be one of ${FORMATS.join(", ")}: got "${format}"`);
 
-  let budget = DEFAULT_BUDGET;
-  if (values.budget !== undefined) {
-    budget = /^\d+$/.test(values.budget) ? Number(values.budget) : 0;
-    if (!Number.isSafeInteger(budget) || budget <= 0)
-      throw new UsageError(`--budget must be a positive integer (digits only): got "${values.budget}"`);
-  }
-
   const repo = values.repo ?? ".";
   if (!repo.trim()) throw new UsageError("--repo requires a path");
   resolveRepository(repo); // fails before anything is scanned
 
   if (values.output !== undefined && !values.output.trim()) throw new UsageError("--output requires a path");
 
-  return { ...base, help: false, task, repo, budget, format: format as OutputFormat, output: values.output };
+  return { ...base, help: false, task, repo, format: format as OutputFormat, output: values.output };
 }
 
 const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
@@ -139,8 +136,6 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
   const { result, decision } = await runScope({
     task: options.task,
     repo: options.repo,
-    budget: options.budget,
-    format: options.format,
     explain: options.explain,
     noJev: options.noJev,
     provider: io.provider,

@@ -74,17 +74,10 @@ export interface CodeChunk {
   endLine: number;
   content: string;
   references: Reference[];
-  estimatedTokens: number;
   /** Id of the container (class or namespace header) chunk this chunk belongs to; see docs/chunk-model.md. */
   parentId?: string;
   /** Name of that container. Present exactly when `parentId` is. */
   containerName?: string;
-}
-
-export interface TokenEstimator {
-  /** Identity reported in results so estimates can be compared. */
-  readonly id: string;
-  count(text: string): number;
 }
 
 export interface SourceFile {
@@ -107,7 +100,7 @@ export interface AnalysisResult {
 export interface Analyzer {
   readonly languages: readonly Language[];
   /** `language` is the one the dispatcher resolved, which can differ from the path alone (a shebang script). */
-  analyze(file: SourceFile, estimator: TokenEstimator, language: Language): Promise<AnalysisResult>;
+  analyze(file: SourceFile, language: Language): Promise<AnalysisResult>;
 }
 
 export interface JevUsage {
@@ -158,17 +151,7 @@ export interface SelectedChunk {
   supportFor?: string[];
 }
 
-export interface UnmetCoherence {
-  /** The selected chunk that needs the declaration. */
-  chunkId: string;
-  requiredId: string;
-  /** `too-large`: the support exceeds the cheap-support cap. `over-budget`: it did not fit with the chunk. */
-  reason: "too-large" | "over-budget";
-}
-
-export type SkipReason = "below-threshold" | "over-budget";
-
-/** A candidate that was not included. Chunks are skipped whole, never truncated (docs/budget-policy.md). */
+/** A candidate that scored below the relevance minimum and so was not included (docs/selection-policy.md). */
 export interface SkippedChunk {
   chunkId: string;
   file: string;
@@ -180,12 +163,6 @@ export interface SkippedChunk {
   relevance?: number;
   /** Ranking score used for selection; not a probability. */
   score: number;
-  /** The chunk's own estimated cost. */
-  estimatedTokens: number;
-  /** `below-threshold`: scored under the minimum (expected filtering). `over-budget`: relevant but did not fit. */
-  reason: SkipReason;
-  /** `over-budget` only: the smallest budget in which an artifact holding just this chunk fits (full render measured). */
-  minimumBudget?: number;
 }
 
 /** An emitted block of source: the union of adjacent, overlapping or nested selected chunks of one file. */
@@ -202,26 +179,18 @@ export interface ScopeRegion {
 }
 
 export interface ScopeResult {
-  schemaVersion: 1;
+  schemaVersion: 2;
   mode: ScopeMode;
   task: string;
-  budget: number;
-  estimator: string;
-  /** Estimate of the full serialized artifact. */
-  estimatedTokens: number;
-  characters: number;
-  lines: number;
   /** Per-chunk selection provenance. */
   chunks: SelectedChunk[];
-  /** What is printed: `chunks` merged so no line appears twice; cost is measured on these. */
+  /** What is printed: `chunks` merged so no line appears twice. */
   regions: ScopeRegion[];
   warnings: string[];
-  /** Supporting declarations a selected chunk needs but that are not included, sorted by chunk then required id. */
-  unmetCoherence: UnmetCoherence[];
-  /** Candidates left out, with the reason and cost of each, sorted by file, start line, then id. */
+  /** Candidates that scored below the relevance minimum, sorted by file, start line, then id. */
   skipped: SkippedChunk[];
   /** Version of the retrieval weights and caps that prepared the candidates. */
   retrievalConfigVersion?: string;
-  /** Set by `--explain`: renderers add the selection evidence, which is part of the artifact and so of its budget. */
+  /** Set by `--explain`: renderers add the selection evidence. */
   explain?: true;
 }

@@ -1,5 +1,5 @@
 import type { Node } from "web-tree-sitter";
-import type { Analyzer, Language, TokenEstimator } from "../types.ts";
+import type { Analyzer, Language } from "../types.ts";
 import { assembleChunks, collapse, type Region } from "./assemble.ts";
 import { parserFor } from "./parser.ts";
 
@@ -174,13 +174,13 @@ export function scssRegions(source: string): { regions: Region[]; broken: boolea
  * statements (`@import`, `@use`, `$var: x`, `--custom: x`) are `config` chunks. Unclosed braces keep the statement up
  * to the end of the file and add a warning.
  */
-export async function extractStyleChunks(file: string, source: string, estimator: TokenEstimator) {
+export async function extractStyleChunks(file: string, source: string) {
   const language: Language = file.toLowerCase().endsWith(".scss") ? "scss" : "css";
   const { regions, broken } = language === "scss" ? scssRegions(source) : await cssRegions(file, source);
-  return assembleChunks(file, source, language, regions, broken, estimator);
+  return assembleChunks(file, source, language, regions, broken);
 }
 
 export const styleAnalyzer: Analyzer = {
   languages: ["css", "scss"],
-  analyze: (file, estimator) => extractStyleChunks(file.path, file.source, estimator),
+  analyze: (file) => extractStyleChunks(file.path, file.source),
 };

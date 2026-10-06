@@ -1,12 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "mode": "jev",
   "task": "Validate invoice totals",
-  "budget": 900,
-  "estimator": "scope-heuristic-v1",
-  "estimatedTokens": 312,
-  "characters": 1100,
-  "lines": 40,
   "regions": [
     {
       "file": "src/invoices.ts",
@@ -26,8 +21,7 @@
           "supportFor": [
             "src/invoices.ts#total"
           ],
-          "signals": {},
-          "estimatedTokens": 10
+          "signals": {}
         }
       ]
     },
@@ -52,8 +46,7 @@
             "path": 0.2,
             "symbol": 0.5
           },
-          "origin": "direct",
-          "estimatedTokens": 10
+          "origin": "direct"
         }
       ]
     },
@@ -76,26 +69,13 @@
           "signals": {
             "dependency": 1
           },
-          "origin": "expanded-from:src/invoices.ts#total",
-          "estimatedTokens": 10
+          "origin": "expanded-from:src/invoices.ts#total"
         }
       ]
     }
   ],
   "warnings": [
-    "7 relevant chunk(s) were left out to stay within the budget."
-  ],
-  "unmetCoherence": [
-    {
-      "chunkId": "src/invoices.ts#total",
-      "requiredId": "src/types.ts#Money",
-      "reason": "too-large"
-    },
-    {
-      "chunkId": "src/invoices.ts#due",
-      "requiredId": "src/big.ts#big1",
-      "reason": "over-budget"
-    }
+    "src/legacy.ts: 2 syntax errors; text fallback used."
   ],
   "skipped": [
     {
@@ -104,11 +84,8 @@
       "startLine": 10,
       "endLine": 15,
       "name": "big1",
-      "relevance": 0.89,
-      "score": 0.5,
-      "estimatedTokens": 101,
-      "reason": "over-budget",
-      "minimumBudget": 401
+      "relevance": 0.44,
+      "score": 0.44
     },
     {
       "chunkId": "src/big.ts#big2",
@@ -116,11 +93,8 @@
       "startLine": 20,
       "endLine": 25,
       "name": "big2",
-      "relevance": 0.88,
-      "score": 0.5,
-      "estimatedTokens": 102,
-      "reason": "over-budget",
-      "minimumBudget": 402
+      "relevance": 0.43,
+      "score": 0.43
     },
     {
       "chunkId": "src/big.ts#big3",
@@ -128,11 +102,8 @@
       "startLine": 30,
       "endLine": 35,
       "name": "big3",
-      "relevance": 0.87,
-      "score": 0.5,
-      "estimatedTokens": 103,
-      "reason": "over-budget",
-      "minimumBudget": 403
+      "relevance": 0.42000000000000004,
+      "score": 0.42000000000000004
     },
     {
       "chunkId": "src/big.ts#big4",
@@ -140,11 +111,8 @@
       "startLine": 40,
       "endLine": 45,
       "name": "big4",
-      "relevance": 0.86,
-      "score": 0.5,
-      "estimatedTokens": 104,
-      "reason": "over-budget",
-      "minimumBudget": 404
+      "relevance": 0.41000000000000003,
+      "score": 0.41000000000000003
     },
     {
       "chunkId": "src/big.ts#big5",
@@ -152,11 +120,8 @@
       "startLine": 50,
       "endLine": 55,
       "name": "big5",
-      "relevance": 0.85,
-      "score": 0.5,
-      "estimatedTokens": 105,
-      "reason": "over-budget",
-      "minimumBudget": 405
+      "relevance": 0.4,
+      "score": 0.4
     },
     {
       "chunkId": "src/big.ts#big6",
@@ -164,11 +129,8 @@
       "startLine": 60,
       "endLine": 65,
       "name": "big6",
-      "relevance": 0.8400000000000001,
-      "score": 0.5,
-      "estimatedTokens": 106,
-      "reason": "over-budget",
-      "minimumBudget": 406
+      "relevance": 0.39,
+      "score": 0.39
     },
     {
       "chunkId": "src/big.ts#big7",
@@ -176,11 +138,8 @@
       "startLine": 70,
       "endLine": 75,
       "name": "big7",
-      "relevance": 0.8300000000000001,
-      "score": 0.5,
-      "estimatedTokens": 107,
-      "reason": "over-budget",
-      "minimumBudget": 407
+      "relevance": 0.38,
+      "score": 0.38
     },
     {
       "chunkId": "src/big.ts#big8",
@@ -188,9 +147,8 @@
       "startLine": 80,
       "endLine": 85,
       "name": "big8",
-      "score": 0.5,
-      "estimatedTokens": 108,
-      "reason": "below-threshold"
+      "relevance": 0.37,
+      "score": 0.37
     },
     {
       "chunkId": "src/big.ts#big9",
@@ -198,9 +156,8 @@
       "startLine": 90,
       "endLine": 95,
       "name": "big9",
-      "score": 0.5,
-      "estimatedTokens": 109,
-      "reason": "below-threshold"
+      "relevance": 0.36,
+      "score": 0.36
     }
   ],
   "retrievalConfigVersion": "golden-1",

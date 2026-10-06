@@ -86,12 +86,6 @@ suite("the compiled CLI as a subprocess", () => {
 
   describe("exit codes", () => {
     const failing: [string, string[], number, RegExp][] = [
-      [
-        "a budget too small for any chunk",
-        [TASK, "--repo", FIXTURE, "--no-jev", "--budget", "1"],
-        1,
-        /--budget must be at least \d+/,
-      ],
       ["the default path without a Jev key", [TASK, "--repo", FIXTURE], 1, /TYPESAFE_API_KEY/],
       [
         "an unwritable --output directory",
@@ -101,10 +95,10 @@ suite("the compiled CLI as a subprocess", () => {
       ],
       ["an unknown format", [TASK, "--repo", FIXTURE, "--no-jev", "--format", "yaml"], 2, /--format must be one of/],
       [
-        "a non-numeric budget",
-        [TASK, "--repo", FIXTURE, "--no-jev", "--budget", "12abc"],
+        "the removed --budget option",
+        [TASK, "--repo", FIXTURE, "--no-jev", "--budget", "8000"],
         2,
-        /--budget must be a positive integer/,
+        /Unknown option '--budget'.*no token budget/,
       ],
       ["an empty task", ["  ", "--repo", FIXTURE, "--no-jev"], 2, /task description is empty/],
       ["a missing repository", [TASK, "--repo", "/no/such/repo", "--no-jev"], 2, /./],
@@ -153,8 +147,6 @@ suite("the compiled CLI as a subprocess", () => {
       "--no-jev",
       "--format",
       format,
-      "--budget",
-      "1000000",
     ];
 
     beforeAll(async () => {

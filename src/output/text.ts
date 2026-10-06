@@ -1,14 +1,6 @@
 import { mergeRegions, type Region } from "../context/regions.ts";
 import type { ScopeResult, SelectedChunk } from "../types.ts";
-import {
-  belowThresholdLines,
-  explainBlocks,
-  leftOutLines,
-  sanitizeInline,
-  scoreLabel,
-  summaryLines,
-  unmetLines,
-} from "./report.ts";
+import { belowThresholdLines, explainBlocks, sanitizeInline, scoreLabel, summaryLines } from "./report.ts";
 
 export const byLocation = (a: SelectedChunk, b: SelectedChunk): number =>
   a.chunk.file.localeCompare(b.chunk.file) ||
@@ -33,8 +25,8 @@ function renderRegion(region: Region): string {
 
 /**
  * Plain-text artifact: a task header and summary, then each region under its exact `path:start-end` location (chunks
- * that touch or overlap are merged first, so a line is never printed or charged twice), then what was left out and
- * which supporting declarations are missing. Empty sections are omitted.
+ * that touch or overlap are merged first, so a line is never printed twice), then the candidates that
+ * scored below the relevance minimum. Empty sections are omitted.
  */
 export function renderResult(result: ScopeResult): string {
   const section = (title: string, lines: string[]) =>
@@ -48,8 +40,6 @@ export function renderResult(result: ScopeResult): string {
     `${summaryLines(result, sanitizeInline).join("\n")}\n`,
     ...mergeRegions(result.chunks).map(renderRegion),
     ...(result.explain ? [`-- Explanation --\n${explanation.join("\n\n")}\n`] : []),
-    ...section("Left out (over budget)", leftOutLines(result, sanitizeInline)),
     ...(result.explain ? section("Left out (below relevance minimum)", below) : below.map((line) => `${line}\n`)),
-    ...section("Unmet coherence", unmetLines(result, sanitizeInline)),
   ].join("\n");
 }

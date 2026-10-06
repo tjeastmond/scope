@@ -36,7 +36,6 @@ function chunk(id: string, file: string, content: string, name?: string): CodeCh
     endLine: 1,
     content,
     references: [],
-    estimatedTokens: 1,
   };
 }
 

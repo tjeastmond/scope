@@ -1,5 +1,5 @@
 import type { Node } from "web-tree-sitter";
-import type { Analyzer, TokenEstimator } from "../types.ts";
+import type { Analyzer } from "../types.ts";
 import { assembleChunks, collapse, type Region } from "./assemble.ts";
 import { parserFor } from "./parser.ts";
 
@@ -89,14 +89,14 @@ function collect(parent: Node, regions: Region[]): void {
  * `section`) and non-empty inline `<script>` (`section`) and `<style>` (`style`) blocks, each spanning the lines from its
  * opening to its closing tag. An unclosed landmark start tag is not a chunk; the file gets a warning.
  */
-export async function extractHtmlChunks(file: string, source: string, estimator: TokenEstimator) {
+export async function extractHtmlChunks(file: string, source: string) {
   const parser = await parserFor("html");
   const tree = parser.parse(source);
   if (!tree) throw new Error(`Tree-sitter could not parse ${file}`);
   try {
     const regions: Region[] = [];
     collect(tree.rootNode, regions);
-    return assembleChunks(file, source, "html", regions, tree.rootNode.hasError, estimator);
+    return assembleChunks(file, source, "html", regions, tree.rootNode.hasError);
   } finally {
     tree.delete();
   }
@@ -104,5 +104,5 @@ export async function extractHtmlChunks(file: string, source: string, estimator:
 
 export const markupAnalyzer: Analyzer = {
   languages: ["html"],
-  analyze: (file, estimator) => extractHtmlChunks(file.path, file.source, estimator),
+  analyze: (file) => extractHtmlChunks(file.path, file.source),
 };

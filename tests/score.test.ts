@@ -116,7 +116,6 @@ describe("scoreChunks signal formulas", () => {
     endLine: 1,
     content,
     references: [],
-    estimatedTokens: 1,
   });
   const score = (task: string, list: CodeChunk[], weights: ScoringWeights = DEFAULT_RETRIEVAL_CONFIG.weights) =>
     new Map(scoreChunks(extractTaskTerms(task), buildIndexes(list), weights).map((s) => [s.chunkId, s]));

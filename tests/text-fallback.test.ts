@@ -4,12 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyzeFile } from "../src/analyzers/index.ts";
 import { TEXT_WINDOW_LINES, TEXT_WINDOW_MAX_LINES } from "../src/analyzers/text.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import { runScope } from "../src/scope.ts";
 import type { CodeChunk, Language } from "../src/types.ts";
 
-const analyze = (path: string, source: string, language: Language) =>
-  analyzeFile({ path, source }, language, heuristicEstimator);
+const analyze = (path: string, source: string, language: Language) => analyzeFile({ path, source }, language);
 
 const ranges = (chunks: CodeChunk[]) => chunks.map((c) => [c.startLine, c.endLine]);
 

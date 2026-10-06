@@ -1,12 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "mode": "jev",
   "task": "Show each invoice's due date in the invoice list: render it in the frontend row (the API already returns dueDate).",
-  "budget": 8000,
-  "estimator": "scope-heuristic-v1",
-  "estimatedTokens": 5113,
-  "characters": 13938,
-  "lines": 475,
   "regions": [
     {
       "file": "api/src/models/invoice.ts",
@@ -248,7 +243,6 @@
     "web/src/main.tsx: analyzer extracted no chunks; text fallback produced 1 line window(s)",
     "1 file(s) have no analyzer and were read as plain text windows (for example worker/requirements.txt)"
   ],
-  "unmetCoherence": [],
   "skipped": [
     {
       "chunkId": "5cc408734908",
@@ -256,9 +250,7 @@
       "startLine": 8,
       "endLine": 10,
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 57,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "66b5dc2b692b",
@@ -267,9 +259,7 @@
       "endLine": 27,
       "name": "createInvoice",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 120,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "24a839e6abba",
@@ -278,9 +268,7 @@
       "endLine": 33,
       "name": "handleInvoices",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 128,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "e976f1439f69",
@@ -289,9 +277,7 @@
       "endLine": 12,
       "name": "InvoiceService.create",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 104,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "3ee66ff74cae",
@@ -300,9 +286,7 @@
       "endLine": 17,
       "name": "describe: InvoiceService",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 196,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "ccdf3c712735",
@@ -311,9 +295,7 @@
       "endLine": 21,
       "name": "test: validate rejects a missing customer",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 61,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "a8b4b9fe45e2",
@@ -322,9 +304,7 @@
       "endLine": 2,
       "name": "create index idx_invoices_status_due",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 40,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "31a2e4bfb254",
@@ -333,9 +313,7 @@
       "endLine": 5,
       "name": "select from invoices",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 81,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "cbf263447c96",
@@ -344,9 +322,7 @@
       "endLine": 11,
       "name": "select from invoices",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 46,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "95fc08ae89dd",
@@ -355,9 +331,7 @@
       "endLine": 13,
       "name": "HTTP API",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 78,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "e7395a487977",
@@ -366,9 +340,7 @@
       "endLine": 6,
       "name": "HTTP API > GET /invoices",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 27,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "fcfff666ba6f",
@@ -377,9 +349,7 @@
       "endLine": 10,
       "name": "HTTP API > POST /invoices",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 28,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "88803b81dbf5",
@@ -388,9 +358,7 @@
       "endLine": 23,
       "name": "Architecture",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 195,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "4205b4923a44",
@@ -399,9 +367,7 @@
       "endLine": 12,
       "name": "Architecture > API",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 70,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "f9f81da691af",
@@ -410,9 +376,7 @@
       "endLine": 23,
       "name": "Architecture > Frontend",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 22,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "3fced31f4f33",
@@ -421,9 +385,7 @@
       "endLine": 14,
       "name": "App",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 112,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "2b24a2988c3b",
@@ -432,9 +394,7 @@
       "endLine": 7,
       "name": "InvoiceListProps",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 20,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "d25dd5f39977",
@@ -443,9 +403,7 @@
       "endLine": 24,
       "name": "useInvoices",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 190,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "b04233fb7927",
@@ -454,9 +412,7 @@
       "endLine": 5,
       "name": ".list",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 25,
-      "reason": "below-threshold"
+      "score": 0.1
     },
     {
       "chunkId": "667f177f8155",
@@ -465,9 +421,7 @@
       "endLine": 38,
       "name": "schedule",
       "relevance": 0.1,
-      "score": 0.1,
-      "estimatedTokens": 44,
-      "reason": "below-threshold"
+      "score": 0.1
     }
   ],
   "retrievalConfigVersion": "retrieval-v3"

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeFile } from "../src/analyzers/index.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import { scanRepository, type SkippedPath } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import { loadChunks } from "../src/scope.ts";
@@ -182,11 +181,7 @@ describe("mixed-app analysis", () => {
       expect(chunk.content.split("\n").every((line, i, all) => line.endsWith("\r") || i === all.length - 1)).toBe(true);
       expect(chunk.content.endsWith("\r")).toBe(true);
     }
-    const lf = await analyzeFile(
-      { path: CRLF_FILE, source: source.replace(/\r\n/g, "\n") },
-      "typescript",
-      heuristicEstimator,
-    );
+    const lf = await analyzeFile({ path: CRLF_FILE, source: source.replace(/\r\n/g, "\n") }, "typescript");
     expect(lf.chunks.map((chunk) => chunk.id)).toEqual(crlf.map((chunk) => chunk.id));
   });
 

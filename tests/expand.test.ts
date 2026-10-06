@@ -19,7 +19,6 @@ function node(name: string, refs: Record<string, ReferenceEvidence> = {}): CodeC
     startLine: 1,
     endLine: 3,
     content: `export function ${name}() {}`,
-    estimatedTokens: 5,
     references: Object.entries(refs).map(([target, evidence]) => ({
       kind: "call" as const,
       from: { file: `src/${name}.ts`, line: 2 },

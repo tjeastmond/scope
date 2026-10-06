@@ -208,7 +208,6 @@ describe("aliases and namespaces", () => {
     startLine: name === "unrelated" ? 3 : 5,
     endLine: name === "unrelated" ? 3 : 5,
     content,
-    estimatedTokens: 1,
     references,
   });
   const ref = (name: string, specifier: string, extra: Partial<Reference> = {}): Reference => ({

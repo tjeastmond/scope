@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { analyzeFile } from "../src/analyzers/index.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { AnalysisResult, CodeChunk, Language } from "../src/types.ts";
 import { expectContainerInvariants } from "./helpers/chunk-invariants.ts";
@@ -147,8 +146,7 @@ const CASES: Case[] = [
   },
 ];
 
-const analyze = (c: Case, source: string): Promise<AnalysisResult> =>
-  analyzeFile({ path: c.path, source }, c.language, heuristicEstimator);
+const analyze = (c: Case, source: string): Promise<AnalysisResult> => analyzeFile({ path: c.path, source }, c.language);
 
 const identity = (s: string) => s;
 const toCrlf = (s: string) => s.replace(/\n/g, "\r\n");
@@ -177,7 +175,6 @@ function expectInvariants(chunks: readonly CodeChunk[], source: string): void {
     expect(chunk.endLine).toBeGreaterThanOrEqual(chunk.startLine);
     expect(chunk.endLine).toBeLessThanOrEqual(lines.length);
     expect(chunk.content).toBe(lines.slice(chunk.startLine - 1, chunk.endLine).join("\n"));
-    expect(chunk.estimatedTokens).toBeGreaterThan(0);
   }
   expectStructure(chunks);
 }
@@ -250,7 +247,6 @@ describe("mixed-app extraction", async () => {
       for (const chunk of inFile) {
         expect(chunk.startLine).toBeGreaterThanOrEqual(1);
         expect(chunk.endLine).toBeGreaterThanOrEqual(chunk.startLine);
-        expect(chunk.estimatedTokens).toBeGreaterThan(0);
       }
     }
   });

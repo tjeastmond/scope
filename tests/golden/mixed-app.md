@@ -7,8 +7,6 @@ Show each invoice's due date in the invoice list: render it in the frontend row 
 ```
 
 - Mode: jev
-- Budget: 8000 estimated tokens
-- Artifact: 1825 estimated tokens (estimator ` scope-heuristic-v1 `), 4682 characters, 184 lines
 - Regions: 12
 - Retrieval config: ` retrieval-v3 `
 

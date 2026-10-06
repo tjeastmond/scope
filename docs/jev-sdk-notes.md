@@ -91,8 +91,8 @@ Documented (Models page, `jev-1.13.0`):
 | Input type                               | Text only (string, JSON object, array of text values)                                                                |
 | Choice options / Score levels            | 255 options max per Choice; Score API accepts up to 10 levels (not relevant to Noul)                                 |
 
-- **Maximum questions per request: not documented**, and the SDK enforces no client-side maximum (only non-empty). Treat as unknown. The token budget above is the only documented bound, so the adapter must batch candidates to stay under it.
-- **Maximum payload size in bytes: not documented.** The limit is expressed in tokens. The adapter needs its own token estimate and conservative batch sizing; the true server behavior on an oversize request (status code, error body) is unverified. A 422 `UnprocessableEntityError` is the documented class for validation failures.
+- **Maximum questions per request: not documented**, and the SDK enforces no client-side maximum (only non-empty). Treat as unknown. The request limits above are the only documented bound, so the adapter must batch candidates to stay under them.
+- **Maximum payload size in bytes: not documented.** Jev's limits are expressed in its own tokens, which Scope does not compute. The adapter bounds each request by serialized characters (`JEV_BATCH_MAX_CHARS`, conservative for source code) instead; the true server behavior on an oversize request (status code, error body) is unverified. A 422 `UnprocessableEntityError` is the documented class for validation failures.
 - Because the `state` is ingested once and all questions are evaluated against it, a per-candidate state is not required: one shared state (task plus candidates) with one Noul per candidate fits the batching model. The re-ranking cookbook instead sends one request per query-candidate pair; both are valid shapes, with quality differences **unverified** for Scope.
 - Jaggedness doc: accuracy degrades with large states full of irrelevant detail ("Filter first; send only what the question needs"), and the model reads questions literally.
 
@@ -179,7 +179,7 @@ Adapter obligations that follow from the above:
 
 1. Validate every answer: present for each submitted id, `type === "noul"`, finite, within [0, 1]; otherwise fail clearly.
 2. Never rely on the question id inside the model; put an explicit candidate reference in each question.
-3. Size batches by estimated tokens against the 64k combined and 32k state-plus-longest-question limits; there is no documented question-count or byte limit.
+3. Size batches by serialized characters (`JEV_BATCH_MAX_CHARS`), kept conservative (about one token per character at most for ordinary text) against the 64k combined and 32k state-plus-longest-question limits, without a guarantee for every Unicode input; there is no documented question-count or byte limit. A single candidate that cannot fit one request with the task fails the run (`JevRequestError`).
 4. Own the overall deadline with `AbortSignal`; the SDK only has a per-attempt timeout.
 5. Do not log request bodies; never print or persist the API key.
 6. Record `usage` and latency per request for the M1 prototype evidence.
@@ -188,7 +188,7 @@ Adapter obligations that follow from the above:
 
 - Real response shape for a batch of Noul questions (field presence, ordering, extra fields).
 - Whether `noul` can fall outside [0, 1] or be non-finite.
-- Behavior and error class when a request exceeds the token budget or contains very many questions.
+- Behavior and error class when a request exceeds the documented limits or contains very many questions.
 - Latency and the right `timeout` for batches of roughly 20 to 50 candidates.
 - Quality difference between a shared-state batch and one request per candidate.
 - Effective rate limits (documented as changing without notice).

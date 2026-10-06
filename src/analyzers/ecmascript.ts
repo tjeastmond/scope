@@ -1,5 +1,5 @@
 import type { Node } from "web-tree-sitter";
-import type { AnalysisResult, Analyzer, ChunkKind, Language, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, Analyzer, ChunkKind, Language } from "../types.ts";
 import { assembleChunks, type Region } from "./assemble.ts";
 import { classifyFile } from "../repository/language.ts";
 import { extractEcmascriptReferences } from "./ecmascript-references.ts";
@@ -263,7 +263,6 @@ function mergeOverloads(entries: (Found | undefined)[]): Found[] {
 export async function extractEcmascript(
   path: string,
   source: string,
-  estimator: TokenEstimator,
   language: Language = classifyFile(path).language === "javascript" ? "javascript" : "typescript",
 ): Promise<AnalysisResult> {
   const grammar = grammarFor(path, language);
@@ -289,16 +288,7 @@ export async function extractEcmascript(
       return region;
     });
     const references = extractEcmascriptReferences(tree.rootNode);
-    return assembleChunks(
-      path,
-      source,
-      language,
-      regions,
-      tree.rootNode.hasError,
-      estimator,
-      "declarations",
-      references,
-    );
+    return assembleChunks(path, source, language, regions, tree.rootNode.hasError, "declarations", references);
   } finally {
     tree.delete();
   }
@@ -306,5 +296,5 @@ export async function extractEcmascript(
 
 export const ecmascriptAnalyzer: Analyzer = {
   languages: ["typescript", "javascript"],
-  analyze: (file, estimator, language) => extractEcmascript(file.path, file.source, estimator, language),
+  analyze: (file, language) => extractEcmascript(file.path, file.source, language),
 };

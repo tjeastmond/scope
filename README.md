@@ -13,7 +13,7 @@ scope "Add retry handling to Stripe webhook processing"
 
 Scope is a project built around [Jev](https://docs.typesafe.ai), TypeSafe's System One model. Static analysis only
 discovers structure and prepares a bounded shortlist of candidate chunks. **Jev makes the relevance decision for every
-candidate**, through the official `@typesafe-ai/sdk`. TypeScript then applies cost, coherence, and the token budget.
+candidate**, through the official `@typesafe-ai/sdk`. TypeScript then adds the supporting declarations a chunk needs and returns everything relevant, with no size limit.
 
 > Static analysis discovers structure. Jev judges relevance. TypeScript makes the final selection.
 

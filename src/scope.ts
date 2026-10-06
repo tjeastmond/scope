@@ -1,11 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
-import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
-import { selectWithinBudget } from "./context/select.ts";
-import { heuristicEstimator } from "./context/tokens.ts";
-import type { OutputFormat } from "./output/index.ts";
+import { selectByRelevance } from "./context/select.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
@@ -20,15 +17,11 @@ export interface ScopeOptions {
   task: string;
   /** Repository root (default: current directory). */
   repo?: string;
-  /** Estimated token budget for the output. */
-  budget?: number;
   /** Explicit offline baseline: every candidate is kept at full score, and Jev is never contacted. */
   noJev?: boolean;
   /** Decision provider for the Jev path; defaults to the real Jev adapter. Tests inject a fake. */
   provider?: DecisionProvider;
-  /** Format of the emitted artifact; the budget is enforced on the whole artifact in this format (default text). */
-  format?: OutputFormat;
-  /** Include selection evidence in the artifact; it counts toward the budget. */
+  /** Include selection evidence in the artifact. */
   explain?: boolean;
   signal?: AbortSignal;
 }
@@ -70,7 +63,7 @@ export async function loadChunks(
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
     const source = redactSecrets(text);
-    const analysis = await analyzeFile({ path: file, source }, language, heuristicEstimator);
+    const analysis = await analyzeFile({ path: file, source }, language);
     chunks.push(...analysis.chunks);
     if (analysis.textOnly) textOnly.push(file);
     else warnings.push(...analysis.warnings);
@@ -82,17 +75,8 @@ export async function loadChunks(
 
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
-  const {
-    task,
-    repo = ".",
-    budget = DEFAULT_BUDGET,
-    noJev = false,
-    format = "text",
-    explain = false,
-    signal,
-  } = options;
+  const { task, repo = ".", noJev = false, explain = false, signal } = options;
   if (!task.trim()) throw new UsageError("A task description is required.");
-  if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
   const { chunks, warnings: scanWarnings } = await loadChunks(repo, { detailed: explain });
   const { candidates, ranking, warning: retrievalWarning } = selectCandidates(task, chunks);
@@ -118,14 +102,11 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     };
   });
 
-  // Scan and retrieval warnings and the config version are part of the emitted artifact, so selection measures them.
-  const result = selectWithinBudget(scored, {
+  // Scan and retrieval warnings and the config version are part of the emitted artifact, so selection can carry them.
+  const result = selectByRelevance(scored, {
     task,
     mode,
-    budget,
-    format,
     explain,
-    estimator: heuristicEstimator,
     chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
     leadingWarnings: [
       ...scanWarnings,

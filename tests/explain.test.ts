@@ -2,8 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
-import { BudgetTooSmallError } from "../src/context/select.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
 import { runScope } from "../src/scope.ts";
 import type { ScopeResult } from "../src/types.ts";
@@ -18,8 +16,8 @@ const labeled = (await loadLabeledTasks("mixed-app"))[0]!;
 const task = labeled.task;
 const provider = fakeProvider({ fallback: 0.6 });
 
-const run = (format: OutputFormat, explain: boolean, budget = 8000, noJev = false) =>
-  runScope({ task, repo: MIXED, budget, noJev, format, explain, provider });
+const run = (format: OutputFormat, explain: boolean, noJev = false) =>
+  runScope({ task, repo: MIXED, noJev, explain, provider });
 
 describe("--explain accounts for every selected chunk", () => {
   test.each([...FORMATS])("%s: each chunk appears in the explanation", async (format) => {
@@ -37,7 +35,6 @@ describe("--explain accounts for every selected chunk", () => {
       for (const chunk of chunks) {
         expect(chunk.signals).toBeObject();
         expect(Object.keys(chunk.signals)).toEqual(Object.keys(chunk.signals).sort());
-        expect(chunk.estimatedTokens).toBeNumber();
       }
       return;
     }
@@ -48,11 +45,10 @@ describe("--explain accounts for every selected chunk", () => {
     expect(explanation).toContain("Jev relevance: 0.60");
     expect(explanation).toContain("Origin: direct (dependency distance 0)");
     expect(explanation).toContain("Signals: ");
-    expect(explanation).toContain("Token cost: ");
   });
 
   test("a supporting declaration says what it supports", async () => {
-    const { result } = await run("text", true, 8000, true);
+    const { result } = await run("text", true, true);
     expect(result.chunks.some((item) => item.supportFor)).toBe(true);
     expect(renderFormat("text", result)).toMatch(/Origin: supporting declaration for \S+:\d+-\d+/);
   });
@@ -65,26 +61,19 @@ describe("--explain accounts for every selected chunk", () => {
       endLine: 1,
       content: "x",
       references: [],
-      estimatedTokens: 1,
     };
     const parent = { ...base, id: "a.ts#a", file: "a.ts", name: "a" };
     const child = { ...base, id: "b.ts#b", file: "b.ts", name: "b" };
     const result: ScopeResult = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       mode: "no-jev",
       task: "t",
-      budget: 100,
-      estimator: "e",
-      estimatedTokens: 1,
-      characters: 1,
-      lines: 1,
       chunks: [
         { chunk: parent, signals: { path: 0.5, lexical: 0.25 }, origin: "direct", score: 1, reason: "r" },
         { chunk: child, signals: {}, origin: "expanded-from:a.ts#a", score: 0.5, reason: "r" },
       ],
       regions: [],
       warnings: [],
-      unmetCoherence: [],
       skipped: [],
       explain: true,
     };
@@ -93,54 +82,31 @@ describe("--explain accounts for every selected chunk", () => {
     expect(text).toContain("Signals: lexical 0.25, path 0.50");
   });
 
-  test("below-threshold skips are listed individually, capped, only under explain", async () => {
+  test("below-threshold skips are listed individually only under explain", async () => {
     const judge = fakeProvider({
       relevance: Object.fromEntries(labeled.required.map((label) => [label.split("::")[1]!, 0.9])),
       fallback: 0.05,
     });
     const plain = (await runScope({ task, repo: MIXED, provider: judge })).result;
     const explained = (await runScope({ task, repo: MIXED, provider: judge, explain: true })).result;
-    const below = explained.skipped.filter((entry) => entry.reason === "below-threshold").length;
+    const below = explained.skipped.length;
     expect(below).toBeGreaterThan(5);
     expect(renderFormat("text", plain)).toContain(`${below} candidate(s) scored below the relevance minimum`);
-    const more = `and ${below - 5} more below the relevance minimum`;
-    expect(renderFormat("text", explained)).toContain("-- Left out (below relevance minimum) --");
-    expect(renderFormat("text", explained)).toContain(more);
-    expect(renderFormat("markdown", explained)).toContain(more);
+    expect(renderFormat("text", plain)).not.toContain("Left out");
+    const listed = renderFormat("text", explained);
+    expect(listed).toContain("-- Left out (below relevance minimum) --");
+    expect(listed.match(/: below the relevance minimum$/gm)).toHaveLength(below);
+    expect(renderFormat("markdown", explained)).toContain("## Left out");
   });
 });
 
-describe("explain output counts toward the budget", () => {
-  for (const noJev of [true, false]) {
-    test.each([...FORMATS])(
-      `${noJev ? "no-jev" : "jev"} / %s: every budget fits with explain on`,
-      async (format) => {
-        let produced = 0;
-        for (const budget of [25, 100, 200, 300, 400, 600, 800, 1200, 2000, 3000, 4500, 8000, 12000, 20000]) {
-          let result: ScopeResult;
-          try {
-            ({ result } = await run(format, true, budget, noJev));
-          } catch (error) {
-            expect(error).toBeInstanceOf(BudgetTooSmallError);
-            continue;
-          }
-          produced++;
-          const tokens = heuristicEstimator.count(renderFormat(format, result));
-          expect(tokens).toBeLessThanOrEqual(budget);
-          expect(result.estimatedTokens).toBe(tokens);
-        }
-        expect(produced).toBeGreaterThan(2);
-      },
-      60_000,
-    );
+test("explain adds evidence without changing which chunks are selected", async () => {
+  for (const format of FORMATS) {
+    const plain = (await run(format, false)).result;
+    const explained = (await run(format, true)).result;
+    expect(explained.chunks.map((item) => item.chunk.id)).toEqual(plain.chunks.map((item) => item.chunk.id));
+    expect(explained.regions).toEqual(plain.regions);
   }
-
-  test.each([...FORMATS])("%s: a budget that fits without explain yields fewer chunks with it", async (format) => {
-    const plain = (await run(format, false, 4000)).result;
-    const explained = (await run(format, true, plain.estimatedTokens)).result;
-    expect(explained.estimatedTokens).toBeLessThanOrEqual(plain.estimatedTokens);
-    expect(explained.chunks.length).toBeLessThan(plain.chunks.length);
-  });
 });
 
 test("JSON with explain validates against the schema; without it there are no explain keys", async () => {
@@ -160,14 +126,9 @@ test("Markdown explanation cannot be broken out of by hostile names, paths and r
   const hostile = "evil`\n## Injected\n```\n# also";
   const file = `src/${hostile}.ts`;
   const result: ScopeResult = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     mode: "no-jev",
     task: "t",
-    budget: 1000,
-    estimator: "e",
-    estimatedTokens: 10,
-    characters: 10,
-    lines: 10,
     chunks: [
       {
         chunk: {
@@ -180,7 +141,6 @@ test("Markdown explanation cannot be broken out of by hostile names, paths and r
           endLine: 1,
           content: "const a = 1;",
           references: [],
-          estimatedTokens: 3,
         },
         signals: {},
         origin: `expanded-from:${hostile}`,
@@ -190,7 +150,6 @@ test("Markdown explanation cannot be broken out of by hostile names, paths and r
     ],
     regions: [{ file, language: "typescript", startLine: 1, endLine: 1, content: "const a = 1;", chunkIds: [hostile] }],
     warnings: [],
-    unmetCoherence: [],
     skipped: [],
     explain: true,
   };

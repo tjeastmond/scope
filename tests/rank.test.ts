@@ -24,7 +24,6 @@ function chunk(file: string, name: string, refs: Record<string, ReferenceEvidenc
     startLine,
     endLine: startLine + 2,
     content: `export function ${name}() {}`,
-    estimatedTokens: 5,
     references: Object.entries(refs).map(([target, evidence]) => ({
       kind: "call" as const,
       from: { file, line: startLine + 1 },

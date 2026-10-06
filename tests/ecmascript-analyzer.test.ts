@@ -3,7 +3,6 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { extractEcmascript } from "../src/analyzers/ecmascript.ts";
-import { heuristicEstimator } from "../src/context/tokens.ts";
 import { scanRepository } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import type { CodeChunk } from "../src/types.ts";
@@ -11,7 +10,7 @@ import type { CodeChunk } from "../src/types.ts";
 const FIXTURE = join(import.meta.dir, "../fixtures/webhook-service");
 
 async function chunksOf(path: string, source: string): Promise<CodeChunk[]> {
-  return (await extractEcmascript(path, source, heuristicEstimator)).chunks;
+  return (await extractEcmascript(path, source)).chunks;
 }
 
 async function extractFixture(): Promise<CodeChunk[]> {
@@ -65,7 +64,6 @@ test("chunk content is the exact source lines and IDs are stable and unique", as
   for (const chunk of first) {
     const lines = (await readFile(join(FIXTURE, chunk.file), "utf8")).split("\n");
     expect(chunk.content).toBe(lines.slice(chunk.startLine - 1, chunk.endLine).join("\n"));
-    expect(chunk.estimatedTokens).toBe(heuristicEstimator.count(chunk.content));
   }
 });
 
@@ -383,7 +381,7 @@ test("syntax errors: parseable declarations are extracted and a warning is added
     "class K { m() { 1 +; } n() {} }", // 4
     "function third() {}", // 5
   );
-  const { chunks, warnings } = await extractEcmascript("e.ts", source, heuristicEstimator);
+  const { chunks, warnings } = await extractEcmascript("e.ts", source);
   // A statement that contains an error (here the whole class K) is skipped.
   expect(inventory(chunks)).toEqual([
     "e.ts#function:good@1-1",
@@ -394,16 +392,16 @@ test("syntax errors: parseable declarations are extracted and a warning is added
 });
 
 test("syntax errors with nothing extractable give a warning and no chunks; clean files give no warning", async () => {
-  const bad = await extractEcmascript("e.js", "const = ;\n(((\n", heuristicEstimator);
+  const bad = await extractEcmascript("e.js", "const = ;\n(((\n");
   expect(bad.chunks).toEqual([]);
   expect(bad.warnings).toEqual(["e.js: syntax errors; extracted 0 declarations from the parseable regions"]);
-  expect((await extractEcmascript("ok.js", "function f() {}\n", heuristicEstimator)).warnings).toEqual([]);
-  expect((await extractEcmascript("empty.ts", "", heuristicEstimator)).chunks).toEqual([]);
+  expect((await extractEcmascript("ok.js", "function f() {}\n")).warnings).toEqual([]);
+  expect((await extractEcmascript("empty.ts", "")).chunks).toEqual([]);
 });
 
 test("static and instance overloads, wrapped default exports and chained test modifiers", async () => {
   const names = async (path: string, source: string) =>
-    (await extractEcmascript(path, source, heuristicEstimator)).chunks.map((c) => `${c.kind}:${c.name}`);
+    (await extractEcmascript(path, source)).chunks.map((c) => `${c.kind}:${c.name}`);
   expect(
     await names(
       "a.ts",
@@ -422,7 +420,7 @@ test("static and instance overloads, wrapped default exports and chained test mo
 
 test("identical same-line declarations yield one chunk", async () => {
   const names = async (path: string, source: string) =>
-    (await extractEcmascript(path, source, heuristicEstimator)).chunks.map((c) => c.name);
+    (await extractEcmascript(path, source)).chunks.map((c) => c.name);
   expect(await names("a.test.ts", "it('works', () => {}); it('works', () => {});")).toEqual(["test: works"]);
   expect(await names("a.ts", "class A { m() {} m() {} }")).toEqual(["A"]);
   expect(await names("a.ts", "const a = () => 1, a = () => 2;")).toEqual(["a"]);
