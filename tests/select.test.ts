@@ -324,3 +324,17 @@ test("a real method pulls in its class header from the mixed-app fixture", async
   expect(result.estimatedTokens).toBeLessThanOrEqual(8000);
   expect(result.unmetCoherence).toEqual([]);
 });
+
+test("the Unmet coherence section recorded so far is reserved, so a later chunk cannot crowd out the one that needs it", () => {
+  // The method's class header is too large to include, which adds an "Unmet coherence" section to the artifact. A
+  // bigger, more relevant chunk considered afterwards must be refused up front (the section is reserved), rather than
+  // admitted and then winning the prune over the method.
+  const { header, method } = classWithMethod(MAX_SUPPORT_TOKENS * 8, 0.6, 40);
+  const bigger = item("big", 0.9, body(600), "big.ts");
+  const chunks = lookupOf(header, asChunk(method), asChunk(bigger));
+  const result = selectWithinBudget([method, bigger], { ...base, budget: 320, chunks });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls.run"]);
+  expect(result.unmetCoherence).toEqual([{ chunkId: "Cls.run", requiredId: "Cls", reason: "too-large" }]);
+  expect(result.skipped.map((s) => [s.chunkId, s.reason])).toEqual([["big", "over-budget"]]);
+  expect(result.estimatedTokens).toBeLessThanOrEqual(320);
+});
