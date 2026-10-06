@@ -174,6 +174,19 @@ test("--help documents every flag with its default", async () => {
   expect(help).not.toContain("--format, --output");
 });
 
+test.each([
+  ["text", "-- Explanation --"],
+  ["markdown", "## Explanation"],
+  ["json", '"explain": true'],
+])("--explain adds the evidence to %s output and its absence leaves it out", async (format, marker) => {
+  const explained = capture();
+  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--format", format, "--explain"], explained.io)).toBe(0);
+  expect(explained.stdout()).toContain(marker);
+  const plain = capture();
+  expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--format", format], plain.io)).toBe(0);
+  expect(plain.stdout()).not.toContain(marker);
+});
+
 test("--format json prints only parseable, schema-valid JSON on stdout; warnings stay on stderr", async () => {
   const run = capture(retryProvider);
   expect(await main([TASK, "--repo", FIXTURE, "--format", "json"], run.io)).toBe(0);
