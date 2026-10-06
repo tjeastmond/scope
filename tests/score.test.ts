@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { buildIndexes } from "../src/retrieval/indexes.ts";
-import { DEFAULT_SCORING_WEIGHTS, scoreChunks, type ChunkScore } from "../src/retrieval/score.ts";
+import { DEFAULT_RETRIEVAL_CONFIG } from "../src/retrieval/config.ts";
+import { scoreChunks, type ChunkScore, type ScoringWeights } from "../src/retrieval/score.ts";
 import { extractTaskTerms } from "../src/retrieval/terms.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk } from "../src/types.ts";
@@ -10,7 +11,7 @@ import { FIXTURES, loadLabeledTasks, resolve } from "./helpers/labels.ts";
 const { chunks } = await loadChunks(join(FIXTURES, "mixed-app"));
 const indexes = buildIndexes(chunks);
 const tasks = await loadLabeledTasks("mixed-app");
-const scoreTask = (task: string, weights = DEFAULT_SCORING_WEIGHTS) =>
+const scoreTask = (task: string, weights: ScoringWeights = DEFAULT_RETRIEVAL_CONFIG.weights) =>
   scoreChunks(extractTaskTerms(task), indexes, weights);
 
 /** 1-based rank of the labeled chunk, or Infinity when no signal reached it. */
@@ -52,7 +53,7 @@ describe("scoreChunks on the mixed fixture", () => {
         }
         const { symbol, lexical, path } = score.contributions;
         expect(score.total).toBe(symbol + lexical + path);
-        expect(score.contributions.symbol).toBe(DEFAULT_SCORING_WEIGHTS.symbol * score.signals.symbol);
+        expect(score.contributions.symbol).toBe(DEFAULT_RETRIEVAL_CONFIG.weights.symbol * score.signals.symbol);
         expect(score.total).toBeGreaterThan(0);
         expect(score.total).toBeLessThanOrEqual(0.7);
       }
@@ -117,7 +118,7 @@ describe("scoreChunks signal formulas", () => {
     references: [],
     estimatedTokens: 1,
   });
-  const score = (task: string, list: CodeChunk[], weights = DEFAULT_SCORING_WEIGHTS) =>
+  const score = (task: string, list: CodeChunk[], weights: ScoringWeights = DEFAULT_RETRIEVAL_CONFIG.weights) =>
     new Map(scoreChunks(extractTaskTerms(task), buildIndexes(list), weights).map((s) => [s.chunkId, s]));
 
   test("a partial name match grows with the share of its words the task covers", () => {

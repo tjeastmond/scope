@@ -12,6 +12,7 @@ import { classifyFile } from "./repository/language.ts";
 import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
+import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
 import type { CodeChunk, DecisionProvider, DecisionResult, ScopeResult, SelectedChunk } from "./types.ts";
 
 export interface ScopeOptions {
@@ -90,6 +91,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const selected = selectWithinBudget(scored, { task, mode, budget, estimator: charsPerTokenEstimator });
   const result = {
     ...selected,
+    retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
     warnings: [...scanWarnings, ...(retrievalWarning ? [retrievalWarning] : []), ...selected.warnings],
   };
   return { result, decision };
