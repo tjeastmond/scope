@@ -237,6 +237,28 @@ test("pruning the last chunk never yields a successful empty artifact", () => {
   expect(fitted).toBeGreaterThan(0);
 });
 
+test("metrics that cannot be made to bound the artifact are refused, not under-reported", () => {
+  // The cost of the JSON artifact grows with the embedded estimatedTokens, so the fixed point never settles and the
+  // largest value seen is still too small.
+  const growing: TokenEstimator = {
+    id: "growing",
+    count(text) {
+      const embedded = /"estimatedTokens": (\d+)/.exec(text);
+      if (!embedded) return Math.ceil(text.length / 4);
+      const value = Number(embedded[1]);
+      return value % 2 === 0 ? 5 : value + 2;
+    },
+  };
+  expect(() =>
+    selectWithinBudget([item("x", 0.9, "const x = 1;")], {
+      ...base,
+      estimator: growing,
+      budget: 100_000,
+      format: "json",
+    }),
+  ).toThrow(EmptySelectionError);
+});
+
 describe("the measurement loops are bounded", () => {
   // Digits in the artifact change its size unpredictably, so the embedded metrics never settle.
   const adversarial: TokenEstimator = {
