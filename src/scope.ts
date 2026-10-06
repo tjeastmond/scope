@@ -94,7 +94,13 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     };
   });
 
-  const selected = selectWithinBudget(scored, { task, mode, budget, estimator: heuristicEstimator });
+  const selected = selectWithinBudget(scored, {
+    task,
+    mode,
+    budget,
+    estimator: heuristicEstimator,
+    chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
+  });
   const result = {
     ...selected,
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,

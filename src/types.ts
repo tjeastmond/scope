@@ -152,6 +152,16 @@ export interface SelectedChunk {
   /** Ranking score used for selection; not a probability. */
   score: number;
   reason: string;
+  /** Ids of the selected chunks that required this one; present only when it was pulled in as a support. */
+  supportFor?: string[];
+}
+
+export interface UnmetCoherence {
+  /** The selected chunk that needs the declaration. */
+  chunkId: string;
+  requiredId: string;
+  /** `too-large`: the support exceeds the cheap-support cap. `over-budget`: it did not fit with the chunk. */
+  reason: "too-large" | "over-budget";
 }
 
 export interface ScopeResult {
@@ -166,6 +176,8 @@ export interface ScopeResult {
   lines: number;
   chunks: SelectedChunk[];
   warnings: string[];
+  /** Supporting declarations a selected chunk needs but that are not included, sorted by chunk then required id. */
+  unmetCoherence: UnmetCoherence[];
   /** Version of the retrieval weights and caps that prepared the candidates. */
   retrievalConfigVersion?: string;
 }

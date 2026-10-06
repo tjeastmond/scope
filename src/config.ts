@@ -15,6 +15,9 @@ export const JEV_ATTEMPT_TIMEOUT_MS = 30_000;
 /** Candidates scoring below this are never selected. */
 export const MIN_RELEVANCE = 0.5;
 
+/** A supporting declaration (class header, type) larger than this is not pulled in for coherence. */
+export const MAX_SUPPORT_TOKENS = 400;
+
 /** Default output budget in estimated tokens. */
 export const DEFAULT_BUDGET = 8000;
 

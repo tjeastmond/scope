@@ -49,9 +49,11 @@ test("--no-jev on the mixed fixture selects chunks across languages with no prov
   const languages = new Set<string>(result.chunks.map((selected) => selected.chunk.language));
   for (const language of ["typescript", "python", "sql", "markdown"]) expect(languages).toContain(language);
   expect([...languages].some((language) => ["toml", "json", "yaml"].includes(language))).toBe(true);
-  expect(result.chunks.length).toBeLessThanOrEqual(MAX_CANDIDATES);
+  // Pulled-in supporting declarations come on top of the shortlist; every shortlisted chunk is still bounded.
+  expect(result.chunks.filter((selected) => !selected.supportFor).length).toBeLessThanOrEqual(MAX_CANDIDATES);
   expect(result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(false);
-  expect(result.chunks.every((selected) => selected.origin !== undefined)).toBe(true);
+  // Retrieval found every chunk except the supports, which carry no retrieval origin.
+  expect(result.chunks.every((selected) => selected.origin !== undefined || selected.supportFor)).toBe(true);
   expect(result.chunks.some((selected) => Object.keys(selected.signals).length > 0)).toBe(true);
 });
 
@@ -82,7 +84,9 @@ test("default mode with a fake provider judges the same chunk inventory as --no-
   const online = await runScope({ task: CROSS_LANGUAGE_TASK, repo: ROOT, provider, budget: 100_000 });
   expect(judged).toHaveLength(1);
   // The output order is by score density, so compare the inventories as sets.
-  expect(judged[0]!.map((chunk) => chunk.id).sort()).toEqual(offline.result.chunks.map((s) => s.chunk.id).sort());
+  // Supporting declarations are pulled in unjudged, so they are not part of the judged inventory.
+  const judgedInOutput = offline.result.chunks.filter((s) => !s.supportFor).map((s) => s.chunk.id);
+  expect(judged[0]!.map((chunk) => chunk.id).sort()).toEqual(judgedInOutput.sort());
   expect(judged[0]).toEqual(selectCandidates(CROSS_LANGUAGE_TASK, loaded.chunks).candidates);
   expect(judged[0]!.length).toBeLessThanOrEqual(MAX_CANDIDATES);
   expect(online.result.warnings.some((warning) => PROVISIONAL.test(warning))).toBe(false);
