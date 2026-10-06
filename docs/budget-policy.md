@@ -63,9 +63,8 @@ The two are different outcomes:
   called when there is nothing to judge.
 - **Budget too small** is a failure. Relevant chunks exist, but not even one fits, or the budget cannot hold even the
   empty artifact. `BudgetTooSmallError` is raised; the CLI prints nothing on stdout, exits 1, and the message says what
-  is needed: `--budget must be at least N`. N is the smallest relevant chunk's `minimumBudget`, or the size of the
-  empty artifact. It is a floor, not a guarantee: the embedded numbers grow with the digits of `--budget`, so a budget
-  equal to N can still fall a few tokens short, while one below it never succeeds.
+  is needed: `--budget must be at least N`. N is found by running the selection, so it counts everything in the
+  artifact (skip list, warnings, embedded numbers): a run with `--budget N` succeeds and one with `N - 1` fails.
 
 ### Skip reasons
 

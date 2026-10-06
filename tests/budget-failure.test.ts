@@ -36,23 +36,27 @@ afterEach(() => {
 
 const minimumIn = (stderr: string) => Number(/--budget must be at least (\d+)/.exec(stderr)?.[1]);
 
-for (const format of FORMATS) {
-  test(`--format ${format}: a budget of 1 fails with exit 1, no stdout, and names the minimum that is actually too small to beat`, async () => {
-    const tiny = capture();
-    expect(await main([TASK, "--repo", FIXTURE, "--no-jev", "--format", format, "--budget", "1"], tiny.io)).toBe(1);
-    expect(tiny.stdout()).toBe("");
-    const minimum = minimumIn(tiny.stderr());
-    expect(minimum).toBeGreaterThan(1);
+/** The budget a failed run names, which must be the exact edge: it succeeds within itself and one token less fails. */
+async function expectNamedMinimumIsExact(args: string[], relevance?: number) {
+  const tiny = capture(relevance);
+  expect(await main([...args, "--budget", "1"], tiny.io)).toBe(1);
+  expect(tiny.stdout()).toBe("");
+  const minimum = minimumIn(tiny.stderr());
+  expect(minimum).toBeGreaterThan(1);
 
-    // Just below the named minimum still fails, and still reports a minimum at least as large.
-    const below = capture();
-    const code = await main(
-      [TASK, "--repo", FIXTURE, "--no-jev", "--format", format, "--budget", String(minimum - 1)],
-      below.io,
-    );
-    expect(code).toBe(1);
-    expect(below.stdout()).toBe("");
-    expect(minimumIn(below.stderr())).toBeGreaterThanOrEqual(minimum);
+  const exact = capture(relevance);
+  expect(await main([...args, "--budget", String(minimum)], exact.io)).toBe(0);
+  expect(heuristicEstimator.count(exact.stdout())).toBeLessThanOrEqual(minimum);
+
+  const below = capture(relevance);
+  expect(await main([...args, "--budget", String(minimum - 1)], below.io)).toBe(1);
+  expect(below.stdout()).toBe("");
+  expect(minimumIn(below.stderr())).toBe(minimum);
+}
+
+for (const format of FORMATS) {
+  test(`--format ${format}: a budget of 1, and one just below the named minimum, fail; the minimum itself works`, async () => {
+    await expectNamedMinimumIsExact([TASK, "--repo", FIXTURE, "--no-jev", "--format", format]);
   });
 }
 
@@ -97,23 +101,10 @@ test("a repository with no analyzable files yields an empty artifact", async () 
 });
 
 for (const format of FORMATS) {
-  test(`--format ${format}: a budget too small even for the empty artifact fails, and the named minimum is a lower bound`, async () => {
+  test(`--format ${format}: a budget too small even for the empty artifact fails with an exact minimum`, async () => {
     const tiny = capture(0.1);
-    expect(await main([TASK, "--repo", FIXTURE, "--format", format, "--budget", "1"], tiny.io)).toBe(1);
-    expect(tiny.stdout()).toBe("");
+    await main([TASK, "--repo", FIXTURE, "--format", format, "--budget", "1"], tiny.io);
     expect(tiny.stderr()).toContain("cannot hold even an empty result");
-    const minimum = minimumIn(tiny.stderr());
-
-    // The embedded budget grows with the number of digits, so the minimum is measured at the budget it was named for;
-    // one token less never fits.
-    const roomy = capture(0.1);
-    expect(await main([TASK, "--repo", FIXTURE, "--format", format, "--budget", String(minimum * 2)], roomy.io)).toBe(
-      0,
-    );
-    expect(heuristicEstimator.count(roomy.stdout())).toBeLessThanOrEqual(minimum * 2);
-    const below = capture(0.1);
-    expect(await main([TASK, "--repo", FIXTURE, "--format", format, "--budget", String(minimum - 1)], below.io)).toBe(
-      1,
-    );
+    await expectNamedMinimumIsExact([TASK, "--repo", FIXTURE, "--format", format], 0.1);
   });
 }

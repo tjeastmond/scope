@@ -111,6 +111,52 @@ const unmetKey = (chunkId: string, requiredId: string) => `${chunkId}\u0000${req
  * `unmetCoherence`.
  */
 export function selectWithinBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): ScopeResult {
+  try {
+    return selectAtBudget(candidates, options);
+  } catch (error) {
+    if (!(error instanceof BudgetTooSmallError)) throw error;
+    const needed = smallestWorkingBudget(candidates, options);
+    throw needed === undefined
+      ? error
+      : new BudgetTooSmallError(`${error.message}; --budget must be at least ${needed}.`);
+  }
+}
+
+/**
+ * The budget a caller must raise `--budget` to. Rather than estimate the overhead of the rest of the artifact (skip
+ * list, warnings, embedded numbers), it is found by running the selection: probe upward until a run succeeds, then
+ * bisect to a budget that succeeds while one token less fails. Deterministic and bounded (about 2 log2 runs), and only
+ * done when a run has already failed.
+ */
+function smallestWorkingBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): number | undefined {
+  const works = (budget: number) => {
+    try {
+      selectAtBudget(candidates, { ...options, budget });
+      return true;
+    } catch (error) {
+      if (error instanceof BudgetTooSmallError) return false;
+      throw error;
+    }
+  };
+  // Every candidate, its supports and the surrounding artifact fit well inside this, so a run that still fails does
+  // not depend on the budget.
+  const ceiling = 4 * candidates.reduce((sum, item) => sum + options.estimator.count(item.chunk.content), 0) + 10_000;
+  let failing = options.budget;
+  let working = failing * 2;
+  while (!works(working)) {
+    if (working > ceiling) return undefined;
+    failing = working;
+    working *= 2;
+  }
+  while (working - failing > 1) {
+    const middle = Math.floor((failing + working) / 2);
+    if (works(middle)) working = middle;
+    else failing = middle;
+  }
+  return working;
+}
+
+function selectAtBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): ScopeResult {
   const { task, mode, budget, estimator, chunks, minScore = MIN_RELEVANCE } = options;
   const eligible = candidates.filter((item) => item.score >= minScore).sort(compareByDensity(estimator));
   const skipped = new Map<string, SkippedChunk>();
@@ -218,9 +264,7 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     );
     const needed = estimator.count(text);
     if (exact && needed <= budget) return result;
-    throw new BudgetTooSmallError(
-      `The budget of ${budget} estimated tokens cannot hold even an empty result; --budget must be at least ${needed}.`,
-    );
+    throw new BudgetTooSmallError(`The budget of ${budget} estimated tokens cannot hold even an empty result`);
   }
 
   const chosen = new Map<string, SelectedChunk>();
@@ -264,11 +308,7 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     // A support that is already in the output only because of an earlier chunk now also serves this one.
     for (const support of supports) pulledIn.get(support.id)?.set(id, item.chunk);
   }
-  const emptyError = () =>
-    new BudgetTooSmallError(
-      `No relevant chunk fits the budget of ${budget} estimated tokens; ` +
-        `--budget must be at least ${Math.min(...eligible.map(soloCost))} to include the smallest relevant chunk.`,
-    );
+  const emptyError = () => new BudgetTooSmallError(`No relevant chunk fits the budget of ${budget} estimated tokens`);
   if (chosen.size === 0) throw emptyError();
 
   // Phase 2: build the true artifact (real skip list, requirements and warnings), measure it in the requested format,
