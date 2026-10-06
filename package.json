@@ -4,6 +4,7 @@
   "description": "Scope selects the smallest useful code context for a software task, using Jev to judge relevance.",
   "type": "module",
   "private": true,
+  "license": "Apache-2.0",
   "files": [
     "dist",
     "!dist/**/*.map",
