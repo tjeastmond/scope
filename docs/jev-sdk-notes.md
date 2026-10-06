@@ -179,7 +179,7 @@ Adapter obligations that follow from the above:
 
 1. Validate every answer: present for each submitted id, `type === "noul"`, finite, within [0, 1]; otherwise fail clearly.
 2. Never rely on the question id inside the model; put an explicit candidate reference in each question.
-3. Size batches by serialized characters (`JEV_BATCH_MAX_CHARS`), sized at one token per character so it stays under the 64k combined and 32k state-plus-longest-question limits for any text; there is no documented question-count or byte limit. A single candidate that cannot fit one request with the task fails the run (`JevRequestError`).
+3. Size batches by serialized characters (`JEV_BATCH_MAX_CHARS`), kept conservative (about one token per character at most for ordinary text) against the 64k combined and 32k state-plus-longest-question limits, without a guarantee for every Unicode input; there is no documented question-count or byte limit. A single candidate that cannot fit one request with the task fails the run (`JevRequestError`).
 4. Own the overall deadline with `AbortSignal`; the SDK only has a per-attempt timeout.
 5. Do not log request bodies; never print or persist the API key.
 6. Record `usage` and latency per request for the M1 prototype evidence.

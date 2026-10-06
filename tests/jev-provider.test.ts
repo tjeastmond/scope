@@ -71,13 +71,13 @@ test("every emitted request fits the configured character limit", async () => {
   for (const call of calls) expect(JSON.stringify(call).length).toBeLessThanOrEqual(limit);
 });
 
-test("the default limit keeps requests under Jev's 32k-token limit even for one-token-per-character text", async () => {
+test("the default limit splits large non-ASCII candidates into several requests", async () => {
   const { client, calls } = fakeClient();
   const candidates = ["a", "b", "c"].map((id) => chunk(id, "漢".repeat(9000)));
   await new JevDecisionProvider({ client }).decide({ task: "t", candidates });
 
   expect(calls.length).toBeGreaterThan(1);
-  for (const call of calls) expect(JSON.stringify(call).length).toBeLessThan(32_000);
+  for (const call of calls) expect(JSON.stringify(call).length).toBeLessThanOrEqual(24_000);
 });
 
 test("refuses to send a candidate too large for any request", async () => {
