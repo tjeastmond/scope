@@ -4,6 +4,7 @@ import { buildIndexes } from "../src/retrieval/indexes.ts";
 import { DEFAULT_SCORING_WEIGHTS, scoreChunks, type ChunkScore } from "../src/retrieval/score.ts";
 import { extractTaskTerms } from "../src/retrieval/terms.ts";
 import { loadChunks } from "../src/scope.ts";
+import type { CodeChunk } from "../src/types.ts";
 import { FIXTURES, loadLabeledTasks, resolve } from "./helpers/labels.ts";
 
 const { chunks } = await loadChunks(join(FIXTURES, "mixed-app"));
@@ -100,5 +101,60 @@ describe("scoreChunks on the mixed fixture", () => {
 
   test("terms that match nothing score nothing", () => {
     expect(scoreTask("`zzqxNothingMatches` quuxfrobnicate")).toEqual([]);
+  });
+});
+
+describe("scoreChunks signal formulas", () => {
+  const make = (file: string, name: string, content = "zzz"): CodeChunk => ({
+    id: `${file}::${name}`,
+    file,
+    language: "typescript",
+    kind: "function",
+    name,
+    startLine: 1,
+    endLine: 1,
+    content,
+    references: [],
+    estimatedTokens: 1,
+  });
+  const score = (task: string, list: CodeChunk[], weights = DEFAULT_SCORING_WEIGHTS) =>
+    new Map(scoreChunks(extractTaskTerms(task), buildIndexes(list), weights).map((s) => [s.chunkId, s]));
+
+  test("a partial name match grows with the share of its words the task covers", () => {
+    const scores = score("send the reminder", [
+      make("a.ts", "sendReminder"),
+      make("b.ts", "send"),
+      make("c.ts", "sendMoney"),
+    ]);
+    expect(scores.get("a.ts::sendReminder")?.signals.symbol).toBeCloseTo(0.6, 10);
+    expect(scores.get("b.ts::send")?.signals.symbol).toBeCloseTo(0.45, 10);
+    expect(scores.get("c.ts::sendMoney")?.signals.symbol).toBeCloseTo(0.9 * 0.5 * 0.5, 10);
+  });
+
+  test("only the last member of a dotted name counts", () => {
+    const scores = score("send", [make("a.ts", "Invoice.send")]);
+    expect(scores.get("a.ts::Invoice.send")?.signals.symbol).toBeCloseTo(0.45, 10);
+  });
+
+  test("the path signal is the share of task words in the path, plus a base-name bonus, capped at 1", () => {
+    const list = [make("src/invoice.ts", "f"), make("src/other.ts", "g")];
+    expect(score("`invoice` plus ordering of things", list).get("src/invoice.ts::f")?.signals.path).toBeCloseTo(
+      0.75,
+      10,
+    );
+    expect(score("`invoice`", list).get("src/invoice.ts::f")?.signals.path).toBe(1);
+    expect(score("plain invoice words please", list).get("src/invoice.ts::f")?.signals.path).toBeCloseTo(0.25, 10);
+  });
+
+  test("a file name in the task matches the path ending with it", () => {
+    const scores = score("`app.toml` and lots of other unrelated words here", [make("config/app.toml", "f")]);
+    expect(scores.get("config/app.toml::f")?.signals.path).toBe(1);
+  });
+
+  test("equal totals are ordered by file position, not by which signal found them", () => {
+    const list = [make("src/zeta.ts", "reminder"), make("src/reminder.ts", "alpha")];
+    const ranked = scoreChunks(extractTaskTerms("`reminder`"), buildIndexes(list), { symbol: 1, lexical: 0, path: 1 });
+    expect(ranked.map((s) => s.chunkId)).toEqual(["src/reminder.ts::alpha", "src/zeta.ts::reminder"]);
+    expect(ranked[0]?.total).toBe(ranked[1]?.total);
   });
 });
