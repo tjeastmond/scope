@@ -3,7 +3,7 @@ Scope context for: Validate invoice totals
 Mode: jev
 Budget: 900 estimated tokens
 Artifact: 312 estimated tokens (estimator scope-heuristic-v1), 1100 characters, 40 lines
-Regions: 1
+Regions: 3
 Retrieval config: golden-1
 
 == src/invoices.ts:1-1 Money (supporting declaration) ==

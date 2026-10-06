@@ -62,7 +62,8 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   }
   // A truncated scan cannot show that an existing file inside the repository is not source, so it is refused.
   const inRepository = target.startsWith(`${root}${sep}`);
-  if (warnings.length > 0 && inRepository && (await stat(target).catch(() => undefined))?.isFile()) {
+  const existed = (await stat(target).catch(() => undefined))?.isFile() ?? false;
+  if (warnings.length > 0 && inRepository && existed) {
     throw fail("the repository scan was truncated, so it cannot be shown that this existing file is not source");
   }
 
@@ -87,6 +88,10 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
     discard,
     async commit(text) {
       try {
+        // A file created at an in-repository target since the check (the run can take a while) could be source.
+        if (inRepository && !existed && (await stat(target).catch(() => undefined))) {
+          throw new Error("a file appeared at this path during the run and was not overwritten");
+        }
         tempPath = newTemp();
         const handle = await open(tempPath, "wx");
         try {

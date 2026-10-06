@@ -9,24 +9,39 @@ Validate invoice totals
 - Mode: jev
 - Budget: 900 estimated tokens
 - Artifact: 312 estimated tokens (estimator ` scope-heuristic-v1 `), 1100 characters, 40 lines
-- Regions: 1
+- Regions: 3
 - Retrieval config: ` golden-1 `
 
 ## Warnings
 
 - ` 7 relevant chunk(s) were left out to stay within the budget. `
 
-## ` src/invoices.ts:3-9 `
+## ` src/invoices.ts:1-1 `
+
+- Language: typescript
+- ` Money `, function, lines 1-1: supporting declaration
+
+```typescript
+type Money = number;
+```
+
+## ` src/invoices.ts:3-5 `
 
 - Language: typescript
 - ` total `, function, lines 3-5: relevance 0.91
-- ` due `, function, lines 7-9: relevance 0.60
 
 ```typescript
 function total(a: number, b: number) {
   return a + b;
 }
+```
 
+## ` src/invoices.ts:7-9 `
+
+- Language: typescript
+- ` due `, function, lines 7-9: relevance 0.60
+
+```typescript
 function due(day: string) {
   return day;
 }

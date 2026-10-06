@@ -11,9 +11,32 @@
     {
       "file": "src/invoices.ts",
       "language": "typescript",
+      "startLine": 1,
+      "endLine": 1,
+      "content": "type Money = number;",
+      "chunks": [
+        {
+          "id": "src/invoices.ts#Money",
+          "name": "Money",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 1,
+          "score": 0,
+          "reason": "Supporting declaration for total",
+          "supportFor": [
+            "src/invoices.ts#total"
+          ],
+          "signals": {},
+          "estimatedTokens": 10
+        }
+      ]
+    },
+    {
+      "file": "src/invoices.ts",
+      "language": "typescript",
       "startLine": 3,
-      "endLine": 9,
-      "content": "function total(a: number, b: number) {\n  return a + b;\n}\n\nfunction due(day: string) {\n  return day;\n}",
+      "endLine": 5,
+      "content": "function total(a: number, b: number) {\n  return a + b;\n}",
       "chunks": [
         {
           "id": "src/invoices.ts#total",
@@ -31,7 +54,16 @@
           },
           "origin": "direct",
           "estimatedTokens": 10
-        },
+        }
+      ]
+    },
+    {
+      "file": "src/invoices.ts",
+      "language": "typescript",
+      "startLine": 7,
+      "endLine": 9,
+      "content": "function due(day: string) {\n  return day;\n}",
+      "chunks": [
         {
           "id": "src/invoices.ts#due",
           "name": "due",

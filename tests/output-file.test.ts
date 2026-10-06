@@ -179,3 +179,19 @@ test("an existing in-repository file is refused when the scan was truncated", as
   expect(calls).toHaveLength(0);
   expect(readFileSync(target, "utf8")).toBe("keep me\n");
 });
+
+test("a file that appears at an in-repository target during the run is not overwritten", async () => {
+  const target = join(repo, "docs", "scope-out.md");
+  const inner = fakeProvider({ fallback: 0.6 });
+  const provider: DecisionProvider = {
+    decide: async (request) => {
+      await writeFile(target, "created meanwhile\n");
+      return inner.decide(request);
+    },
+  };
+  const run = capture(provider);
+  expect(await main(args("--output", target), run.io)).toBe(1);
+  expect(run.stderr()).toContain("a file appeared at this path during the run");
+  expect(readFileSync(target, "utf8")).toBe("created meanwhile\n");
+  expect(readdirSync(join(repo, "docs")).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+});
