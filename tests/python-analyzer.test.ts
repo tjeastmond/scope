@@ -122,7 +122,8 @@ test("ranges, content, references and IDs", async () => {
   const lines = WORKER.split("\n");
   for (const chunk of chunks) {
     expect(chunk.content).toBe(lines.slice(chunk.startLine - 1, chunk.endLine).join("\n"));
-    expect(chunk.references).toEqual([]);
+    // The file's two top-level imports are file-level context on every chunk (docs/chunk-model.md, "References").
+    expect(chunk.references.map((r) => r.specifier)).toEqual(["os", "typing"]);
     expect(chunk.language).toBe("python");
     expect(chunk.file).toBe("worker/jobs.py");
   }

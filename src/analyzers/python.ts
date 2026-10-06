@@ -2,6 +2,7 @@ import type { Node } from "web-tree-sitter";
 import type { AnalysisResult, Analyzer, ChunkKind, TokenEstimator } from "../types.ts";
 import { assembleChunks, type Region } from "./assemble.ts";
 import { parserFor } from "./parser.ts";
+import { extractPythonReferences } from "./python-references.ts";
 
 interface Found {
   node: Node;
@@ -168,6 +169,7 @@ export async function extractPythonChunks(
       tree.rootNode.hasError && source.trim() !== "",
       estimator,
       "declarations",
+      extractPythonReferences(tree.rootNode),
     );
   } finally {
     tree.delete();

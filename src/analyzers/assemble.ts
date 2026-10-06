@@ -1,5 +1,5 @@
 import { makeChunkId } from "../chunk-id.ts";
-import type { AnalysisResult, ChunkKind, CodeChunk, Language, TokenEstimator } from "../types.ts";
+import type { AnalysisResult, ChunkKind, CodeChunk, Language, Reference, TokenEstimator } from "../types.ts";
 
 /** A container (class, namespace) of at most this many lines stays one chunk and its members are not chunks. */
 export const SMALL_CONTAINER_LINES = 5;
@@ -12,6 +12,53 @@ export interface Region {
   name?: string | undefined;
   /** The container this region is a member of. It must be another region of the same call, listed before this one. */
   parent?: Region | undefined;
+}
+
+/** A reference an extractor found: a `Reference` whose location is just a 1-based line in the file being analyzed. */
+export type RawReference = Omit<Reference, "from" | "targetChunkId"> & { line: number };
+
+/**
+ * A reference belongs to every chunk whose line range contains its line. One that lies in no chunk (a top-level
+ * `import` or `export ... from`, a `require` in a top-level statement that declares nothing) is file-level context
+ * and is attached to every chunk of the file; see docs/chunk-model.md, "References".
+ */
+function referenceAttacher(
+  file: string,
+  references: readonly RawReference[],
+  ranges: readonly { startLine: number; endLine: number }[],
+): (startLine: number, endLine: number) => Reference[] {
+  const size = Math.max(0, ...references.map((r) => r.line), ...ranges.map((r) => r.endLine)) + 2;
+  // Difference array over lines marks which lines any chunk covers; refs are bucketed by line (as indices, to keep order).
+  const depth = new Int32Array(size);
+  for (const { startLine, endLine } of ranges) {
+    depth[startLine] = (depth[startLine] ?? 0) + 1;
+    depth[endLine + 1] = (depth[endLine + 1] ?? 0) - 1;
+  }
+  const covered = new Uint8Array(size);
+  for (let line = 1, open = 0; line < size; line++) {
+    open += depth[line] ?? 0;
+    covered[line] = open > 0 ? 1 : 0;
+  }
+  const byLine = new Map<number, number[]>();
+  const fileLevel: number[] = [];
+  references.forEach(({ line }, index) => {
+    if (!covered[line]) fileLevel.push(index);
+    else {
+      const bucket = byLine.get(line);
+      if (bucket) bucket.push(index);
+      else byLine.set(line, [index]);
+    }
+  });
+  return (startLine, endLine) => {
+    const picked = [...fileLevel];
+    for (let line = startLine; line <= endLine; line++) for (const index of byLine.get(line) ?? []) picked.push(index);
+    return picked
+      .sort((a, b) => a - b)
+      .map((index) => {
+        const { line, ...rest } = references[index] as RawReference;
+        return { ...rest, from: { file, line } };
+      });
+  };
 }
 
 /**
@@ -66,7 +113,7 @@ function applyContainerPolicy(
  * Turns regions into chunks: `content` is the exact source lines of each range (split on `\n` only), identical
  * regions (for example two `<nav></nav>` on one line) collapse to one so chunk ids stay unique, and `broken` adds the
  * syntax-error warning, which counts the extracted `unit`s. Regions with a `parent` follow the container policy and
- * their chunks carry `parentId` and `containerName`.
+ * their chunks carry `parentId` and `containerName`. `references` are attached by line (see `referenceAttacher`).
  */
 export function assembleChunks(
   file: string,
@@ -76,10 +123,14 @@ export function assembleChunks(
   broken: boolean,
   estimator: TokenEstimator,
   unit = "chunks",
+  references: readonly RawReference[] = [],
 ): AnalysisResult {
   const lines = source.split("\n");
   const ids = new Map<Region, string>();
-  const chunks = applyContainerPolicy(regions, lines).map(({ region, endLine }): CodeChunk => {
+  const placed = applyContainerPolicy(regions, lines);
+  const ranges = placed.map(({ region, endLine }) => ({ startLine: region.startLine, endLine }));
+  const attach = referenceAttacher(file, references, ranges);
+  const chunks = placed.map(({ region, endLine }): CodeChunk => {
     const { startLine, kind, name } = region;
     const content = lines.slice(startLine - 1, endLine).join("\n");
     const id = makeChunkId({ file, startLine, endLine, kind, name });
@@ -94,7 +145,7 @@ export function assembleChunks(
       startLine,
       endLine,
       content,
-      references: [],
+      references: attach(startLine, endLine),
       estimatedTokens: estimator.count(content),
       ...(parentId === undefined || region.parent === undefined
         ? {}

@@ -51,8 +51,8 @@ A class (JavaScript, TypeScript, Python, including nested classes) and a TypeScr
 
 ## Python
 
-`src/analyzers/python.ts` handles `.py` and `.pyi`. It extracts boundaries and names only (`references` is empty;
-imports and calls are issue #27; classes follow the container policy above).
+`src/analyzers/python.ts` handles `.py` and `.pyi`. It extracts boundaries and names, plus import references (see "References");
+classes follow the container policy above.
 
 - Module-level `def` and `async def` are `function` chunks; methods (including `async`, `@staticmethod`,
   `@classmethod`, `@property`) are `method` chunks named `Class.method`. Stub signatures (`def f(): ...`) are ordinary
@@ -215,14 +215,46 @@ A `Reference` records a relationship found in a chunk: `kind` (`import`, `call`,
 - `unresolved`: no target was found. `targetChunkId` is absent.
 
 Preserve uncertainty, never guess silently: an analyzer must pick the weakest evidence that is true, and must not set
-`targetChunkId` without saying how it was found. The TypeScript analyzer emits no references yet.
+`targetChunkId` without saying how it was found.
+
+### Import references (JavaScript, TypeScript, Python)
+
+The JS/TS and Python analyzers record import and export relationships; nothing else (`call`, `type`, ... ) is emitted
+yet. Targets are never resolved here (that is M3), so `targetChunkId` is always absent. Every reference is
+`{ kind: "import", from: { file, line }, name, specifier?, evidence? }` (`src/types.ts`):
+
+- `from.line` is the 1-based first line of the statement or call it occurs in, so every binding of a multi-line
+  `import { a, b } from "x"` shares that line. There is one reference per imported binding.
+- `specifier` is the raw module specifier as written (`"./retry.ts"`, `"pkg"`, Python `"x.y"`, `".mod"`, `".."`,
+  `"..pkg"`). It is absent when the specifier is not a literal.
+- `evidence` is absent for a plain static specifier (no resolution attempted) and `"unresolved"` for a dynamic or
+  computed one: `import(variable)`, `require(expr)`, a template literal with `${}`, string concatenation, Python
+  `__import__(x)` or `importlib.import_module(f"...")`. Their `name` is the argument's source text (whitespace
+  collapsed). They are never dropped.
+- `name` for TS/JS: `default` for a default import; the symbol as written for named imports and `export { a as b }
+from` (the left side, not the alias); the alias for `import * as ns` and `export * as ns from`; `*` for
+  `export * from`; the specifier for side-effect imports, `require("x")` and `import("x")`; the local name for
+  `import e = require("x")`. Type-only imports (`import type`, `{ type T }`) are ordinary `import` references: the
+  type-only flag is not recorded, and `export ... from` re-exports use kind `import` too.
+- `name` for Python: the dotted module for `import a.b`, or its alias for `import a as b` (`specifier` stays `a`);
+  the symbol as written for `from x import y as z` (`y`); `*` for `from x import *`. `from __future__ import ...` has
+  specifier `__future__`. Only `__import__` and `importlib.import_module` with a first argument are dynamic forms;
+  other aliases of them are not detected.
+- Local aliases (`b` in `a as b`) are not recorded, and `require` is matched by name without checking shadowing.
+
+**Attachment.** A reference belongs to every chunk whose line range contains its `from.line`, so a `require` inside a
+function is on that function (and a nested import in a Python function on that function only). Top-level imports and
+`export ... from` statements lie outside every chunk range, so a reference whose line is in no chunk of the file is
+file-level context and is attached to every chunk of that file (a file with only imports has no chunks and so no
+references). That costs one copy per chunk, bounded by the scan limits. `references` are not sent to Jev and not
+printed in the output; they are chunk data for M3's graph and the M6 cache.
 
 ## JavaScript and TypeScript
 
 One analyzer (`src/analyzers/ecmascript.ts`) serves both languages. The grammar comes from the file path: `.ts`, `.mts`,
 `.cts` and `.d.ts` use `typescript`, `.tsx` uses `tsx`, and `.js`, `.jsx`, `.mjs`, `.cjs` use `javascript` (which also
 parses JSX). Chunk `language` is `typescript` for the TS family and `javascript` for the JS family. Chunks come from
-top-level statements only; `references` is empty (issue #27).
+top-level statements only; `references` holds imports, re-exports, `require` and dynamic `import()` (above).
 
 | Source                                                                                                          | Kind                    | Name                           |
 | --------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------ |

@@ -2,6 +2,7 @@ import type { Node } from "web-tree-sitter";
 import type { AnalysisResult, Analyzer, ChunkKind, Language, TokenEstimator } from "../types.ts";
 import { assembleChunks, type Region } from "./assemble.ts";
 import { classifyFile } from "../repository/language.ts";
+import { extractEcmascriptReferences } from "./ecmascript-references.ts";
 import { type Grammar, parserFor } from "./parser.ts";
 
 /** The grammar for a file: `.tsx` needs its own, JavaScript (JSX included) and TypeScript have one each. */
@@ -287,7 +288,17 @@ export async function extractEcmascript(
       byFound.set(entry, region);
       return region;
     });
-    return assembleChunks(path, source, language, regions, tree.rootNode.hasError, estimator, "declarations");
+    const references = extractEcmascriptReferences(tree.rootNode);
+    return assembleChunks(
+      path,
+      source,
+      language,
+      regions,
+      tree.rootNode.hasError,
+      estimator,
+      "declarations",
+      references,
+    );
   } finally {
     tree.delete();
   }
