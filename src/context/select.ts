@@ -39,6 +39,9 @@ export interface SelectionOptions {
   explain?: boolean;
 }
 
+/** Largest budget probed when looking for the minimum; no real artifact approaches it (1 TiB-scale tokens). */
+const MAX_PROBE_BUDGET = 2 ** 40;
+
 /** Rounds of metric re-measurement before giving up and reporting the largest values seen. */
 const MAX_SETTLE_ROUNDS = 8;
 
@@ -138,13 +141,10 @@ function smallestWorkingBudget(candidates: readonly SelectedChunk[], options: Se
       throw error;
     }
   };
-  // Every candidate, its supports and the surrounding artifact fit well inside this, so a run that still fails does
-  // not depend on the budget.
-  const ceiling = 4 * candidates.reduce((sum, item) => sum + options.estimator.count(item.chunk.content), 0) + 10_000;
   let failing = options.budget;
   let working = failing * 2;
   while (!works(working)) {
-    if (working > ceiling) return undefined;
+    if (working > MAX_PROBE_BUDGET) return undefined;
     failing = working;
     working *= 2;
   }

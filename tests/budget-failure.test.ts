@@ -108,3 +108,13 @@ for (const format of FORMATS) {
     await expectNamedMinimumIsExact([TASK, "--repo", FIXTURE, "--format", format], 0.1);
   });
 }
+
+test("the named minimum covers a very long task, whose text dominates the artifact", async () => {
+  const task = `retry ${"handling ".repeat(8000)}`;
+  await expectNamedMinimumIsExact([task, "--repo", FIXTURE, "--format", "json", "--no-jev"]);
+});
+
+test("the named minimum covers a very long task when the result is empty", async () => {
+  const task = `retry ${"handling ".repeat(8000)}`;
+  await expectNamedMinimumIsExact([task, "--repo", FIXTURE, "--format", "json"], 0.1);
+});
