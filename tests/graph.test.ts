@@ -204,16 +204,17 @@ describe("test-to-source links", () => {
 });
 
 describe("aliases and namespaces", () => {
+  /** Chunks start on distinct lines (after the import on line 1); the unrelated one is first in its file. */
   const chunkOf = (file: string, name: string, content: string, references: Reference[] = []): CodeChunk => ({
     id: `${file}::${name}`,
     file,
     language: file.endsWith(".py") ? "python" : "typescript",
     kind: "function",
     name,
-    startLine: 5,
-    endLine: 5,
+    startLine: name === "unrelated" ? 3 : 5,
+    endLine: name === "unrelated" ? 3 : 5,
     content,
-    tokens: 1,
+    estimatedTokens: 1,
     references,
   });
   const ref = (name: string, specifier: string, extra: Partial<Reference> = {}): Reference => ({
