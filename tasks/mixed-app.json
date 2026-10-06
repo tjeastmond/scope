@@ -1,11 +1,9 @@
 [
   {
     "id": "due-date-column",
+    "split": "tuning",
     "task": "Show each invoice's due date in the invoice list: render it in the frontend row (the API already returns dueDate).",
-    "required": [
-      "web/src/components/InvoiceRow.tsx::InvoiceRow",
-      "web/src/hooks/useInvoices.ts::InvoiceDto"
-    ],
+    "required": ["web/src/components/InvoiceRow.tsx::InvoiceRow", "web/src/hooks/useInvoices.ts::InvoiceDto"],
     "useful": [
       "api/src/routes/invoices.ts::listInvoices",
       "api/src/models/invoice.ts::Billing.Invoice",
@@ -32,6 +30,7 @@
   },
   {
     "id": "configurable-reminder-retries",
+    "split": "tuning",
     "task": "Make the reminder worker's retry attempts and backoff configurable from config/app.toml instead of hard-coded constants, and document the setting.",
     "required": [
       "worker/tasks.py::retry",
@@ -53,7 +52,7 @@
       "worker/format.py::format",
       "worker/validate.py::validate",
       "worker/names.py::Kundin",
-      "worker/names.py::grüßen",
+      "worker/names.py::gr\u00fc\u00dfen",
       "config/settings.json::limits",
       "docs/api.md::HTTP API > GET /health",
       "api/src/routes/health.ts::handleHealth",
@@ -63,12 +62,17 @@
   },
   {
     "id": "localized-csv-export",
+    "split": "heldout",
     "task": "Add a localized status column to the CSV invoice export.",
-    "required": ["api/src/util/csv.ts::toCsv", "api/src/i18n/messages.ts::translate", "api/src/i18n/messages.ts::messages"],
+    "required": [
+      "api/src/util/csv.ts::toCsv",
+      "api/src/i18n/messages.ts::translate",
+      "api/src/i18n/messages.ts::messages"
+    ],
     "useful": ["api/src/util/csv.ts::escapeCell", "api/src/models/invoice.ts::Billing.Invoice"],
     "irrelevant": [
-      "api/src/i18n/messages.ts::naïveSlug",
-      "api/src/i18n/messages.ts::税率",
+      "api/src/i18n/messages.ts::na\u00efveSlug",
+      "api/src/i18n/messages.ts::\u7a0e\u7387",
       "api/src/util/format.ts::format",
       "web/src/lib/format.ts::format",
       "worker/main.py::run_once",

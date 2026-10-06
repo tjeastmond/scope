@@ -10,7 +10,7 @@ node dist/cli.js "Show each invoice due date in the invoice list" --repo fixture
 
 The default path works on a real multi-language repository. The scan produced 125 eligible chunks, above the candidate cap of 30, so Scope pre-filtered them lexically and warned that retrieval is provisional (`125 eligible chunks exceed the candidate cap of 30 ...`). Jev judged those 30 and kept 12, 10 and 11 chunks in the three runs, across the TSX frontend, the TypeScript API and SQL. The `--no-jev` baseline keeps all 30 candidates, so Jev removed 18–20 of them.
 
-Both chunks labeled required for this task in `fixtures/mixed-app.tasks.json` (`InvoiceRow`, `InvoiceDto`) were kept in every run, with relevance 0.87 or more. The Python worker, the config files and the unrelated duplicate-named helpers (`format`, `validate`) were not selected.
+Both chunks labeled required for this task in `tasks/mixed-app.json` (`InvoiceRow`, `InvoiceDto`) were kept in every run, with relevance 0.87 or more. The Python worker, the config files and the unrelated duplicate-named helpers (`format`, `validate`) were not selected.
 
 | Run | Latency | Input tokens | Output tokens | Chunks kept |
 | --- | ------- | ------------ | ------------- | ----------- |

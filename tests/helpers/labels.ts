@@ -1,13 +1,16 @@
-// Labeled evaluation tasks (fixtures/*.tasks.json) and the mapping from their labels to chunks.
+// Labeled evaluation tasks (tasks/<fixture>.json) and the mapping from their labels to chunks.
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CodeChunk } from "../../src/types.ts";
 
 export const FIXTURES = join(import.meta.dir, "../../fixtures");
+export const TASKS = join(import.meta.dir, "../../tasks");
 
 export interface LabeledTask {
   id: string;
+  /** Tasks may be tuned on only when `tuning`; `heldout` tasks measure generalization (see M7). */
+  split: "tuning" | "heldout";
   task: string;
   required: string[];
   useful: string[];
@@ -15,7 +18,7 @@ export interface LabeledTask {
 }
 
 export async function loadLabeledTasks(fixture: string): Promise<LabeledTask[]> {
-  return JSON.parse(await readFile(join(FIXTURES, `${fixture}.tasks.json`), "utf8")) as LabeledTask[];
+  return JSON.parse(await readFile(join(TASKS, `${fixture}.json`), "utf8")) as LabeledTask[];
 }
 
 /** Resolves a label (`path::symbol`, `path::symbol@start-end` or a bare whole-file `path`) to the chunks it matches. */
