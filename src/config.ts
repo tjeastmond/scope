@@ -4,10 +4,11 @@ import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
 export const MAX_CANDIDATES = DEFAULT_RETRIEVAL_CONFIG.shortlistSize;
 
 /**
- * Serialized characters per Jev request (task, metadata, source and questions). Source code runs at well over 2
- * characters per token, so this stays under the documented 32k state-plus-question and 64k request token limits.
+ * Serialized characters per Jev request (task, metadata, source and questions). Sized at one token per character, the
+ * worst case for arbitrary Unicode, so a request stays under the documented 32k state-plus-question limit whatever the
+ * source contains; ordinary code uses far fewer tokens, at the cost of more requests.
  */
-export const JEV_BATCH_MAX_CHARS = 60_000;
+export const JEV_BATCH_MAX_CHARS = 24_000;
 
 /** Overall deadline for judging all candidates; the SDK only bounds each attempt. */
 export const JEV_DEADLINE_MS = 90_000;
