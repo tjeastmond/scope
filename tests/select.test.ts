@@ -206,6 +206,25 @@ test("a support pulled in first is upgraded when its own turn comes", () => {
   expect(renderResult(result)).toContain("(relevance 0.55)");
 });
 
+test("an upgraded support still pulls in the supports it needs itself", () => {
+  // The dense method pulls in its class header; the header is then judged and must bring in the class it extends.
+  const { header, method } = classWithMethod(60, 0.9, 20);
+  const base2 = item("Base", 1, body(40), "base.ts", 1).chunk;
+  base2.kind = "class";
+  header.references = [
+    { kind: "extends", from: { file: "cls.ts", line: 1 }, name: "Base", targetChunkId: "Base", evidence: "exact" },
+  ];
+  const candidate = { ...item("Cls", 0.55, header.content, "cls.ts", 1), chunk: header };
+  const result = selectWithinBudget([candidate, method], {
+    ...base,
+    budget: 100_000,
+    chunks: lookupOf(header, base2, asChunk(method)),
+  });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Base", "Cls", "Cls.run"]);
+  expect(result.chunks.find((c) => c.chunk.id === "Cls")?.relevance).toBe(0.55);
+  expect(result.unmetCoherence).toEqual([]);
+});
+
 test("a support below the minimum score is still pulled in as context", () => {
   const { header, method } = classWithMethod(60);
   const weak = { ...item("Cls", 0.1, header.content, "cls.ts", 1), chunk: header };

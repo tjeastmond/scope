@@ -64,33 +64,31 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
 
   for (const item of eligible) {
     const id = item.chunk.id;
-    if (chosen.has(id)) {
-      // Already included as a support: it now keeps its own relevance, provided its longer label still fits.
-      if (pulledIn.has(id) && fits(new Map(chosen).set(id, item).values())) {
-        chosen.set(id, item);
-        pulledIn.delete(id);
-      }
-      continue;
-    }
+    // A chunk already included as a support is upgraded: it keeps its own relevance (if its longer label still fits)
+    // and, like any other candidate, brings in the supports it needs.
+    const upgrading = pulledIn.has(id);
+    if (chosen.has(id) && !upgrading) continue;
 
     const supports = requiredSupports(item.chunk, chunks);
     const needed = supports.filter((support) => !chosen.has(support.id));
     const affordable = needed.filter((support) => estimator.count(support.content) <= MAX_SUPPORT_TOKENS);
-    const withSupports = new Map(chosen).set(id, item);
+    const alone = new Map(chosen).set(id, item);
+    const withSupports = new Map(alone);
     const additions = affordable.map((support) => supportEntry(support, new Map([[id, item.chunk]])));
     for (const entry of additions) withSupports.set(entry.chunk.id, entry);
 
     if (fits(withSupports.values())) {
       for (const [key, entry] of withSupports) chosen.set(key, entry);
       for (const entry of additions) pulledIn.set(entry.chunk.id, new Map([[id, item.chunk]]));
-    } else if (fits([...chosen.values(), item])) {
+    } else if (fits(alone.values())) {
       chosen.set(id, item);
       for (const support of affordable)
         unmet.set(unmetKey(id, support.id), { chunkId: id, requiredId: support.id, reason: "over-budget" });
     } else {
-      skipped++;
+      if (!upgrading) skipped++;
       continue;
     }
+    pulledIn.delete(id);
     for (const support of needed) {
       if (!affordable.includes(support)) {
         unmet.set(unmetKey(id, support.id), { chunkId: id, requiredId: support.id, reason: "too-large" });
