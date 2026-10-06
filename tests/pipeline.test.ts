@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import { lstat, readdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import { MAX_CANDIDATES } from "../src/config.ts";
-import { EmptySelectionError } from "../src/context/select.ts";
 import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
@@ -57,7 +56,7 @@ test("--no-jev on the mixed fixture selects chunks across languages with no prov
   expect(result.chunks.some((selected) => Object.keys(selected.signals).length > 0)).toBe(true);
 });
 
-test("a task matching nothing keeps retrieval's guidance and never calls Jev", async () => {
+test("a task matching nothing succeeds with an empty artifact carrying retrieval's guidance, and never calls Jev", async () => {
   let called = false;
   const provider: DecisionProvider = {
     async decide() {
@@ -65,9 +64,11 @@ test("a task matching nothing keeps retrieval's guidance and never calls Jev", a
       return { judgments: [] };
     },
   };
-  const run = runScope({ task: "quuxfrobnicate", repo: ROOT, provider });
-  await expect(run).rejects.toBeInstanceOf(EmptySelectionError);
-  await expect(run).rejects.toThrow(/No chunk matched the task/);
+  const { result } = await runScope({ task: "quuxfrobnicate", repo: ROOT, provider });
+  expect(result.chunks).toEqual([]);
+  expect(result.regions).toEqual([]);
+  expect(result.warnings.some((warning) => /^No chunk matched the task/.test(warning))).toBe(true);
+  expect(result.warnings).toContain("No relevant chunks found; the result is empty.");
   expect(called).toBe(false);
 });
 

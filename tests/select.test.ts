@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { MAX_SUPPORT_TOKENS } from "../src/config.ts";
-import { EmptySelectionError, selectWithinBudget } from "../src/context/select.ts";
+import { BudgetTooSmallError, selectWithinBudget } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
 import { renderResult } from "../src/output/text.ts";
 import { renderText } from "./helpers/render.ts";
@@ -83,12 +83,17 @@ test("prints exact path:start-end locations followed by the source lines", () =>
   expect(text).toContain("== src/f.ts:10-12 f (relevance 0.90) ==\nfunction f() {\n  return 1;\n}\n");
 });
 
-test("fails clearly when nothing is relevant or nothing fits", () => {
-  expect(() => selectWithinBudget([item("a", 0.2, body(10))], { ...base, budget: 1000 })).toThrow(
-    /scored at least 0.5/,
+test("nothing relevant is an empty artifact; a relevant chunk that cannot fit fails naming the minimum budget", () => {
+  const empty = selectWithinBudget([item("a", 0.2, body(10))], { ...base, budget: 1000 });
+  expect(empty.chunks).toEqual([]);
+  expect(empty.skipped.map((skip) => skip.reason)).toEqual(["below-threshold"]);
+  expect(empty.warnings).toEqual([
+    expect.stringMatching(/^No relevant chunks found: no candidate scored at least 0.5/),
+  ]);
+  expect(() => selectWithinBudget([item("a", 0.9, body(4000))], { ...base, budget: 100 })).toThrow(BudgetTooSmallError);
+  expect(() => selectWithinBudget([item("a", 0.9, body(4000))], { ...base, budget: 100 })).toThrow(
+    /--budget must be at least \d+/,
   );
-  expect(() => selectWithinBudget([item("a", 0.9, body(4000))], { ...base, budget: 100 })).toThrow(EmptySelectionError);
-  expect(() => selectWithinBudget([item("a", 0.9, body(4000))], { ...base, budget: 100 })).toThrow(/--budget/);
 });
 
 // Coherence: supporting declarations pulled in next to a selected chunk.
@@ -337,4 +342,17 @@ test("the Unmet coherence section recorded so far is reserved, so a later chunk 
   expect(result.unmetCoherence).toEqual([{ chunkId: "Cls.run", requiredId: "Cls", reason: "too-large" }]);
   expect(result.skipped.map((s) => [s.chunkId, s.reason])).toEqual([["big", "over-budget"]]);
   expect(result.estimatedTokens).toBeLessThanOrEqual(320);
+});
+
+test("the minimum-budget search gives up at its limit instead of probing beyond it", () => {
+  const huge = { id: "huge", count: () => 2 ** 40 + 1 };
+  const thrown = (() => {
+    try {
+      selectWithinBudget([item("a", 0.9, body(10))], { ...base, estimator: huge, budget: 100 });
+    } catch (error) {
+      return error as Error;
+    }
+  })();
+  expect(thrown).toBeInstanceOf(BudgetTooSmallError);
+  expect(thrown?.message).not.toContain("--budget must be at least");
 });

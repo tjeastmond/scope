@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { EmptySelectionError, selectWithinBudget } from "../src/context/select.ts";
+import { BudgetTooSmallError, selectWithinBudget } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
 import { main, type Io } from "../src/main.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
@@ -56,7 +56,7 @@ describe("the budget holds for the whole emitted artifact", () => {
             try {
               ({ result } = await runScope({ task, repo: MIXED, budget, noJev, format, provider }));
             } catch (error) {
-              expect(error).toBeInstanceOf(EmptySelectionError);
+              expect(error).toBeInstanceOf(BudgetTooSmallError);
               continue;
             }
             produced++;
@@ -118,7 +118,7 @@ test("markdown and JSON overhead can leave less room than text for the same budg
       count = ids(same).length;
       expect(heuristicEstimator.count(renderFormat(format, same))).toBeLessThanOrEqual(budget);
     } catch (error) {
-      expect(error).toBeInstanceOf(EmptySelectionError);
+      expect(error).toBeInstanceOf(BudgetTooSmallError);
     }
     expect(count).toBeLessThan(4);
     // With room for the overhead, all four fit again.
@@ -139,7 +139,7 @@ test("the greedy pass charges the format's overhead, so a dense chunk is kept ov
     try {
       return selectWithinBudget(both, { ...base, budget, format: "markdown" });
     } catch (error) {
-      expect(error).toBeInstanceOf(EmptySelectionError);
+      expect(error).toBeInstanceOf(BudgetTooSmallError);
       return undefined;
     }
   };
@@ -168,7 +168,7 @@ function pruningBudgets(candidates: SelectedChunk[]): number[] {
       const result = selectWithinBudget(candidates, { ...base, budget, format: "json" });
       if (ids(result).join() === "x" && result.skipped.some((s) => s.chunkId === "y")) found.push(budget);
     } catch (error) {
-      expect(error).toBeInstanceOf(EmptySelectionError);
+      expect(error).toBeInstanceOf(BudgetTooSmallError);
     }
   }
   return found;
@@ -215,7 +215,7 @@ test("pruning removes the lowest relevance first, not the last chosen", () => {
         if (entry.chunkId === "y") sawPrune = true;
       }
     } catch (error) {
-      expect(error).toBeInstanceOf(EmptySelectionError);
+      expect(error).toBeInstanceOf(BudgetTooSmallError);
     }
   }
   expect(sawPrune).toBe(true);
@@ -231,7 +231,7 @@ test("pruning the last chunk never yields a successful empty artifact", () => {
         fitted++;
         expect(result.chunks.length).toBeGreaterThan(0);
       } catch (error) {
-        expect(error).toBeInstanceOf(EmptySelectionError);
+        expect(error).toBeInstanceOf(BudgetTooSmallError);
       }
     }
   }
@@ -257,7 +257,7 @@ test("metrics that cannot be made to bound the artifact are refused, not under-r
       budget: 100_000,
       format: "json",
     }),
-  ).toThrow(EmptySelectionError);
+  ).toThrow(BudgetTooSmallError);
 });
 
 describe("the measurement loops are bounded", () => {
@@ -290,7 +290,7 @@ describe("the measurement loops are bounded", () => {
           expect(result.characters).toBeGreaterThanOrEqual(text.length);
           expect(result.lines).toBeGreaterThanOrEqual(text.split("\n").length);
         } catch (error) {
-          expect(error).toBeInstanceOf(EmptySelectionError);
+          expect(error).toBeInstanceOf(BudgetTooSmallError);
         }
       }
       expect(fitted).toBeGreaterThan(0);
@@ -329,7 +329,7 @@ describe("the CLI", () => {
           expect(heuristicEstimator.count(run.stdout())).toBeLessThanOrEqual(budget);
         } else {
           expect(run.stdout()).toBe("");
-          expect(run.stderr()).toContain("raise --budget");
+          expect(run.stderr()).toContain("--budget must be at least");
         }
       }
       expect(printed).toBeGreaterThan(0);

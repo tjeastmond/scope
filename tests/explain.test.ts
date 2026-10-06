@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
-import { EmptySelectionError } from "../src/context/select.ts";
+import { BudgetTooSmallError } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
 import { runScope } from "../src/scope.ts";
@@ -121,7 +121,7 @@ describe("explain output counts toward the budget", () => {
           try {
             ({ result } = await run(format, true, budget, noJev));
           } catch (error) {
-            expect(error).toBeInstanceOf(EmptySelectionError);
+            expect(error).toBeInstanceOf(BudgetTooSmallError);
             continue;
           }
           produced++;

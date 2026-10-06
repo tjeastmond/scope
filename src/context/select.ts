@@ -13,11 +13,11 @@ import type {
 import { requiredSupports } from "./coherence.ts";
 import { mergeRegions, toScopeRegion } from "./regions.ts";
 
-/** Nothing scored high enough, or nothing fit the budget, so there is no useful output to print. */
-export class EmptySelectionError extends Error {
+/** Relevant chunks exist but not even the smallest valid artifact fits the budget; the message names the minimum. */
+export class BudgetTooSmallError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "EmptySelectionError";
+    this.name = "BudgetTooSmallError";
   }
 }
 
@@ -39,6 +39,9 @@ export interface SelectionOptions {
   explain?: boolean;
 }
 
+/** Largest budget probed when looking for the minimum; no real artifact approaches it (1 TiB-scale tokens). */
+const MAX_PROBE_BUDGET = 2 ** 40;
+
 /** Rounds of metric re-measurement before giving up and reporting the largest values seen. */
 const MAX_SETTLE_ROUNDS = 8;
 
@@ -52,6 +55,10 @@ const overBudgetWarning = (count: number | string) =>
   `${count} relevant chunk(s) were left out to stay within the budget.`;
 const unmetWarning = (count: number | string) =>
   `${count} coherence requirement(s) could not be included; see unmetCoherence.`;
+const noRelevantWarning = (minScore: number, candidates: number) =>
+  candidates === 0
+    ? "No relevant chunks found; the result is empty."
+    : `No relevant chunks found: no candidate scored at least ${minScore}; the result is empty.`;
 const digits = (value: number) => String(Math.max(Math.trunc(value), 1)).length;
 
 /** Highest score per estimated token first; ties break by path, range, then ID so output is deterministic. */
@@ -59,6 +66,10 @@ function compareByDensity(estimator: TokenEstimator) {
   const density = (item: SelectedChunk) => item.score / Math.max(estimator.count(item.chunk.content), 1);
   return (a: SelectedChunk, b: SelectedChunk) => density(b) - density(a) || byLocation(a, b);
 }
+
+/** Skipped chunks in the order the artifact lists them: by file, start line, then id. */
+const bySkipLocation = (a: SkippedChunk, b: SkippedChunk) =>
+  a.file.localeCompare(b.file) || a.startLine - b.startLine || a.chunkId.localeCompare(b.chunkId);
 
 /** A declaration included only because selected chunks need it; it was not judged, so it has no relevance. */
 function supportEntry(chunk: CodeChunk, requirers: ReadonlyMap<string, CodeChunk>): SelectedChunk {
@@ -103,16 +114,55 @@ const unmetKey = (chunkId: string, requiredId: string) => `${chunkId}\u0000${req
  * `unmetCoherence`.
  */
 export function selectWithinBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): ScopeResult {
+  try {
+    return selectAtBudget(candidates, options);
+  } catch (error) {
+    if (!(error instanceof BudgetTooSmallError)) throw error;
+    const needed = smallestWorkingBudget(candidates, options);
+    throw needed === undefined
+      ? error
+      : new BudgetTooSmallError(`${error.message}; --budget must be at least ${needed}.`);
+  }
+}
+
+/**
+ * The budget a caller must raise `--budget` to. Rather than estimate the overhead of the rest of the artifact (skip
+ * list, warnings, embedded numbers), it is found by running the selection: probe upward until a run succeeds, then
+ * bisect to a budget that succeeds while one token less fails. Deterministic and bounded (about 2 log2 runs), and only
+ * done when a run has already failed.
+ */
+function smallestWorkingBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): number | undefined {
+  const works = (budget: number) => {
+    try {
+      selectAtBudget(candidates, { ...options, budget });
+      return true;
+    } catch (error) {
+      if (error instanceof BudgetTooSmallError) return false;
+      throw error;
+    }
+  };
+  let failing = options.budget;
+  let working = Math.min(failing * 2, MAX_PROBE_BUDGET);
+  while (!works(working)) {
+    if (working >= MAX_PROBE_BUDGET) return undefined;
+    failing = working;
+    working = Math.min(working * 2, MAX_PROBE_BUDGET);
+  }
+  while (working - failing > 1) {
+    const middle = Math.floor((failing + working) / 2);
+    if (works(middle)) working = middle;
+    else failing = middle;
+  }
+  return working;
+}
+
+function selectAtBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): ScopeResult {
   const { task, mode, budget, estimator, chunks, minScore = MIN_RELEVANCE } = options;
   const eligible = candidates.filter((item) => item.score >= minScore).sort(compareByDensity(estimator));
   const skipped = new Map<string, SkippedChunk>();
   for (const item of candidates) {
     if (item.score < minScore) skipped.set(item.chunk.id, skippedEntry(item, "below-threshold"));
   }
-  if (eligible.length === 0) {
-    throw new EmptySelectionError(`No candidate scored at least ${minScore}; nothing relevant to select.`);
-  }
-
   const format = options.format ?? "text";
   const leadingWarnings = options.leadingWarnings ?? [];
   const measure = (text: string): Metrics => ({
@@ -205,6 +255,18 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
   const soloCost = (item: SelectedChunk) =>
     estimator.count(settle((metrics) => assemble([item], [], [], [...leadingWarnings], metrics)).text);
 
+  if (eligible.length === 0) {
+    // Nothing relevant is a valid answer, not a failure: an empty artifact that says so. Only a budget too small to
+    // hold even that fails.
+    const warnings = [...leadingWarnings, noRelevantWarning(minScore, candidates.length)];
+    const { result, text, exact } = settle((metrics) =>
+      assemble([], [...skipped.values()].sort(bySkipLocation), [], warnings, metrics),
+    );
+    const needed = estimator.count(text);
+    if (exact && needed <= budget) return result;
+    throw new BudgetTooSmallError(`The budget of ${budget} estimated tokens cannot hold even an empty result`);
+  }
+
   const chosen = new Map<string, SelectedChunk>();
   /** Support-only entries: chunk id to the chunks that required it. */
   const pulledIn = new Map<string, Map<string, CodeChunk>>();
@@ -246,8 +308,7 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     // A support that is already in the output only because of an earlier chunk now also serves this one.
     for (const support of supports) pulledIn.get(support.id)?.set(id, item.chunk);
   }
-  const emptyError = () =>
-    new EmptySelectionError(`No relevant chunk fits the budget of ${budget} estimated tokens; raise --budget.`);
+  const emptyError = () => new BudgetTooSmallError(`No relevant chunk fits the budget of ${budget} estimated tokens`);
   if (chosen.size === 0) throw emptyError();
 
   // Phase 2: build the true artifact (real skip list, requirements and warnings), measure it in the requested format,
@@ -271,7 +332,7 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     // A chunk skipped on its own turn can still end up included as another chunk's support; it is not skipped then.
     const skippedChunks = [...skipped.values(), ...pruned.values()]
       .filter((entry) => !chosen.has(entry.chunkId))
-      .sort((a, b) => a.file.localeCompare(b.file) || a.startLine - b.startLine || a.chunkId.localeCompare(b.chunkId));
+      .sort(bySkipLocation);
     const overBudget = skippedChunks.filter((entry) => entry.reason === "over-budget").length;
     const warnings = [...leadingWarnings];
     if (overBudget > 0) warnings.push(overBudgetWarning(overBudget));

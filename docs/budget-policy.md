@@ -26,7 +26,7 @@ How it is enforced, deterministically and in bounded work:
 3. **Prune until it fits.** If the artifact is still over budget, the lowest-value chosen chunk is dropped (lowest
    relevance, or score in `no-jev` mode; ties by lowest score per token, then the later location), together with
    supporting declarations only it required, and recorded in `skipped` as `over-budget`. At most one round per chosen
-   chunk. If everything is pruned, `EmptySelectionError` is raised.
+   chunk. If everything is pruned, `BudgetTooSmallError` is raised (see below).
 
 Scan and retrieval warnings and `retrievalConfigVersion` are measured too, because they are part of the artifact.
 
@@ -52,7 +52,19 @@ The skip is not silent:
 - A chunk skipped on its own turn but later included as another chunk's supporting declaration is not reported as
   skipped.
 
-If nothing fits at all, `EmptySelectionError` is raised as before.
+## Nothing relevant versus a budget too small
+
+The two are different outcomes:
+
+- **Nothing relevant** is a successful answer. Retrieval found no candidate, the repository has no analyzable chunk, or
+  no candidate scored at least the minimum relevance. Scope prints the minimal valid artifact, which is the normal
+  artifact with no chunks or regions (every below-threshold candidate still appears in `skipped` in JSON), and
+  warns `No relevant chunks found...` (plus retrieval's guidance when it has some) on stderr. Exit code 0. Jev is not
+  called when there is nothing to judge.
+- **Budget too small** is a failure. Relevant chunks exist, but not even one fits, or the budget cannot hold even the
+  empty artifact. `BudgetTooSmallError` is raised; the CLI prints nothing on stdout, exits 1, and the message says what
+  is needed: `--budget must be at least N`. N is found by running the selection, so it counts everything in the
+  artifact (skip list, warnings, embedded numbers): a run with `--budget N` succeeds and one with `N - 1` fails.
 
 ### Skip reasons
 
