@@ -167,6 +167,40 @@ describe("test-to-source links", () => {
     expect(ambiguous.sourcesFor("t/x.test.ts")).toEqual(["a/x.ts", "b/x.ts"]);
     expect(ambiguous.edges[0]?.evidence).toContain("ambiguous");
   });
+
+  test("a test that imports a same-stem file is not also linked by name to another", () => {
+    const make = (file: string, id: string, references: CodeChunk["references"] = []): CodeChunk => ({
+      ...chunks[0]!,
+      id,
+      file,
+      references,
+      startLine: 1,
+    });
+    const reference = {
+      kind: "import" as const,
+      from: { file: "t/x.test.ts", line: 1 },
+      name: "x",
+      specifier: "../a/x",
+    };
+    const graphWithImport = buildGraph(
+      [make("a/x.ts", "1"), make("b/x.ts", "2"), make("t/x.test.ts", "3", [reference])],
+      { resolveImport: () => ({ file: "a/x.ts" }) },
+    );
+    expect(graphWithImport.sourcesFor("t/x.test.ts")).toEqual(["a/x.ts"]);
+  });
+
+  test("naming only links files of the same language family", () => {
+    const make = (file: string, id: string, language: CodeChunk["language"]): CodeChunk => ({
+      ...chunks[0]!,
+      id,
+      file,
+      language,
+      references: [],
+      startLine: 1,
+    });
+    const mixed = buildGraph([make("src/tasks.py", "1", "python"), make("tests/tasks.test.ts", "2", "typescript")]);
+    expect(mixed.sourcesFor("tests/tasks.test.ts")).toEqual([]);
+  });
 });
 
 describe("neighbors", () => {
