@@ -27,10 +27,10 @@ const isLetter = (c: number) => isLower(c) || isUpper(c);
  * Deterministic, conservative token estimate for code and prose, in a single linear pass.
  *
  * - Letter runs are split at lowercase-to-uppercase boundaries (camelCase) and cost ceil(len / 4) per segment.
- * - Digit runs cost ceil(len / 2). Every other ASCII symbol, including "_", costs one token.
+ * - Digit runs cost ceil(len / 2). Runs of adjacent ASCII symbols, including "_", cost ceil(len / 2).
  * - A single space is free (real tokenizers merge it into the next word); longer space runs, tabs, and each newline
  *   cost one token, plus one per 8 characters of a long run.
- * - Non-ASCII code points cost 2 (BMP) or 3 (astral, lone surrogates); control characters such as NUL cost one.
+ * - Non-ASCII code points cost 2 (BMP) or 3 (astral, lone surrogates); control characters such as NUL count as symbols.
  * - The result is the larger of that sum and ceil(length / 3).
  */
 const estimate = (text: string): number => {
