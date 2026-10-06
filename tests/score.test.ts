@@ -118,7 +118,7 @@ describe("scoreChunks signal formulas", () => {
     references: [],
     estimatedTokens: 1,
   });
-  const score = (task: string, list: CodeChunk[], weights = DEFAULT_SCORING_WEIGHTS) =>
+  const score = (task: string, list: CodeChunk[], weights: ScoringWeights = DEFAULT_RETRIEVAL_CONFIG.weights) =>
     new Map(scoreChunks(extractTaskTerms(task), buildIndexes(list), weights).map((s) => [s.chunkId, s]));
 
   test("a partial name match grows with the share of its words the task covers", () => {
