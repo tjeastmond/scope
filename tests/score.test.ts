@@ -146,6 +146,12 @@ describe("scoreChunks signal formulas", () => {
     expect(score("plain invoice words please", list).get("src/invoice.ts::f")?.signals.path).toBeCloseTo(0.25, 10);
   });
 
+  test("the base-name bonus counts once per file, however many terms name it", () => {
+    const list = [make("src/invoiceService.ts", "f"), make("src/other.ts", "g")];
+    const path = score("`invoiceService` plus ordering things", list).get("src/invoiceService.ts::f")?.signals.path;
+    expect(path).toBeCloseTo(0.9, 10);
+  });
+
   test("a file name in the task matches the path ending with it", () => {
     const scores = score("`app.toml` and lots of other unrelated words here", [make("config/app.toml", "f")]);
     expect(scores.get("config/app.toml::f")?.signals.path).toBe(1);
@@ -156,5 +162,12 @@ describe("scoreChunks signal formulas", () => {
     const ranked = scoreChunks(extractTaskTerms("`reminder`"), buildIndexes(list), { symbol: 1, lexical: 0, path: 1 });
     expect(ranked.map((s) => s.chunkId)).toEqual(["src/reminder.ts::alpha", "src/zeta.ts::reminder"]);
     expect(ranked[0]?.total).toBe(ranked[1]?.total);
+  });
+
+  test("normalizing the lexical signal copes with a very large number of matches", () => {
+    const many = Array.from({ length: 150_000 }, (_, i) => make(`f${i}.ts`, `n${i}`, "reminder"));
+    const scores = score("reminder", many);
+    expect(scores.size).toBe(150_000);
+    expect(scores.get("f0.ts::n0")?.signals.lexical).toBe(1);
   });
 });

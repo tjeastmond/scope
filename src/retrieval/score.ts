@@ -69,7 +69,8 @@ function symbolSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
 /** Lexical signal: BM25 over the task's content words, divided by the best score so the top chunk is 1. */
 function lexicalSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
   const scores = scoreText(indexes, terms.words);
-  const max = Math.max(0, ...scores.values());
+  let max = 0;
+  for (const score of scores.values()) max = Math.max(max, score);
   return new Map(max > 0 ? [...scores].map(([id, score]) => [id, score / max]) : []);
 }
 
@@ -85,14 +86,17 @@ function pathSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
     for (const file of lookupPathWord(indexes, word)) hits.set(file, (hits.get(file) ?? 0) + 1);
   }
   for (const [file, count] of hits) files.set(file, count / terms.words.length);
+  const named = new Set<string>();
   for (const term of [...terms.exact, ...terms.variants]) {
     if (term.includes("/") || term.includes(".")) {
       for (const file of indexes.paths.chunksByFile.keys()) {
         if (file === term || file.endsWith(`/${term}`)) files.set(file, 1);
       }
     }
-    for (const file of lookupBasename(indexes, term)) raise(files, file, (files.get(file) ?? 0) + BASENAME_BONUS);
+    for (const file of lookupBasename(indexes, term)) named.add(file);
   }
+  // The bonus is once per file however many terms (an exact term and its joined variant) name it.
+  for (const file of named) raise(files, file, (files.get(file) ?? 0) + BASENAME_BONUS);
   const signals: Signals = new Map();
   for (const [file, value] of files) {
     for (const id of indexes.paths.chunksByFile.get(file) ?? []) signals.set(id, Math.min(1, value));
