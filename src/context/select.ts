@@ -1,6 +1,14 @@
 import { MAX_SUPPORT_TOKENS, MIN_RELEVANCE } from "../config.ts";
 import { byLocation, renderText } from "../output/text.ts";
-import type { CodeChunk, ScopeMode, ScopeResult, SelectedChunk, TokenEstimator, UnmetCoherence } from "../types.ts";
+import type {
+  CodeChunk,
+  ScopeMode,
+  ScopeResult,
+  SelectedChunk,
+  SkippedChunk,
+  TokenEstimator,
+  UnmetCoherence,
+} from "../types.ts";
 import { requiredSupports } from "./coherence.ts";
 import { mergeRegions, toScopeRegion } from "./regions.ts";
 
@@ -41,19 +49,42 @@ function supportEntry(chunk: CodeChunk, requirers: ReadonlyMap<string, CodeChunk
   };
 }
 
+/** A candidate that was dropped, with its relevance and cost so the omission is inspectable. */
+function skippedEntry(item: SelectedChunk, reason: SkippedChunk["reason"], minimumBudget?: number): SkippedChunk {
+  const { chunk, relevance, score } = item;
+  return {
+    chunkId: chunk.id,
+    file: chunk.file,
+    startLine: chunk.startLine,
+    endLine: chunk.endLine,
+    ...(chunk.name === undefined ? {} : { name: chunk.name }),
+    ...(relevance === undefined ? {} : { relevance }),
+    score,
+    estimatedTokens: chunk.estimatedTokens,
+    reason,
+    ...(minimumBudget === undefined ? {} : { minimumBudget }),
+  };
+}
+
 const unmetKey = (chunkId: string, requiredId: string) => `${chunkId}\u0000${requiredId}`;
 
 /**
  * Includes candidates (best score-per-token first) while the full rendered artifact, not just chunk bodies, still
  * fits the budget. The artifact merges touching or overlapping chunks into regions, so cost is measured on the union:
  * a chunk contained in an already chosen one adds only its label and is still recorded with its provenance.
- * Candidates below the minimum score are dropped. A chosen chunk also pulls in the cheap supporting declarations it
+ * Candidates below the minimum score are dropped. A relevant chunk that fits neither with its supports nor alone is
+ * skipped whole, never truncated (a cut could land mid-statement), and the loop moves on to smaller candidates; every
+ * dropped candidate is recorded in `skipped` with its cost (see docs/budget-policy.md). A chosen chunk also pulls in the cheap supporting declarations it
  * needs (see `requiredSupports`), charged against the budget; supports that are too large or do not fit are reported
  * in `unmetCoherence`.
  */
 export function selectWithinBudget(candidates: readonly SelectedChunk[], options: SelectionOptions): ScopeResult {
   const { task, mode, budget, estimator, chunks, minScore = MIN_RELEVANCE } = options;
   const eligible = candidates.filter((item) => item.score >= minScore).sort(compareByDensity(estimator));
+  const skipped = new Map<string, SkippedChunk>();
+  for (const item of candidates) {
+    if (item.score < minScore) skipped.set(item.chunk.id, skippedEntry(item, "below-threshold"));
+  }
   if (eligible.length === 0) {
     throw new EmptySelectionError(`No candidate scored at least ${minScore}; nothing relevant to select.`);
   }
@@ -63,7 +94,6 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
   const pulledIn = new Map<string, Map<string, CodeChunk>>();
   const unmet = new Map<string, UnmetCoherence>();
   const fits = (set: Iterable<SelectedChunk>) => estimator.count(renderText(task, [...set])) <= budget;
-  let skipped = 0;
 
   for (const item of eligible) {
     const id = item.chunk.id;
@@ -88,7 +118,10 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
       for (const support of affordable)
         unmet.set(unmetKey(id, support.id), { chunkId: id, requiredId: support.id, reason: "over-budget" });
     } else {
-      if (!upgrading) skipped++;
+      // An upgrade candidate is already included as a support, so it is not a skipped chunk.
+      if (!upgrading) {
+        skipped.set(id, skippedEntry(item, "over-budget", estimator.count(renderText(task, [item]))));
+      }
       continue;
     }
     pulledIn.delete(id);
@@ -113,9 +146,15 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     return requirers ? supportEntry(entry.chunk, requirers) : entry;
   });
 
+  // A chunk skipped on its own turn can still end up included as another chunk's support; it is not skipped then.
+  const skippedChunks = [...skipped.values()]
+    .filter((entry) => !chosen.has(entry.chunkId))
+    .sort((a, b) => a.file.localeCompare(b.file) || a.startLine - b.startLine || a.chunkId.localeCompare(b.chunkId));
+  const overBudget = skippedChunks.filter((entry) => entry.reason === "over-budget").length;
+
   const text = renderText(task, selected);
   const warnings: string[] = [];
-  if (skipped > 0) warnings.push(`${skipped} relevant chunk(s) were left out to stay within the budget.`);
+  if (overBudget > 0) warnings.push(`${overBudget} relevant chunk(s) were left out to stay within the budget.`);
   if (unmetCoherence.length > 0) {
     warnings.push(`${unmetCoherence.length} coherence requirement(s) could not be included; see unmetCoherence.`);
   }
@@ -132,5 +171,6 @@ export function selectWithinBudget(candidates: readonly SelectedChunk[], options
     regions: mergeRegions(selected).map(toScopeRegion),
     warnings,
     unmetCoherence,
+    skipped: skippedChunks,
   };
 }
