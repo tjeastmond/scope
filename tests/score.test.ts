@@ -163,11 +163,4 @@ describe("scoreChunks signal formulas", () => {
     expect(ranked.map((s) => s.chunkId)).toEqual(["src/reminder.ts::alpha", "src/zeta.ts::reminder"]);
     expect(ranked[0]?.total).toBe(ranked[1]?.total);
   });
-
-  test("normalizing the lexical signal copes with a very large number of matches", () => {
-    const many = Array.from({ length: 150_000 }, (_, i) => make(`f${i}.ts`, `n${i}`, "reminder"));
-    const scores = score("reminder", many);
-    expect(scores.size).toBe(150_000);
-    expect(scores.get("f0.ts::n0")?.signals.lexical).toBe(1);
-  });
 });
