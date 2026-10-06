@@ -1,4 +1,5 @@
 import type { ScopeRegion, ScopeResult, SelectedChunk } from "../types.ts";
+import { labelOf } from "./text.ts";
 
 /** Longest run of consecutive backticks anywhere in `text` (0 when there are none). */
 export function longestBacktickRun(text: string): number {
@@ -29,13 +30,6 @@ export function codeSpan(text: string): string {
 function fenced(content: string, info = ""): string {
   const fence = fenceFor(content);
   return `${fence}${info}\n${content}\n${fence}`;
-}
-
-function labelOf({ relevance, score, supportFor }: SelectedChunk): string {
-  // A pull-in was not judged, so it carries no score; printing one would misstate Jev's decision.
-  return relevance === undefined && supportFor
-    ? "supporting declaration"
-    : `${relevance === undefined ? "score" : "relevance"} ${(relevance ?? score).toFixed(2)}`;
 }
 
 function renderRegion(region: ScopeRegion, byId: ReadonlyMap<string, SelectedChunk>): string {
