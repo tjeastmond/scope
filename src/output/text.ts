@@ -6,7 +6,7 @@ export const byLocation = (a: SelectedChunk, b: SelectedChunk): number =>
   a.chunk.startLine - b.chunk.startLine ||
   a.chunk.id.localeCompare(b.chunk.id);
 
-function labelOf({ relevance, score, supportFor }: SelectedChunk): string {
+export function labelOf({ relevance, score, supportFor }: SelectedChunk): string {
   // A pull-in was not judged, so it carries no score; printing one would misstate Jev's decision.
   return relevance === undefined && supportFor
     ? "supporting declaration"
