@@ -41,7 +41,7 @@ function resolveEcmascript(known: ReadonlySet<string>, file: string, specifier: 
         (ext) => [stripped + ext, `${extension} specifier mapped to ${ext} source`] as const,
       ),
       ...ECMASCRIPT_EXTENSIONS.map((ext) => [target + ext, `extension ${ext} appended`] as const),
-      ...ECMASCRIPT_EXTENSIONS.map((ext) => [`${target}/index${ext}`, "index file"] as const),
+      ...ECMASCRIPT_EXTENSIONS.map((ext) => [posix.join(target, `index${ext}`), "index file"] as const),
     ]) ?? missing(target)
   );
 }
@@ -50,7 +50,7 @@ function resolveEcmascript(known: ReadonlySet<string>, file: string, specifier: 
 function pythonModule(known: ReadonlySet<string>, base: string): ImportResolution | undefined {
   return firstKnown(known, [
     [`${base}.py`, "module file"],
-    [`${base}/__init__.py`, "package __init__"],
+    [posix.join(base, "__init__.py"), "package __init__"],
   ]);
 }
 
@@ -62,10 +62,10 @@ function resolvePython(known: ReadonlySet<string>, file: string, specifier: stri
     const directory = posix.join(posix.dirname(file), ...Array(dots.length - 1).fill(".."));
     if (directory === ".." || directory.startsWith("../")) return escapes();
     const base = posix.join(directory, ...parts);
-    if (parts.length === 0)
-      return known.has(`${base}/__init__.py`)
-        ? { file: `${base}/__init__.py`, via: "package __init__" }
-        : missing(`${base}/__init__.py`);
+    if (parts.length === 0) {
+      const init = posix.join(base, "__init__.py");
+      return known.has(init) ? { file: init, via: "package __init__" } : missing(init);
+    }
     return pythonModule(known, base) ?? missing(`${base}.py`);
   }
   // Absolute: a local module relative to the repository root or to the importer's top-level directory.

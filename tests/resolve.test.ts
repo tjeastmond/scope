@@ -12,6 +12,10 @@ const FILES = [
   "web/src/styles/invoice.module.css",
   "web/src/data.json",
   "top.ts",
+  "index.ts",
+  "sub/main.ts",
+  "__init__.py",
+  "root.py",
   "worker/__init__.py",
   "worker/main.py",
   "worker/tasks.py",
@@ -122,5 +126,13 @@ describe("Python", () => {
     expect(py("worker/main.py", "logging")).toEqual({
       unresolved: 'no local module for "logging" (external packages are not resolved)',
     });
+  });
+});
+
+describe("files at the repository root", () => {
+  test("a root index file and a root package __init__ resolve without a './' prefix", () => {
+    expect(ts("top.ts", ".")).toEqual({ file: "index.ts", via: "index file" });
+    expect(ts("sub/main.ts", "..")).toEqual({ file: "index.ts", via: "index file" });
+    expect(py("root.py", ".")).toEqual({ file: "__init__.py", via: "package __init__" });
   });
 });
