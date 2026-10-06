@@ -5,6 +5,7 @@ import { DEFAULT_BUDGET } from "./config.ts";
 import { UsageError } from "./errors.ts";
 import { EmptySelectionError, selectWithinBudget } from "./context/select.ts";
 import { heuristicEstimator } from "./context/tokens.ts";
+import type { OutputFormat } from "./output/index.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
@@ -25,6 +26,8 @@ export interface ScopeOptions {
   noJev?: boolean;
   /** Decision provider for the Jev path; defaults to the real Jev adapter. Tests inject a fake. */
   provider?: DecisionProvider;
+  /** Format of the emitted artifact; the budget is enforced on the whole artifact in this format (default text). */
+  format?: OutputFormat;
   signal?: AbortSignal;
 }
 
@@ -64,7 +67,7 @@ export async function loadChunks(repo: string): Promise<{ chunks: CodeChunk[]; w
 
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
-  const { task, repo = ".", budget = DEFAULT_BUDGET, noJev = false, signal } = options;
+  const { task, repo = ".", budget = DEFAULT_BUDGET, noJev = false, format = "text", signal } = options;
   if (!task.trim()) throw new UsageError("A task description is required.");
   if (!Number.isInteger(budget) || budget <= 0) throw new UsageError(`--budget must be a positive integer: ${budget}`);
 
@@ -94,17 +97,16 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     };
   });
 
-  const selected = selectWithinBudget(scored, {
+  // Scan and retrieval warnings and the config version are part of the emitted artifact, so selection measures them.
+  const result = selectWithinBudget(scored, {
     task,
     mode,
     budget,
+    format,
     estimator: heuristicEstimator,
     chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
-  });
-  const result = {
-    ...selected,
+    leadingWarnings: [...scanWarnings, ...(retrievalWarning ? [retrievalWarning] : [])],
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
-    warnings: [...scanWarnings, ...(retrievalWarning ? [retrievalWarning] : []), ...selected.warnings],
-  };
+  });
   return { result, decision };
 }

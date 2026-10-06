@@ -4,8 +4,9 @@
 blocks of source, no line repeated) and the same provenance. Only the artifact goes to stdout; warnings and Jev usage
 go to stderr, so JSON on stdout is always parseable on its own.
 
-Selection still measures the text rendering against the budget. Counting Markdown and JSON size against the budget is
-tracked separately (issue #53); the entry point is `renderFormat(format, result)` in `src/output/index.ts`.
+The budget is enforced on the whole artifact in the requested format, so Markdown and JSON, which carry more
+structure, select less source than text for the same `--budget` (see [budget-policy.md](budget-policy.md)). The entry
+point is `renderFormat(format, result)` in `src/output/index.ts`.
 
 ## Text (default)
 
