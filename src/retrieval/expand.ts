@@ -55,13 +55,13 @@ export function expandNeighbors(
   for (const seed of selectSeeds(scores, config)) {
     if (expansions.length >= config.maxExpanded) break;
     let taken = 0;
+    const full = () => taken >= config.maxNeighborsPerSeed || expansions.length >= config.maxExpanded;
     const add = (
       chunkId: string,
       relation: Expansion["relation"],
       confidence: NeighborConfidence,
       evidence: string,
     ) => {
-      if (taken >= config.maxNeighborsPerSeed || expansions.length >= config.maxExpanded) return;
       if (visited.has(chunkId)) return;
       visited.add(chunkId);
       taken++;
@@ -75,10 +75,12 @@ export function expandNeighbors(
       });
     };
     for (const neighbor of graph.neighbors(seed.chunkId)) {
+      if (full()) break;
       add(neighbor.chunkId, "dependency", neighbor.confidence, neighbor.evidence);
     }
     for (const file of relatedTestFiles(seed.chunkId, graph, indexes)) {
       for (const chunkId of indexes?.paths.chunksByFile.get(file) ?? []) {
+        if (full()) break;
         add(chunkId, "test", "heuristic", `file linked to ${indexes?.byId.get(seed.chunkId)?.file} by test naming`);
       }
     }

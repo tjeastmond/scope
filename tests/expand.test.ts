@@ -148,4 +148,22 @@ describe("expandNeighbors", () => {
     expect(expandNeighbors([score("S", 0)], graph, CONFIG)).toEqual([]);
     expect(expandNeighbors([], graph, CONFIG)).toEqual([]);
   });
+
+  test("stops visiting neighbours once the caps are reached", () => {
+    const seed = node("seed");
+    const graph = build([seed]);
+    let visited = 0;
+    const many = {
+      *[Symbol.iterator]() {
+        for (let i = 0; i < 10_000; i++) {
+          visited++;
+          yield { chunkId: `id-n${i}`, confidence: "exact" as const, evidence: "e" };
+        }
+      },
+    };
+    const hub: RepositoryGraph = { ...graph, neighbors: () => many as never };
+    const out = expandNeighbors([score("seed")], hub, CONFIG);
+    expect(out).toHaveLength(CONFIG.maxNeighborsPerSeed);
+    expect(visited).toBeLessThanOrEqual(CONFIG.maxNeighborsPerSeed + 1);
+  });
 });
