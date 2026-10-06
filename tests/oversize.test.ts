@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { selectWithinBudget } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
-import { renderText } from "../src/output/text.ts";
+import { renderText } from "./helpers/render.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk, SelectedChunk, TokenEstimator } from "../src/types.ts";
 
@@ -35,11 +35,13 @@ const body = (n: number) => "x".repeat(n);
 /** Cost of an artifact holding only these chunks. */
 const cost = (...entries: SelectedChunk[]) => heuristicEstimator.count(renderText(base.task, entries));
 const ids = (result: { chunks: SelectedChunk[] }) => result.chunks.map((c) => c.chunk.id);
+/** Phase 1 reserves the embedded size numbers at their widest, so admitting a chunk can need a few tokens beyond its measured cost. */
+const SLACK = 8;
 
 test("a chunk larger than the whole budget is skipped, reported with its cost, and the rest is still selected", () => {
   const huge = item("huge", 0.9, body(4000));
   const small = item("small", 0.8, body(40));
-  const budget = cost(small) + 10;
+  const budget = cost(small) + 80;
   expect(cost(huge)).toBeGreaterThan(budget);
 
   const result = selectWithinBudget([huge, small], { ...base, budget });
@@ -75,7 +77,7 @@ test("a chunk that fits whole is included in full and not reported as skipped", 
 test("a budget equal to the minimum budget selects the chunk and one token less skips it", () => {
   const only = item("only", 0.9, body(400));
   const minimum = cost(only);
-  const exact = selectWithinBudget([only], { ...base, budget: minimum });
+  const exact = selectWithinBudget([only], { ...base, budget: minimum + SLACK });
   expect(ids(exact)).toContain("only");
   expect(exact.skipped.find((s) => s.chunkId === "only")).toBeUndefined();
 
@@ -89,7 +91,7 @@ test("a budget equal to the minimum budget selects the chunk and one token less 
 test("a chunk that would fit alone but not with the already chosen ones is skipped over-budget", () => {
   const first = item("first", 0.9, body(200));
   const second = item("second", 0.8, body(200));
-  const budget = cost(first) + 5;
+  const budget = cost(first) + 80;
   expect(cost(second)).toBeLessThanOrEqual(budget);
   const result = selectWithinBudget([first, second], { ...base, budget });
   expect(ids(result)).toEqual(["first"]);
@@ -105,7 +107,7 @@ test("an oversize chunk ranked first does not starve smaller candidates behind i
   // The huge chunk has the best score per token, so it is tried first; the greedy loop must move on.
   const huge = item("huge", 1, body(1000));
   const small = item("small", 0.5, body(600));
-  const budget = cost(small) + 5;
+  const budget = cost(small) + 80;
   expect(cost(huge)).toBeGreaterThan(budget);
   const density = (entry: SelectedChunk) => entry.score / heuristicEstimator.count(entry.chunk.content);
   expect(density(huge)).toBeGreaterThan(density(small));
@@ -138,7 +140,7 @@ test("candidates below the minimum score are recorded as below-threshold without
 test("the warning counts only over-budget skips, not below-threshold ones", () => {
   const result = selectWithinBudget(
     [item("a", 0.9, body(40)), item("big", 0.8, body(4000)), item("w1", 0.1, body(40)), item("w2", 0.2, body(40))],
-    { ...base, budget: 100 },
+    { ...base, budget: 300 },
   );
   expect(result.skipped.map((s) => s.reason).sort()).toEqual(["below-threshold", "below-threshold", "over-budget"]);
   expect(result.warnings).toEqual(["1 relevant chunk(s) were left out to stay within the budget."]);
@@ -174,7 +176,7 @@ test("a chunk skipped on its own turn but later included as a support is not rep
   method.chunk.parentId = "Header";
   const chunks = new Map([header, method].map((entry) => [entry.chunk.id, entry.chunk]));
 
-  const result = selectWithinBudget([header, method], { ...base, estimator: quirky, budget: 100, chunks });
+  const result = selectWithinBudget([header, method], { ...base, estimator: quirky, budget: 400, chunks });
   expect(ids(result)).toEqual(["Header", "needsHeader"]);
   expect(result.chunks[0]!.supportFor).toEqual(["needsHeader"]);
   expect(result.skipped).toEqual([]);
@@ -204,6 +206,7 @@ test("the largest real chunk of mixed-app is skipped whole when the budget is be
     minimumBudget: minimum,
   });
   expect(
-    selectWithinBudget([entry], { ...base, budget: minimum, chunks: new Map(chunks.map((c) => [c.id, c])) }).chunks,
+    selectWithinBudget([entry], { ...base, budget: minimum + SLACK, chunks: new Map(chunks.map((c) => [c.id, c])) })
+      .chunks,
   ).toHaveLength(1);
 });

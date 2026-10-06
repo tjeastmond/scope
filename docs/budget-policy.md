@@ -44,11 +44,26 @@ The skip is not silent:
 - `over-budget`: the chunk was relevant but did not fit. It carries `minimumBudget`, the smallest budget in which an
   artifact containing only this chunk fits, measured on the artifact in the requested format with the active
   estimator. The skip list and selection warnings depend on the rest of the run and are not included, so in Markdown
-  and JSON it is a floor rather than a guarantee. It is deterministic, so a caller can tell the user which `--budget` would admit the chunk. A budget equal to
-  `minimumBudget` admits the chunk when nothing else outranks it; one token less does not.
+  and JSON it is a floor rather than a guarantee. It is deterministic, so a caller can tell the user which `--budget` would admit the chunk. One token less than
+  `minimumBudget` never admits the chunk; a budget a few tokens above it does, when nothing else outranks it, because
+  the selector reserves the embedded size numbers at their widest while choosing.
 - `below-threshold`: the score was under the minimum relevance. This is expected filtering and is not warned about.
 - The warning `N relevant chunk(s) were left out to stay within the budget.` counts only `over-budget` skips.
 - A chunk skipped on its own turn but later included as another chunk's supporting declaration is not reported as
   skipped.
 
 If nothing fits at all, `EmptySelectionError` is raised as before.
+
+### Skip reasons
+
+`SkipReason` has exactly two members, and each has one meaning:
+
+| Reason            | Meaning                                                       | Shown in text and Markdown  |
+| ----------------- | ------------------------------------------------------------- | --------------------------- |
+| `below-threshold` | The relevance (or `no-jev` score) was under the minimum.      | Only as a count             |
+| `over-budget`     | The chunk was relevant but did not fit, or was pruned to fit. | Listed, with cost and floor |
+
+Text and Markdown list at most five `over-budget` skips (most relevant first) and then count the rest, so the report
+cannot starve the budget it is reporting on; JSON always lists every skip. The "Left out" and "Unmet coherence"
+sections and the summary block are part of the artifact, so the selector reserves room for them (the skips and unmet
+requirements recorded so far) while choosing and measures them in the final check.

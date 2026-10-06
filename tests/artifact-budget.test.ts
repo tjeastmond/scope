@@ -4,7 +4,7 @@ import { EmptySelectionError, selectWithinBudget } from "../src/context/select.t
 import { heuristicEstimator } from "../src/context/tokens.ts";
 import { main, type Io } from "../src/main.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts";
-import { renderText } from "../src/output/text.ts";
+import { renderText } from "./helpers/render.ts";
 import { runScope } from "../src/scope.ts";
 import type { CodeChunk, SelectedChunk, TokenEstimator } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
@@ -106,7 +106,8 @@ test("markdown and JSON overhead can leave less room than text for the same budg
   const candidates = ["a", "b", "c", "d"].map((id, index) =>
     item(id, 0.9 - index * 0.05, `const ${id} = compute(first, second, third);\n`.repeat(6)),
   );
-  const budget = heuristicEstimator.count(renderText(base.task, candidates));
+  // A few tokens of room: phase 1 reserves the embedded size numbers at their widest.
+  const budget = heuristicEstimator.count(renderText(base.task, candidates)) + 8;
 
   const text = selectWithinBudget(candidates, { ...base, budget, format: "text" });
   expect(ids(text)).toEqual(["a", "b", "c", "d"]);

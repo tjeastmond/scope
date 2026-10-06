@@ -377,3 +377,98 @@ describe("Markdown fences", () => {
     expect(renderMarkdown(hostileResult())).not.toContain("## Warnings");
   });
 });
+
+describe("result reporting in text and Markdown", () => {
+  const skipped = (over: Partial<ScopeResult["skipped"][number]>) => ({
+    chunkId: "a.ts#x",
+    file: "a.ts",
+    startLine: 1,
+    endLine: 4,
+    name: "x",
+    relevance: 0.8,
+    score: 0.8,
+    estimatedTokens: 120,
+    reason: "over-budget" as const,
+    minimumBudget: 500,
+    ...over,
+  });
+
+  test("both formats carry the same summary facts and no probability wording", () => {
+    const result = hostileResult({ retrievalConfigVersion: "cfg-7" });
+    const text = renderFormat("text", result);
+    const markdown = renderFormat("markdown", result);
+    for (const out of [text, markdown]) {
+      expect(out).toContain(`Budget: ${result.budget} estimated tokens`);
+      expect(out).toContain(`${result.estimatedTokens} estimated tokens`);
+      expect(out).toContain(`${result.characters} characters, ${result.lines} lines`);
+      expect(out).toContain(`Regions: ${result.regions.length}`);
+      expect(out).toContain("cfg-7");
+      expect(out).not.toMatch(/probabilit|confidence/i);
+    }
+  });
+
+  test("empty sections are omitted and the retrieval line only appears when known", () => {
+    const result = hostileResult({ skipped: [], unmetCoherence: [] });
+    for (const format of ["text", "markdown"] as const) {
+      const out = renderFormat(format, result);
+      expect(out).not.toMatch(/Left out|Unmet coherence|below the relevance minimum/);
+      expect(out).not.toContain("Retrieval config");
+    }
+  });
+
+  test("below-threshold skips are only counted, over-budget skips are listed with their cost", () => {
+    const weak = {
+      ...skipped({}),
+      minimumBudget: undefined,
+      chunkId: "b.ts#y",
+      file: "b.ts",
+      name: "weakName",
+      reason: "below-threshold" as const,
+    };
+    const result = hostileResult({ skipped: [skipped({}), weak] });
+    for (const format of ["text", "markdown"] as const) {
+      const out = renderFormat(format, result);
+      expect(out).toContain("a.ts:1-4 x");
+      expect(out).toContain("120 estimated tokens, fits alone in a budget of 500");
+      expect(out).toContain("1 candidate(s) scored below the relevance minimum");
+      expect(out).not.toContain("weakName");
+    }
+  });
+
+  test("the left-out list is capped and says how many more exist", () => {
+    const many = Array.from({ length: 8 }, (_unused, i) =>
+      skipped({ chunkId: `a.ts#${i}`, name: `n${i}`, startLine: i }),
+    );
+    const out = renderFormat("text", hostileResult({ skipped: many }));
+    expect(out.match(/fits alone in a budget/g)).toHaveLength(5);
+    expect(out).toContain("and 3 more left out");
+  });
+
+  test("hostile paths and names stay on one line in text and inside code spans in Markdown", () => {
+    const evil = "bad\nname\u{2028}## injected";
+    const result = hostileResult({
+      skipped: [skipped({ name: evil, file: "p`q.ts" })],
+      unmetCoherence: [{ chunkId: "a.ts#x", requiredId: "gone\n# nope", reason: "over-budget" }],
+    });
+    for (const format of ["text", "markdown"] as const) {
+      const out = renderFormat(format, result);
+      expect(out).not.toContain("\n## injected");
+      expect(out).not.toContain("\n# nope");
+    }
+    const markdown = renderFormat("markdown", result);
+    const left = markdown.slice(markdown.indexOf("## Left out"));
+    expect(left.split("\n").filter((line) => line.startsWith("#"))).toEqual(["## Left out", "## Unmet coherence"]);
+  });
+
+  test("JSON still carries every skip and keeps validating", () => {
+    const many = Array.from({ length: 8 }, (_unused, i) => skipped({ chunkId: `a.ts#${i}`, startLine: i + 1 }));
+    const parsed = JSON.parse(renderFormat("json", hostileResult({ skipped: many })));
+    expect(parsed.skipped).toHaveLength(8);
+    expect(validate(parsed)).toBe(true);
+  });
+
+  test("the golden result validates against the schema", async () => {
+    const golden = JSON.parse(await readFile(join(ROOT, "tests/golden/result.json"), "utf8"));
+    expect(validate(golden)).toBe(true);
+  });
+});

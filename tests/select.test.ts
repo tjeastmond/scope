@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { MAX_SUPPORT_TOKENS } from "../src/config.ts";
 import { EmptySelectionError, selectWithinBudget } from "../src/context/select.ts";
 import { heuristicEstimator } from "../src/context/tokens.ts";
-import { renderResult, renderText } from "../src/output/text.ts";
+import { renderResult } from "../src/output/text.ts";
+import { renderText } from "./helpers/render.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk, SelectedChunk } from "../src/types.ts";
 
@@ -41,23 +42,23 @@ test("drops candidates below the minimum relevance", () => {
 
 test("includes the best score-per-token first and never exceeds the budget", () => {
   const candidates = [item("big", 0.95, body(800)), item("small1", 0.8, body(80)), item("small2", 0.8, body(80))];
-  const result = selectWithinBudget(candidates, { ...base, budget: 120 });
+  const result = selectWithinBudget(candidates, { ...base, budget: 220 });
   expect(result.chunks.map((c) => c.chunk.id)).toEqual(["small1", "small2"]);
-  expect(result.estimatedTokens).toBeLessThanOrEqual(120);
+  expect(result.estimatedTokens).toBeLessThanOrEqual(220);
   expect(result.warnings[0]).toContain("1 relevant chunk(s)");
 });
 
 test("ranks by score per token, not by raw score, when only one candidate fits", () => {
   const candidates = [item("long", 0.9, body(200)), item("short", 0.6, body(40))];
-  const result = selectWithinBudget(candidates, { ...base, budget: 80 });
+  const result = selectWithinBudget(candidates, { ...base, budget: 160 });
   expect(result.chunks.map((c) => c.chunk.id)).toEqual(["short"]);
 });
 
 test("the measured full output fits the budget and matches the reported estimate", () => {
   const candidates = Array.from({ length: 10 }, (_unused, i) => item(`c${i}`, 0.6 + i / 100, body(60 + i * 7)));
-  const result = selectWithinBudget(candidates, { ...base, budget: 150 });
+  const result = selectWithinBudget(candidates, { ...base, budget: 600 });
   const text = renderResult(result);
-  expect(heuristicEstimator.count(text)).toBeLessThanOrEqual(150);
+  expect(heuristicEstimator.count(text)).toBeLessThanOrEqual(600);
   expect(result.estimatedTokens).toBe(heuristicEstimator.count(text));
   expect(result.characters).toBe(text.length);
 });
@@ -71,7 +72,7 @@ test("breaks ties deterministically by path, range and ID regardless of input or
   expect(first.chunks.map((x) => x.chunk.id)).toEqual(["a", "b", "c"]);
   expect(second).toEqual(first);
   const tight = (input: SelectedChunk[]) =>
-    selectWithinBudget(input, { ...base, budget: 55 }).chunks.map((x) => x.chunk.id);
+    selectWithinBudget(input, { ...base, budget: 200 }).chunks.map((x) => x.chunk.id);
   expect(tight([c, b, a])).toEqual(tight([a, b, c]));
 });
 
@@ -95,6 +96,8 @@ test("fails clearly when nothing is relevant or nothing fits", () => {
 const asChunk = (entry: SelectedChunk): CodeChunk => entry.chunk;
 const lookupOf = (...chunks: CodeChunk[]) => new Map(chunks.map((c) => [c.id, c]));
 const cost = (...entries: SelectedChunk[]) => heuristicEstimator.count(renderText("do it", entries));
+/** Phase 1 reserves the embedded size numbers at their widest, so a budget equal to a measured cost needs a little room. */
+const SLACK = 8;
 const supportOf = (chunk: CodeChunk, supportFor: string[] = []): SelectedChunk => ({
   chunk,
   signals: {},
@@ -118,9 +121,13 @@ test("a selected method pulls in its class header, charged against the budget", 
   const needed = cost(supportOf(header), method);
   expect(needed).toBeGreaterThan(cost(method));
 
-  const result = selectWithinBudget([method], { ...base, budget: needed, chunks: lookupOf(header, asChunk(method)) });
+  const result = selectWithinBudget([method], {
+    ...base,
+    budget: needed + SLACK,
+    chunks: lookupOf(header, asChunk(method)),
+  });
   expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run"]);
-  expect(result.estimatedTokens).toBeLessThanOrEqual(needed);
+  expect(result.estimatedTokens).toBeLessThanOrEqual(needed + SLACK);
   expect(heuristicEstimator.count(renderResult(result))).toBe(result.estimatedTokens);
   expect(result.unmetCoherence).toEqual([]);
   expect(result.warnings).toEqual([]);

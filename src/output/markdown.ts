@@ -1,4 +1,5 @@
 import type { ScopeRegion, ScopeResult, SelectedChunk } from "../types.ts";
+import { belowThresholdLine, leftOutLines, sanitizeInline, summaryLines, unmetLines } from "./report.ts";
 import { labelOf } from "./text.ts";
 
 /** Longest run of consecutive backticks anywhere in `text` (0 when there are none). */
@@ -10,11 +11,6 @@ export function longestBacktickRun(text: string): number {
 
 /** A backtick fence strictly longer than any backtick run in `content`, and never shorter than 3. */
 export const fenceFor = (content: string): string => "`".repeat(Math.max(3, longestBacktickRun(content) + 1));
-
-/** Line breaks and control characters would end a single-line construct, so they become visible placeholders. */
-// eslint-disable-next-line no-control-regex
-const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
-const sanitizeInline = (text: string): string => text.replace(CONTROL, "\uFFFD");
 
 /**
  * Inline code span that cannot be broken out of: the delimiter is a backtick run longer than any run inside, and one
@@ -60,14 +56,24 @@ export function renderMarkdown(result: ScopeResult): string {
     "",
     fenced(result.task, "text"),
     "",
-    `- Mode: ${result.mode}`,
-    `- Budget: ${result.budget} estimated tokens`,
-    `- Artifact: ${result.estimatedTokens} estimated tokens (estimator ${codeSpan(result.estimator)}), ${result.characters} characters, ${result.lines} lines`,
-    `- Regions: ${result.regions.length}`,
+    ...summaryLines(result, codeSpan).map((line) => `- ${line}`),
   ];
   if (result.warnings.length > 0) {
     out.push("", "## Warnings", "", ...result.warnings.map((warning) => `- ${codeSpan(warning)}`));
   }
   for (const region of result.regions) out.push("", renderRegion(region, byId));
+  const leftOut = leftOutLines(result, codeSpan);
+  const below = belowThresholdLine(result);
+  if (leftOut.length > 0 || below !== undefined) {
+    out.push(
+      "",
+      "## Left out",
+      "",
+      ...leftOut.map((line) => `- ${line}`),
+      ...(below === undefined ? [] : [`- ${below}`]),
+    );
+  }
+  const unmet = unmetLines(result, codeSpan);
+  if (unmet.length > 0) out.push("", "## Unmet coherence", "", ...unmet.map((line) => `- ${line}`));
   return `${out.join("\n")}\n`;
 }
