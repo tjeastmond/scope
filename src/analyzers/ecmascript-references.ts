@@ -17,6 +17,12 @@ function specifierName(specifier: Node): string {
   return (specifier.childForFieldName("name") ?? namedChildren(specifier)[0])?.text ?? specifier.text;
 }
 
+/** The local binding of an `import_specifier` (`b` in `a as b`) when it differs from the imported name. */
+function localAlias(specifier: Node): { local?: string } {
+  const alias = specifier.childForFieldName("alias")?.text;
+  return alias === undefined || alias === specifierName(specifier) ? {} : { local: alias };
+}
+
 /** `import ... from "x"` and `import "x"` (side effect), plus `import x = require("x")`. */
 function importReferences(statement: Node, line: number): RawReference[] {
   const base = { kind: "import" as const, line };
@@ -32,11 +38,13 @@ function importReferences(statement: Node, line: number): RawReference[] {
     ];
   const refs: RawReference[] = [];
   for (const part of namedChildren(clause)) {
-    if (part.type === "identifier") refs.push({ ...base, name: "default", specifier });
+    if (part.type === "identifier") refs.push({ ...base, name: "default", specifier, local: part.text });
     else if (part.type === "namespace_import") {
-      refs.push({ ...base, name: namedChildren(part)[0]?.text ?? "*", specifier });
+      refs.push({ ...base, name: namedChildren(part)[0]?.text ?? "*", specifier, namespace: true });
     } else if (part.type === "named_imports") {
-      for (const item of namedChildren(part)) refs.push({ ...base, name: specifierName(item), specifier });
+      for (const item of namedChildren(part)) {
+        refs.push({ ...base, name: specifierName(item), specifier, ...localAlias(item) });
+      }
     }
   }
   // `import {} from "x"` still loads the module.

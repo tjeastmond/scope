@@ -3,7 +3,7 @@ import { join, posix } from "node:path";
 import { buildGraph, type GraphEdge, type ImportResolver, type RepositoryGraph } from "../src/graph/graph.ts";
 import { isTestFile } from "../src/graph/tests.ts";
 import { loadChunks } from "../src/scope.ts";
-import type { CodeChunk } from "../src/types.ts";
+import type { CodeChunk, Reference } from "../src/types.ts";
 
 const ROOT = join(import.meta.dir, "../fixtures/mixed-app");
 
@@ -200,6 +200,58 @@ describe("test-to-source links", () => {
     });
     const mixed = buildGraph([make("src/tasks.py", "1", "python"), make("tests/tasks.test.ts", "2", "typescript")]);
     expect(mixed.sourcesFor("tests/tasks.test.ts")).toEqual([]);
+  });
+});
+
+describe("aliases and namespaces", () => {
+  const chunkOf = (file: string, name: string, content: string, references: Reference[] = []): CodeChunk => ({
+    id: `${file}::${name}`,
+    file,
+    language: file.endsWith(".py") ? "python" : "typescript",
+    kind: "function",
+    name,
+    startLine: 5,
+    endLine: 5,
+    content,
+    tokens: 1,
+    references,
+  });
+  const ref = (name: string, specifier: string, extra: Partial<Reference> = {}): Reference => ({
+    kind: "import",
+    from: { file: "app.ts", line: 1 },
+    name,
+    specifier,
+    ...extra,
+  });
+  const resolveImport: ImportResolver = (_from, specifier) => ({ file: specifier.replace(/^\.\//, "") + ".ts" });
+  const build = (references: Reference[], consumer: string) =>
+    buildGraph(
+      [
+        chunkOf("app.ts", "unrelated", "function unrelated() {}", references),
+        chunkOf("app.ts", "actual", consumer, references),
+        chunkOf("lib.ts", "foo", "export function foo() {}"),
+        chunkOf("lib.ts", "ns", "export function ns() {}"),
+      ],
+      { resolveImport },
+    );
+  const sources = (graph: RepositoryGraph, name: string) =>
+    graph.edges.filter((e) => e.name === name).map((e) => `${e.from}->${e.to ?? e.toFile}`);
+
+  test("an aliased import belongs to the chunk that uses the alias and targets the exported name", () => {
+    const graph = build([ref("foo", "./lib", { local: "bar" })], "function actual() { bar(); }");
+    expect(sources(graph, "foo")).toEqual(["app.ts::actual->lib.ts::foo"]);
+  });
+
+  test("a default import belongs to the chunk that uses its local name", () => {
+    const graph = build([ref("default", "./lib", { local: "thing" })], "function actual() { thing(); }");
+    expect(sources(graph, "default")).toEqual(["app.ts::actual->lib.ts"]);
+  });
+
+  test("a namespace import never links to a same-named chunk", () => {
+    const graph = build([ref("ns", "./lib", { namespace: true })], "function actual() { ns.foo(); }");
+    const [edge] = graph.edges.filter((e) => e.name === "ns");
+    expect(edge).toMatchObject({ from: "app.ts::actual", toFile: "lib.ts", confidence: "heuristic" });
+    expect(edge?.to).toBeUndefined();
   });
 });
 

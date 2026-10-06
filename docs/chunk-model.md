@@ -240,7 +240,10 @@ from` (the left side, not the alias); the alias for `import * as ns` and `export
   the symbol as written for `from x import y as z` (`y`); `*` for `from x import *`. `from __future__ import ...` has
   specifier `__future__`. Only `__import__` and `importlib.import_module` with a first argument are dynamic forms;
   other aliases of them are not detected.
-- Local aliases (`b` in `a as b`) are not recorded, and `require` is matched by name without checking shadowing.
+- `local` is the name the file binds when it differs from `name`: `b` in `import { a as b }` and `from x import a as b`.
+  Re-exports have none. `namespace: true` marks a binding of a whole module (`import * as ns`, Python `import a.b` and
+  `import a as b`); `name` is then the binding, not a symbol of the target.
+- `require` is matched by name without checking shadowing.
 
 **Attachment.** A reference belongs to every chunk whose line range contains its `from.line`, so a `require` inside a
 function is on that function (and a nested import in a Python function on that function only). Top-level imports and

@@ -13,9 +13,17 @@ function mentions(content: string, name: string): boolean {
   return new RegExp(`(?<![\\p{L}\\p{N}_$])${escapeRegExp(name)}(?![\\p{L}\\p{N}_$])`, "u").test(content);
 }
 
-/** A name that can be looked up in code: not `default`, `*`, a side-effect import's specifier or dynamic source text. */
-function usableName(ref: Reference): boolean {
-  return IDENTIFIER.test(ref.name) && ref.name !== "default" && ref.name !== ref.specifier;
+const isName = (ref: Reference, name: string) => IDENTIFIER.test(name) && name !== "default" && name !== ref.specifier;
+
+/** The name the importing file's code uses: the alias, else `name`; unusable for `*`, side-effect and dynamic imports. */
+function bindingName(ref: Reference): string | undefined {
+  const name = ref.local ?? ref.name;
+  return isName(ref, name) ? name : undefined;
+}
+
+/** The name to find among the target file's chunks. A namespace binding names the module, not a symbol in it. */
+function exportedName(ref: Reference): string | undefined {
+  return ref.namespace || !isName(ref, ref.name) ? undefined : ref.name;
 }
 
 /**
@@ -25,7 +33,8 @@ function usableName(ref: Reference): boolean {
  */
 function owns(chunk: CodeChunk, first: CodeChunk, ref: Reference): boolean {
   if (ref.from.line >= chunk.startLine && ref.from.line <= chunk.endLine) return true;
-  return usableName(ref) ? mentions(chunk.content, ref.name) : chunk === first;
+  const binding = bindingName(ref);
+  return binding ? mentions(chunk.content, binding) : chunk === first;
 }
 
 const refKey = (ref: Reference) => `${ref.kind}|${ref.from.line}|${ref.name}|${ref.specifier ?? ""}`;
@@ -65,7 +74,7 @@ function edgeFor(chunk: CodeChunk, ref: Reference, index: ImportIndex, resolve: 
 
   const { file, via } = resolution;
   const resolved = `import "${specifier}" resolved to ${file}${via ? ` (${via})` : ""}`;
-  const symbol = resolution === asModule ? undefined : usableName(ref) ? ref.name : undefined;
+  const symbol = resolution === asModule ? undefined : exportedName(ref);
   const target = symbol ? index.byFile.get(file)?.find((candidate) => candidate.name === symbol) : undefined;
   if (target) {
     const evidence = `${resolved}; ${ref.name} is a chunk there`;
