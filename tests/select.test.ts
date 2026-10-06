@@ -191,6 +191,21 @@ test("a support that is also a selected candidate is not duplicated and keeps it
   }
 });
 
+test("a support pulled in first is upgraded when its own turn comes", () => {
+  // The short, dense method is processed first, so the long header is pulled in as a support and only then judged.
+  const { header, method } = classWithMethod(300, 0.9, 20);
+  const candidate = { ...item("Cls", 0.55, header.content, "cls.ts", 1), chunk: header };
+  const result = selectWithinBudget([candidate, method], {
+    ...base,
+    budget: 100_000,
+    chunks: lookupOf(header, asChunk(method)),
+  });
+  expect(result.chunks.map((c) => c.chunk.id)).toEqual(["Cls", "Cls.run"]);
+  expect(result.chunks[0]?.relevance).toBe(0.55);
+  expect(result.chunks[0]?.supportFor).toBeUndefined();
+  expect(renderResult(result)).toContain("(relevance 0.55)");
+});
+
 test("a support below the minimum score is still pulled in as context", () => {
   const { header, method } = classWithMethod(60);
   const weak = { ...item("Cls", 0.1, header.content, "cls.ts", 1), chunk: header };
