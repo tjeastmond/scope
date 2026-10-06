@@ -118,7 +118,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
       io.stdout(HELP);
       return 0;
     }
-    // Checked, and the temporary file created, before the (possibly paid) Jev request.
+    // Checked, and the directory probed, before the (possibly paid) Jev request.
     const output =
       options.output === undefined
         ? undefined

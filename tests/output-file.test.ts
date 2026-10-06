@@ -145,9 +145,9 @@ test("a run that fails after the preflight leaves neither the target nor a tempo
   expect(readdirSync(join(tmp, "out"))).toEqual([]);
 });
 
-test("the temporary file has an unpredictable name and is gone after success", async () => {
+test("no temporary file exists while the run scans, and none is left after success", async () => {
   const target = join(tmp, "out", "artifact.txt");
-  let during: string[] = [];
+  let during: string[] | undefined;
   const inner = fakeProvider({ fallback: 0.6 });
   const provider: DecisionProvider = {
     decide: async (request) => {
@@ -156,7 +156,26 @@ test("the temporary file has an unpredictable name and is gone after success", a
     },
   };
   expect(await main(args("--output", target), capture(provider).io)).toBe(0);
-  expect(during).toHaveLength(1);
-  expect(during[0]).toMatch(/^\.artifact\.txt\.[0-9a-f]{16}\.tmp$/);
+  expect(during).toEqual([]);
   expect(readdirSync(join(tmp, "out"))).toEqual(["artifact.txt"]);
+});
+
+test("a destination name at the file-name limit is accepted", async () => {
+  const target = join(tmp, "out", `${"a".repeat(250)}.md`);
+  expect(await main(args("--no-jev", "--output", target), capture().io)).toBe(0);
+  expect(readdirSync(join(tmp, "out"))).toEqual([`${"a".repeat(250)}.md`]);
+});
+
+test("an existing in-repository file is refused when the scan was truncated", async () => {
+  // Directories nested deeper than the scan limit are not scanned, so their files cannot be shown to be non-source.
+  const deep = join(repo, ...Array.from({ length: 40 }, (_, i) => `d${i}`));
+  await mkdir(deep, { recursive: true });
+  const target = join(deep, "notes.txt");
+  await writeFile(target, "keep me\n");
+  const { provider, calls } = spyProvider();
+  const run = capture(provider);
+  expect(await main(args("--output", target), run.io)).toBe(1);
+  expect(run.stderr()).toContain("the repository scan was truncated");
+  expect(calls).toHaveLength(0);
+  expect(readFileSync(target, "utf8")).toBe("keep me\n");
 });

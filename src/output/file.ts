@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { open, realpath, rename, rm, stat, type FileHandle } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { open, realpath, rename, rm, stat } from "node:fs/promises";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { scanRepository } from "../repository/files.ts";
 
 /** `--output` cannot be honoured. A runtime failure (exit code 1), not a usage error. */
@@ -14,7 +14,7 @@ export class OutputError extends Error {
 export interface PreparedOutput {
   /** Writes the artifact to the target atomically. Cleans up after itself if it fails. */
   commit(text: string): Promise<void>;
-  /** Removes the temporary file. Safe to call at any point, any number of times. */
+  /** Removes the temporary file if one exists. Safe to call at any point, any number of times. */
   discard(): Promise<void>;
 }
 
@@ -56,32 +56,46 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   } catch (error) {
     throw error instanceof OutputError ? error : fail(cause(error));
   }
-  const { files } = await scanRepository(root);
+  const { files, warnings } = await scanRepository(root);
   if (files.some((file) => join(root, file) === target)) {
     throw fail("it is a source file of the repository and would be overwritten");
   }
+  // A truncated scan cannot show that an existing file inside the repository is not source, so it is refused.
+  const inRepository = target.startsWith(`${root}${sep}`);
+  if (warnings.length > 0 && inRepository && (await stat(target).catch(() => undefined))?.isFile()) {
+    throw fail("the repository scan was truncated, so it cannot be shown that this existing file is not source");
+  }
 
-  const tempPath = join(dirname(target), `.${basename(target)}.${randomBytes(8).toString("hex")}.tmp`);
-  let handle: FileHandle | undefined;
+  const directory = dirname(target);
+  // Short fixed prefix so a long destination name never overflows the file-name limit.
+  const newTemp = () => join(directory, `.scope-${randomBytes(8).toString("hex")}.tmp`);
+  // Proves the directory is writable now, then leaves nothing behind: a temporary file present during the run would
+  // be scanned like any other file in the repository and could change what is selected.
   try {
-    handle = await open(tempPath, "wx");
+    const probe = newTemp();
+    await (await open(probe, "wx")).close();
+    await rm(probe, { force: true });
   } catch (error) {
     throw fail(cause(error));
   }
+  let tempPath: string | undefined;
   const discard = async () => {
-    await handle?.close().catch(() => undefined);
-    handle = undefined;
-    await rm(tempPath, { force: true }).catch(() => undefined);
+    if (tempPath) await rm(tempPath, { force: true }).catch(() => undefined);
+    tempPath = undefined;
   };
   return {
     discard,
     async commit(text) {
       try {
-        if (!handle) throw new Error("the output was already discarded");
-        await handle.writeFile(text, "utf8");
-        await handle.close();
-        handle = undefined;
+        tempPath = newTemp();
+        const handle = await open(tempPath, "wx");
+        try {
+          await handle.writeFile(text, "utf8");
+        } finally {
+          await handle.close();
+        }
         await rename(tempPath, target);
+        tempPath = undefined;
       } catch (error) {
         await discard();
         throw fail(cause(error));

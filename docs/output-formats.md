@@ -21,12 +21,12 @@ point is `renderFormat(format, result)` in `src/output/index.ts`.
   exists, otherwise its parent directory's real path plus the file name) and compared with the files Scope scans
   (the eligible set: not ignored, not binary, not secret). If it is one of them, Scope refuses with a one-line message
   and exit code 1, and writes nothing. A target inside the repository that is not scanned (for example an ignored
-  path) and any file outside it, such as a previous Scope output, may be overwritten. A directory target is refused.
+  path) and any file outside it, such as a previous Scope output, may be overwritten. A directory target is refused, and so is an existing in-repository file when the scan was truncated by a limit (it cannot then be shown not to be source).
 - **Checked before the Jev request.** After parsing, and before any request is sent, Scope runs the check above and
-  creates the temporary file, so a missing or unwritable directory fails immediately (exit code 1) instead of after a
+  probes that the directory accepts a new file (the probe is removed again, so it cannot be scanned), so a missing or unwritable directory fails immediately (exit code 1) instead of after a
   paid run.
 - **Atomic.** The artifact is written to a temporary file in the target's directory (exclusive create, named
-  `.<name>.<16 random hex digits>.tmp`) and renamed over the target, so a reader sees the old file or the complete new
+  `.scope-<16 random hex digits>.tmp`) and renamed over the target, so a reader sees the old file or the complete new
   one. The temporary file is removed on every failure path.
 
 ## Explanation (`--explain`)
