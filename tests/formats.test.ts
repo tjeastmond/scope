@@ -325,6 +325,14 @@ describe("Markdown fences", () => {
     expect(markdown).not.toContain("\n## fake heading");
     expect(markdown).not.toContain("\n# nope");
     expect(markdown).not.toContain("\n## sneaky");
+    // Every region heading is one well-formed code span: the delimiter run never occurs inside the span.
+    const spans = headings.filter((h) => h.startsWith("## ") && h !== "## Warnings");
+    spans.forEach((heading) => {
+      const match = /^## (`+) (.*) \1$/.exec(heading)!;
+      expect(match).not.toBeNull();
+      const inner = match[2]!;
+      for (const run of inner.match(/`+/g) ?? []) expect(run.length).not.toBe(match[1]!.length);
+    });
   });
 
   test("warnings are listed", () => {
