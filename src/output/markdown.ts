@@ -66,7 +66,7 @@ export function renderMarkdown(result: ScopeResult): string {
     `- Regions: ${result.regions.length}`,
   ];
   if (result.warnings.length > 0) {
-    out.push("", "## Warnings", "", ...result.warnings.map((warning) => `- ${sanitizeInline(warning)}`));
+    out.push("", "## Warnings", "", ...result.warnings.map((warning) => `- ${codeSpan(warning)}`));
   }
   for (const region of result.regions) out.push("", renderRegion(region, byId));
   return `${out.join("\n")}\n`;

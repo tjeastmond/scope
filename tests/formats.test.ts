@@ -108,6 +108,35 @@ function hostileResult(overrides: Partial<ScopeResult> = {}): ScopeResult {
   };
 }
 
+describe("merged regions keep each chunk's own range in JSON", () => {
+  test("two chunks of one region report their individual start and end lines", () => {
+    const result = hostileResult();
+    const [first, second] = result.chunks.slice(0, 2).map((item, i) => ({
+      ...item,
+      chunk: { ...item.chunk, file: "src/m.ts", startLine: i === 0 ? 1 : 3, endLine: i === 0 ? 4 : 6 },
+    }));
+    result.chunks = [first!, second!];
+    result.regions = [
+      {
+        file: "src/m.ts",
+        language: "typescript",
+        startLine: 1,
+        endLine: 6,
+        content: "a\nb\nc\nd\ne\nf",
+        chunkIds: [first!.chunk.id, second!.chunk.id],
+      },
+    ];
+    const payload = JSON.parse(renderJson(result));
+    expect(
+      payload.regions[0].chunks.map((c: { startLine: number; endLine: number }) => [c.startLine, c.endLine]),
+    ).toEqual([
+      [1, 4],
+      [3, 6],
+    ]);
+    expect(validate(payload)).toBe(true);
+  });
+});
+
 describe("one result, three formats", () => {
   test.each([[true], [false]])("renders text, markdown and json from the same result (noJev %p)", async (noJev) => {
     const result = await fixtureResult(noJev);
@@ -226,7 +255,7 @@ describe("JSON contract", () => {
     ]);
     expect(Object.keys(payload.regions[0])).toEqual(["file", "language", "startLine", "endLine", "content", "chunks"]);
     expect(Object.keys(payload.regions[0].chunks[0])).toEqual(
-      ["id", "name", "kind", "relevance", "score", "reason", "supportFor"].filter(
+      ["id", "name", "kind", "startLine", "endLine", "relevance", "score", "reason", "supportFor"].filter(
         (key) => key in payload.regions[0].chunks[0],
       ),
     );
@@ -335,8 +364,16 @@ describe("Markdown fences", () => {
     });
   });
 
+  test("a warning carrying Markdown or HTML stays inert inside a code span", () => {
+    const warning = "src/![preview](https:attacker.invalid).ts: <img src=x> syntax errors";
+    const markdown = renderMarkdown(hostileResult({ warnings: [warning] }));
+    expect(markdown).toContain(`## Warnings\n\n- \` ${warning} \`\n`);
+  });
+
   test("warnings are listed", () => {
-    expect(renderMarkdown(hostileResult({ warnings: ["one", "two"] }))).toContain("## Warnings\n\n- one\n- two\n");
+    expect(renderMarkdown(hostileResult({ warnings: ["one", "two"] }))).toContain(
+      "## Warnings\n\n- ` one `\n- ` two `\n",
+    );
     expect(renderMarkdown(hostileResult())).not.toContain("## Warnings");
   });
 });

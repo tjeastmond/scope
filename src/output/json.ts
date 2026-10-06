@@ -13,6 +13,8 @@ export interface JsonChunk {
   id: string;
   name?: string;
   kind: ChunkKind;
+  startLine: number;
+  endLine: number;
   relevance?: number;
   score: number;
   reason: string;
@@ -53,6 +55,8 @@ const toJsonChunk = ({ chunk, relevance, score, reason, supportFor }: SelectedCh
   id: chunk.id,
   ...(chunk.name === undefined ? {} : { name: chunk.name }),
   kind: chunk.kind,
+  startLine: chunk.startLine,
+  endLine: chunk.endLine,
   ...(relevance === undefined ? {} : { relevance }),
   score,
   reason,

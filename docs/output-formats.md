@@ -32,7 +32,7 @@ A `Scope context for: <task>` header, then each region as `== path:start-end nam
 ```
 { schemaVersion: 1, mode, task, budget, estimator, estimatedTokens, characters, lines,
   regions: [{ file, language, startLine, endLine, content,
-              chunks: [{ id, name?, kind, relevance?, score, reason, supportFor? }] }],
+              chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor? }] }],
   warnings, unmetCoherence, skipped, retrievalConfigVersion? }
 ```
 

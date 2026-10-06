@@ -89,11 +89,13 @@
     "chunk": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "score", "reason"],
+      "required": ["id", "kind", "startLine", "endLine", "score", "reason"],
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
         "kind": { "$ref": "#/$defs/kind" },
+        "startLine": { "$ref": "#/$defs/line" },
+        "endLine": { "$ref": "#/$defs/line" },
         "relevance": { "$ref": "#/$defs/relevance" },
         "score": { "$ref": "#/$defs/score" },
         "reason": { "type": "string" },
