@@ -1,5 +1,7 @@
-/** Maximum candidates sent to Jev per run (plan target: 20-30 chunks). */
-export const MAX_CANDIDATES = 30;
+import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
+
+/** Maximum candidates sent to Jev per run (plan target: 20-30 chunks); the retrieval configuration owns the value. */
+export const MAX_CANDIDATES = DEFAULT_RETRIEVAL_CONFIG.shortlistSize;
 
 /** Estimated tokens per Jev request; well under the documented 32k state-plus-question and 64k request limits. */
 export const JEV_BATCH_TOKEN_BUDGET = 24_000;

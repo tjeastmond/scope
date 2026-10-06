@@ -164,4 +164,6 @@ export interface ScopeResult {
   lines: number;
   chunks: SelectedChunk[];
   warnings: string[];
+  /** Version of the retrieval weights and caps that prepared the candidates. */
+  retrievalConfigVersion?: string;
 }

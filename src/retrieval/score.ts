@@ -1,6 +1,7 @@
 // Lexical candidate scoring: symbol-name, source-text and file-path signals, each normalized to [0, 1] and kept
 // separate so a score can be explained. Graph signals (dependency, test) are added by later stages.
 
+import { DEFAULT_RETRIEVAL_CONFIG, type RetrievalConfig } from "./config.ts";
 import {
   lookupBasename,
   lookupPathWord,
@@ -11,13 +12,8 @@ import {
 } from "./indexes.ts";
 import { stemmedWords, type TaskTerms } from "./terms.ts";
 
-export interface ScoringWeights {
-  symbol: number;
-  lexical: number;
-  path: number;
-}
-
-export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = { symbol: 0.3, lexical: 0.25, path: 0.15 };
+/** The lexical signals' share of the configured weights. */
+export type ScoringWeights = Pick<RetrievalConfig["weights"], "symbol" | "lexical" | "path">;
 
 type Signal = keyof ScoringWeights;
 
@@ -111,7 +107,7 @@ function pathSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
 export function scoreChunks(
   terms: TaskTerms,
   indexes: RetrievalIndexes,
-  weights: ScoringWeights = DEFAULT_SCORING_WEIGHTS,
+  weights: ScoringWeights = DEFAULT_RETRIEVAL_CONFIG.weights,
 ): ChunkScore[] {
   const all = {
     symbol: symbolSignals(terms, indexes),
