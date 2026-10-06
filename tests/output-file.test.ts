@@ -180,7 +180,7 @@ test("an existing in-repository file is refused when the scan was truncated", as
   expect(readFileSync(target, "utf8")).toBe("keep me\n");
 });
 
-test("a file that appears at an in-repository target during the run is not overwritten", async () => {
+test("a file that becomes source at the target during the run is not overwritten", async () => {
   const target = join(repo, "docs", "scope-out.md");
   const inner = fakeProvider({ fallback: 0.6 });
   const provider: DecisionProvider = {
@@ -191,7 +191,25 @@ test("a file that appears at an in-repository target during the run is not overw
   };
   const run = capture(provider);
   expect(await main(args("--output", target), run.io)).toBe(1);
-  expect(run.stderr()).toContain("a file appeared at this path during the run");
+  expect(run.stderr()).toContain("it is a source file of the repository");
   expect(readFileSync(target, "utf8")).toBe("created meanwhile\n");
   expect(readdirSync(join(repo, "docs")).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+});
+
+test("an existing ignored target that stops being ignored during the run is not overwritten", async () => {
+  await mkdir(join(repo, "generated"));
+  await writeFile(join(repo, ".gitignore"), "generated/\n");
+  const target = join(repo, "generated", "out.md");
+  await writeFile(target, "previous\n");
+  const inner = fakeProvider({ fallback: 0.6 });
+  const provider: DecisionProvider = {
+    decide: async (request) => {
+      await writeFile(join(repo, ".gitignore"), "");
+      return inner.decide(request);
+    },
+  };
+  const run = capture(provider);
+  expect(await main(args("--output", target), run.io)).toBe(1);
+  expect(run.stderr()).toContain("it is a source file of the repository");
+  expect(readFileSync(target, "utf8")).toBe("previous\n");
 });

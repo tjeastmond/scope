@@ -56,16 +56,19 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   } catch (error) {
     throw error instanceof OutputError ? error : fail(cause(error));
   }
-  const { files, warnings } = await scanRepository(root);
-  if (files.some((file) => join(root, file) === target)) {
-    throw fail("it is a source file of the repository and would be overwritten");
-  }
-  // A truncated scan cannot show that an existing file inside the repository is not source, so it is refused.
   const inRepository = target.startsWith(`${root}${sep}`);
-  const existed = (await stat(target).catch(() => undefined))?.isFile() ?? false;
-  if (warnings.length > 0 && inRepository && existed) {
-    throw fail("the repository scan was truncated, so it cannot be shown that this existing file is not source");
-  }
+  /** Runs at preparation and again at commit: the run can take a while, and the repository may change meanwhile. */
+  const assertNotSource = async () => {
+    const { files, warnings } = await scanRepository(root);
+    if (files.some((file) => join(root, file) === target)) {
+      throw fail("it is a source file of the repository and would be overwritten");
+    }
+    // A truncated scan cannot show that an existing file inside the repository is not source, so it is refused.
+    if (warnings.length > 0 && inRepository && (await stat(target).catch(() => undefined))?.isFile()) {
+      throw fail("the repository scan was truncated, so it cannot be shown that this existing file is not source");
+    }
+  };
+  await assertNotSource();
 
   const directory = dirname(target);
   // Short fixed prefix so a long destination name never overflows the file-name limit.
@@ -88,10 +91,7 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
     discard,
     async commit(text) {
       try {
-        // A file created at an in-repository target since the check (the run can take a while) could be source.
-        if (inRepository && !existed && (await stat(target).catch(() => undefined))) {
-          throw new Error("a file appeared at this path during the run and was not overwritten");
-        }
+        await assertNotSource();
         tempPath = newTemp();
         const handle = await open(tempPath, "wx");
         try {
@@ -103,7 +103,7 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
         tempPath = undefined;
       } catch (error) {
         await discard();
-        throw fail(cause(error));
+        throw error instanceof OutputError ? error : fail(cause(error));
       }
     },
   };
