@@ -213,3 +213,23 @@ test("an existing ignored target that stops being ignored during the run is not 
   expect(run.stderr()).toContain("it is a source file of the repository");
   expect(readFileSync(target, "utf8")).toBe("previous\n");
 });
+
+test("an output directory swapped for a symlink to source during the run is not written through", async () => {
+  await mkdir(join(repo, "generated"));
+  await writeFile(join(repo, ".gitignore"), "generated/\n");
+  const target = join(repo, "generated", "out.ts");
+  const inner = fakeProvider({ fallback: 0.6 });
+  const provider: DecisionProvider = {
+    decide: async (request) => {
+      await rm(join(repo, "generated"), { recursive: true });
+      symlinkSync(join(repo, "api", "src", "models"), join(repo, "generated"));
+      return inner.decide(request);
+    },
+  };
+  const before = readFileSync(join(repo, SOURCE), "utf8");
+  const run = capture(provider);
+  expect(await main(args("--output", target), run.io)).toBe(1);
+  expect(run.stderr()).toContain("the destination changed during the run");
+  expect(readFileSync(join(repo, SOURCE), "utf8")).toBe(before);
+  expect(existsSync(join(repo, "api", "src", "models", "out.ts"))).toBe(false);
+});

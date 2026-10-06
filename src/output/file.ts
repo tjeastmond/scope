@@ -91,6 +91,8 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
     discard,
     async commit(text) {
       try {
+        // A symlink swapped in along the path during the run would send the write somewhere the preflight never checked.
+        if ((await resolveTarget(resolve(outputPath))) !== target) throw fail("the destination changed during the run");
         await assertNotSource();
         tempPath = newTemp();
         const handle = await open(tempPath, "wx");
