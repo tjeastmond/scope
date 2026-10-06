@@ -87,7 +87,8 @@ function contentWords(text: string): string[] {
 
 /** The exact terms a single prose token stands for: empty for ordinary words. */
 function codeTerms(raw: string): string[] {
-  let token = raw.replace(/^[^\p{L}\p{N}_$/]+/u, "").replace(/[^\p{L}\p{N}_$/)]+$/u, "");
+  // Leading punctuation goes, but `./` and `../` stay: they make a path relative.
+  let token = raw.replace(/^(?!\.{1,2}\/)[^\p{L}\p{N}_$/]+/u, "").replace(/[^\p{L}\p{N}_$/)]+$/u, "");
   const call = token.endsWith("()");
   token = token.replace(/\(\)$/u, "").replace(/[^\p{L}\p{N}_$/]+$/u, "");
   if (!/\p{L}/u.test(token)) return [];
@@ -137,6 +138,8 @@ export function extractTaskTerms(task: string): TaskTerms {
     found.push({ index, term: inner.trim() });
     return " ".repeat(match.length);
   });
+  // The same text with code spans in place, so words come out in the order they appear in the task.
+  const wordSource = task.replace(BACKTICK_SPAN, " $1 ");
   // Quoted phrases are exact terms but their words still read as prose, so only the quote marks are blanked.
   prose = prose.replace(
     QUOTED_PHRASE,
@@ -149,7 +152,7 @@ export function extractTaskTerms(task: string): TaskTerms {
     for (const term of codeTerms(token[0])) found.push({ index: token.index, term });
   }
   const exact = [...new Set(found.sort((a, b) => a.index - b.index).map((entry) => entry.term))].filter(Boolean);
-  const words = [...new Set([...contentWords(prose), ...exact.flatMap(contentWords)])];
+  const words = [...new Set([...contentWords(wordSource), ...exact.flatMap(contentWords)])];
   const exactJoins = exact
     .filter((term) => !term.includes("/") && splitIdentifier(term).length >= 2)
     .map((term) => splitIdentifier(term).join(""));

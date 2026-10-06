@@ -39,6 +39,7 @@ describe("extractTaskTerms exact terms", () => {
     ["strips punctuation", "(see dueDate), then `x.y`.", ["dueDate", "x.y"]],
     ["dedupes in order", "dueDate then InvoiceDto then dueDate", ["dueDate", "InvoiceDto"]],
     ["ordinary prose has none", "Add a localized status column to the export.", []],
+    ["relative paths keep their prefix", "Use ./src/cli.ts and ../src/types.ts", ["./src/cli.ts", "../src/types.ts"]],
     ["version-like and abbreviations are not code", "Use v1.2 and e.g. fast", []],
   ];
   test.each(cases)("%s", (_name, task, expected) => {
@@ -105,6 +106,10 @@ describe("extractTaskTerms general", () => {
   test("is deterministic", () => {
     const task = "Make `parseStripeWebhook` retry; read config/app.toml and dueDate.";
     expect(extractTaskTerms(task)).toEqual(extractTaskTerms(task));
+  });
+
+  test("words keep first-appearance order across code spans and prose", () => {
+    expect(extractTaskTerms("Fix `dueDate` column").words).toEqual(["fix", "due", "date", "column"]);
   });
 
   test("backtick contents are not also scanned as prose", () => {
