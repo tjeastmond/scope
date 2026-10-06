@@ -164,6 +164,28 @@ export interface UnmetCoherence {
   reason: "too-large" | "over-budget";
 }
 
+export type SkipReason = "below-threshold" | "over-budget";
+
+/** A candidate that was not included. Chunks are skipped whole, never truncated (docs/budget-policy.md). */
+export interface SkippedChunk {
+  chunkId: string;
+  file: string;
+  /** 1-based, inclusive. */
+  startLine: number;
+  endLine: number;
+  name?: string;
+  /** Jev relevance, absent in `no-jev` mode. */
+  relevance?: number;
+  /** Ranking score used for selection; not a probability. */
+  score: number;
+  /** The chunk's own estimated cost. */
+  estimatedTokens: number;
+  /** `below-threshold`: scored under the minimum (expected filtering). `over-budget`: relevant but did not fit. */
+  reason: SkipReason;
+  /** `over-budget` only: the smallest budget in which an artifact holding just this chunk fits (full render measured). */
+  minimumBudget?: number;
+}
+
 /** An emitted block of source: the union of adjacent, overlapping or nested selected chunks of one file. */
 export interface ScopeRegion {
   file: string;
@@ -194,6 +216,8 @@ export interface ScopeResult {
   warnings: string[];
   /** Supporting declarations a selected chunk needs but that are not included, sorted by chunk then required id. */
   unmetCoherence: UnmetCoherence[];
+  /** Candidates left out, with the reason and cost of each, sorted by file, start line, then id. */
+  skipped: SkippedChunk[];
   /** Version of the retrieval weights and caps that prepared the candidates. */
   retrievalConfigVersion?: string;
 }

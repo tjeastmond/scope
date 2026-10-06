@@ -365,3 +365,7 @@ Choices:
   an error is still a chunk) and `warnings` gets `<path>: syntax errors; extracted N entries from the parseable regions`.
   A file with nothing extractable returns only the warning; `analyzeFile` then applies the text fallback (below).
 - Identical same-line entries (`{"a": 1, "a": 2}`) collapse to one chunk so ids stay unique.
+
+## Budget and oversize chunks
+
+A chunk too large for the budget is skipped whole and reported, never truncated; see [budget-policy.md](budget-policy.md).
