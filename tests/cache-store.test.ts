@@ -89,9 +89,11 @@ describe("unusable documents read as empty with a warning", () => {
     await expectWarning();
   });
 
-  test("non-integer schemaVersion", async () => {
+  test("non-integer schemaVersion, even when an older version could be migrated", async () => {
     await writeFile(docPath(), JSON.stringify({ schemaVersion: 1.5, items: [] }));
-    await expectWarning();
+    const outcome = await store.read({ ...files, migrate: (_from, payload) => payload as Files });
+    expect(outcome.value).toBeUndefined();
+    expect(outcome.warning).toContain("schemaVersion");
   });
 
   test("failed shape check", async () => {
