@@ -17,7 +17,14 @@ import {
   JEV_MAX_RETRIES,
   JEV_MAX_RETRY_AFTER_MS,
 } from "../config.ts";
-import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
+import type {
+  CodeChunk,
+  DecisionProvider,
+  DecisionRequest,
+  DecisionResult,
+  JevRequestMetrics,
+  RelevanceJudgment,
+} from "../types.ts";
 import {
   JevAuthError,
   JevCancelledError,
@@ -256,11 +263,14 @@ async function runPool<T>(
   items: readonly T[],
   concurrency: number,
   stopped: () => boolean,
-  run: (item: T) => Promise<void>,
+  run: (item: T, index: number) => Promise<void>,
 ): Promise<void> {
   let next = 0;
   const worker = async () => {
-    while (!stopped() && next < items.length) await run(items[next++]!);
+    while (!stopped() && next < items.length) {
+      const index = next++;
+      await run(items[index]!, index);
+    }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
 }
@@ -301,6 +311,8 @@ export class JevDecisionProvider implements DecisionProvider {
     const combined = AbortSignal.any([...(signal ? [signal] : []), deadline, internal.signal]);
     const started = performance.now();
     const relevanceById = new Map<string, RelevanceJudgment>();
+    // Indexed by plan position, so the order is the plan's, not completion order.
+    const requestMetrics = new Array<JevRequestMetrics | undefined>(batches.length).fill(undefined);
     let inputTokens = 0;
     let outputTokens = 0;
     let firstFailure: JevError | undefined;
@@ -327,8 +339,9 @@ export class JevDecisionProvider implements DecisionProvider {
       batches,
       this.concurrency,
       () => firstFailure !== undefined,
-      async ({ chunks, refs, request }) => {
+      async ({ chunks, refs, request }, index) => {
         let response;
+        const requestStarted = performance.now();
         try {
           response = await this.client.systemOne(request, { signal: combined });
         } catch (error) {
@@ -336,6 +349,7 @@ export class JevDecisionProvider implements DecisionProvider {
           if (firstFailure === undefined) fail(failure(error, signal, deadline));
           return;
         }
+        const latencyMs = Math.round(performance.now() - requestStarted);
         if (firstFailure !== undefined) return;
         // Every check on the untrusted response sits inside this block, so any failure stops the siblings too.
         try {
@@ -348,6 +362,7 @@ export class JevDecisionProvider implements DecisionProvider {
           });
           inputTokens += tokens.input;
           outputTokens += tokens.output;
+          requestMetrics[index] = { latencyMs, inputTokens: tokens.input, outputTokens: tokens.output };
         } catch (error) {
           fail(error instanceof JevError ? error : new JevResponseError("Jev returned an unusable answer."));
           return;
@@ -363,6 +378,11 @@ export class JevDecisionProvider implements DecisionProvider {
       if (!judgment) throw new JevResponseError(`No judgment was returned for candidate ${chunk.id}.`);
       return judgment;
     });
-    return { judgments, usage: { inputTokens, outputTokens }, latencyMs: Math.round(performance.now() - started) };
+    return {
+      judgments,
+      usage: { inputTokens, outputTokens },
+      latencyMs: Math.round(performance.now() - started),
+      requests: requestMetrics.map((metrics) => metrics!),
+    };
   }
 }

@@ -425,5 +425,13 @@
     }
   ],
   "retrievalConfigVersion": "retrieval-v3",
-  "jevQuestionVersion": "relevance-v1"
+  "jevQuestionVersion": "relevance-v1",
+  "jev": {
+    "requestCount": 1,
+    "latencyMs": 3,
+    "usage": {
+      "inputTokens": 5,
+      "outputTokens": 1
+    }
+  }
 }

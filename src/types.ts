@@ -122,11 +122,35 @@ export interface DecisionRequest {
   signal?: AbortSignal;
 }
 
+/** One request sent to Jev: its own latency and the token usage Jev returned for it. */
+export interface JevRequestMetrics {
+  /** Milliseconds from just before the request was sent to its answer (whole milliseconds). */
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
 export interface DecisionResult {
   /** Exactly one judgment per candidate, in candidate order. */
   judgments: RelevanceJudgment[];
+  /** Total tokens Jev reported, summed over every request. */
   usage?: JevUsage;
+  /** Wall clock of the whole decision. Requests run concurrently, so this is not the sum of the per-request latencies. */
   latencyMs?: number;
+  /** One entry per request sent, in request (plan) order, not completion order. */
+  requests?: JevRequestMetrics[];
+}
+
+/** Jev's external-service overhead for one run, reported separately from the selected context. No monetary cost. */
+export interface JevMetrics {
+  /** Requests sent; present only when the provider reported per-request metrics. */
+  requestCount?: number;
+  /** Wall clock of the whole Jev decision in milliseconds (concurrent requests overlap). */
+  latencyMs: number;
+  /** Tokens as reported by Jev, summed over every request. */
+  usage: { inputTokens: number; outputTokens: number };
+  /** `--explain` only: each request's own latency and usage, in request order. */
+  requests?: JevRequestMetrics[];
 }
 
 /** Implemented by the real Jev adapter and by the fake provider used in tests. */
@@ -193,6 +217,8 @@ export interface ScopeResult {
   retrievalConfigVersion?: string;
   /** Version of the Jev question text and criteria; absent in `no-jev` mode. */
   jevQuestionVersion?: string;
+  /** Jev's latency and token usage; absent in `no-jev` mode and when Jev was not called. */
+  jev?: JevMetrics;
   /** Set by `--explain`: renderers add the selection evidence. */
   explain?: true;
 }
