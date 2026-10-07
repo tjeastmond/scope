@@ -70,7 +70,7 @@ Both are marginal context rather than required code.
 
 Findings:
 
-- Required recall on the tuning tasks is 100% in every repeat up to 0.80: the lowest required chunk scored 0.86.
+- Required recall on the tuning tasks is 100% in every repeat up to 0.80: the lowest required chunk scored 0.85.
   Tuning therefore does not constrain the threshold from above. On the held-out task, the one required chunk that is in
   the shortlist (`toCsv`) scored 0.70 to 0.75, so it is lost at 0.75 and above.
 - Held-out required recall is 33% at every threshold up to 0.70 because two of its three required chunks
