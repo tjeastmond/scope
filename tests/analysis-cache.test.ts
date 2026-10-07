@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { cp, mkdtemp, readdir, readFile, rm, stat, truncate, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analysisKey, isShard } from "../src/cache/analysis.ts";
@@ -97,6 +97,31 @@ test("a changed file is reanalyzed and its old entry is gone", async () => {
   expect(keys).not.toContain(oldKey);
   expect(keys).toContain(analysisKey(target, await readFile(join(repo, target))));
   expect((await pathsInShards(repo)).filter((path) => path === target)).toHaveLength(1);
+});
+
+test("a stale key is removed from a shard that still holds live entries", async () => {
+  const repo = await copyFixture("webhook-service");
+  const byShard = new Map<string, string[]>();
+  for (let i = 0; i < 300; i++) {
+    const path = `gen/f${i}.ts`;
+    const text = `export const v${i} = ${i};\n`;
+    await mkdir(join(repo, "gen"), { recursive: true });
+    await writeFile(join(repo, path), text);
+    const prefix = analysisKey(path, Buffer.from(text)).slice(0, 2);
+    byShard.set(prefix, [...(byShard.get(prefix) ?? []), path]);
+  }
+  await loadChunks(repo, { cache: {} });
+  const [prefix, paths] = [...byShard].find(([, list]) => list.length >= 2)!;
+  const target = paths[0]!;
+  const oldKey = analysisKey(target, await readFile(join(repo, target)));
+  // With 300 generated files, some shard holds two or more entries (asserted by the find above).
+  await writeFile(join(repo, target), "export const edited = true;\n");
+  const after = await loadChunks(repo, { cache: {} });
+  expect(after.analysis!.analyzed).toBe(1);
+  const shard = (await readShards(repo)).find(({ name }) => name === `analysis-${prefix}.json`)!;
+  expect(Object.keys(shard.doc.entries).length).toBeGreaterThanOrEqual(1);
+  expect(Object.keys(shard.doc.entries)).not.toContain(oldKey);
+  expect(Object.keys(shard.doc.entries)).toContain(analysisKey(paths[1]!, await readFile(join(repo, paths[1]!))));
 });
 
 test("a deleted file's entry is pruned", async () => {
@@ -325,6 +350,19 @@ describe("isShard", () => {
     expect(isShard(shard({ chunks: [bad] }))).toBe(false);
     const badFrom = { ...chunk, references: [{ ...chunk.references[0], from: { file: "a.ts", line: "1" } }] };
     expect(isShard(shard({ chunks: [badFrom] }))).toBe(false);
+  });
+
+  test("rejects a missing or invalid endLine", () => {
+    const withoutEnd: Record<string, unknown> = { ...chunk };
+    delete withoutEnd.endLine;
+    expect(isShard(shard({ chunks: [withoutEnd] }))).toBe(false);
+    expect(isShard(shard({ chunks: [{ ...chunk, endLine: "2" }] }))).toBe(false);
+    expect(isShard(shard({ chunks: [{ ...chunk, endLine: 0 }] }))).toBe(false);
+  });
+
+  test("rejects a key that belongs to another shard", () => {
+    expect(isShard(shard(), "analysis-ab")).toBe(true);
+    expect(isShard(shard(), "analysis-cd")).toBe(false);
   });
 
   test("rejects a non-integer line", () => {

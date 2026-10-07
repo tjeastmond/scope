@@ -202,13 +202,13 @@ export class AnalysisCache {
     for (const warning of warnings) this.#warn(warning);
   }
 
-  /** Cache problems met so far, each message once. They never fail a run. */
+  /** Cache problems met so far. Each can arise at most once per run (shard reads are memoized). They never fail a run. */
   get warnings(): string[] {
     return [...this.#warnings];
   }
 
   #warn(warning: string) {
-    if (!this.#warnings.includes(warning)) this.#warnings.push(warning);
+    this.#warnings.push(warning);
   }
 
   #shard(name: string): Promise<Shard | undefined> {
