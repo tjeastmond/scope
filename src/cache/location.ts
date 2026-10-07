@@ -37,6 +37,9 @@ export interface RepositoryCache {
   fresh: boolean;
 }
 
+const isStale = (meta: Meta | undefined, current: { root: string; keys: VersionKeys }) =>
+  meta === undefined || meta.root !== current.root || !isDeepStrictEqual(meta.keys, current.keys);
+
 const oneLine = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 200);
 
@@ -55,7 +58,7 @@ export async function openRepositoryCache(
     const directory = join(root, CACHE_DIR, `store-v${STORE_MAJOR}`);
     const store = new DocumentStore(directory);
     const { value, warning } = await store.read(metaType);
-    const fresh = value === undefined || value.root !== root || !isDeepStrictEqual(value.keys, keys);
+    const fresh = isStale(value, { root, keys });
     return { cache: { store, directory, root, keys, fresh }, warnings: warning ? [warning] : [] };
   } catch (error) {
     return { warnings: [`cache disabled: ${oneLine(error)}`] };
@@ -79,7 +82,8 @@ async function ensureGitignore(root: string): Promise<void> {
 }
 
 /**
- * Commits changes to the repository store. When the cache is `fresh`, every document except `meta` is removed first,
+ * Commits changes to the repository store. When the meta on disk (re-read under the lock) is missing or its root or keys
+ * differ, every document except `meta` is removed first,
  * then `update` runs, then `meta` is written with `lastUsed`. Store directories of other majors (`store-v<other>`) are
  * left untouched, since an older Scope may still use them. File system errors degrade to `committed: false`.
  */
@@ -95,7 +99,8 @@ export async function commitRepositoryCache(
   }
   try {
     return await cache.store.commit(async (tx) => {
-      if (cache.fresh) {
+      // Decide under the lock, from the meta on disk: another run may have committed other keys since open.
+      if (isStale(await tx.read(metaType), cache)) {
         for (const name of await tx.list()) if (name !== metaType.name) tx.removeName(name);
       }
       await update?.(tx);

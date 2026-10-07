@@ -38,7 +38,10 @@ export interface ReadOutcome<T> {
 
 /** Staged changes inside a commit. Nothing is written until the update function returns. */
 export interface Transaction {
-  /** Reads fresh from disk inside the lock; a missing or unusable document is `undefined`. */
+  /**
+   * Reads fresh from disk inside the lock; a missing or unusable document is `undefined`. A document staged for
+   * removal in this transaction reads as `undefined`; a staged write reads back as written.
+   */
   read<T>(type: DocumentType<T>): Promise<T | undefined>;
   /** Stages a document; written atomically after the update function returns. The payload must be a plain object. */
   write<T>(type: DocumentType<T>, value: T): void;
@@ -201,27 +204,33 @@ export class DocumentStore {
     update: (tx: Transaction) => Promise<void> | void,
     options: { lockWaitMs?: number } = {},
   ): Promise<CommitOutcome> {
-    const staged = new Map<string, { type: DocumentType<unknown>; text: string | undefined }>();
+    const staged = new Map<string, { type: DocumentType<unknown>; text: string | undefined; value?: unknown }>();
     const tx: Transaction = {
-      read: async (type) => {
+      read: async <T>(type: DocumentType<T>) => {
         assertName(type);
+        const pending = staged.get(type.name);
+        if (pending) return pending.value as T | undefined;
         return (await parseDocument(join(this.directory, `${type.name}.json`), type)).value;
       },
       write: (type, value) => {
         assertName(type);
         if (!isPlainObject(value)) throw new TypeError(`${type.name}: payload must be a plain object`);
         if ("schemaVersion" in value) throw new TypeError(`${type.name}: payload must not contain schemaVersion`);
-        staged.set(type.name, {
-          type: type as DocumentType<unknown>,
-          text: JSON.stringify({ schemaVersion: type.schemaVersion, ...value }),
-        });
+        const text = JSON.stringify({ schemaVersion: type.schemaVersion, ...value });
+        // Read back what will be written, not the caller's (mutable) object.
+        const written = JSON.parse(text) as Record<string, unknown>;
+        delete written.schemaVersion;
+        staged.set(type.name, { type: type as DocumentType<unknown>, text, value: written });
       },
       remove: (type) => {
         assertName(type);
         staged.set(type.name, { type, text: undefined });
       },
       list: async () => {
-        const entries = await readdir(this.directory, { withFileTypes: true }).catch(() => []);
+        const entries = await readdir(this.directory, { withFileTypes: true }).catch((error: unknown) => {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+          throw error;
+        });
         return entries
           .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
           .map((entry) => entry.name.slice(0, -".json".length))

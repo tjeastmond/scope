@@ -95,9 +95,10 @@ one of their commits or a merge of both, never a mix of half-written documents.
   `repository/redact`, so any change to them invalidates without a manual bump), the `web-tree-sitter` package version
   and the package versions of the grammar sources (`tree-sitter-wasms` and `@tree-sitter-grammars/tree-sitter-yaml`).
 - The cache is `fresh` when meta is missing or unusable, or when its `root` or any key differs. A copied or moved
-  repository has a different real path and so rebuilds; a symlinked path to the same repository does not. On the next
-  commit of a fresh cache every document except `meta` is removed in the same transaction, then the caller's update
-  runs. History, decisions and feedback carry their own provenance and are validated per record instead (#73 onwards).
+  repository has a different real path and so rebuilds; a symlinked path to the same repository does not. A commit
+  re-reads `meta` under the lock, since another run may have committed other keys after this one opened; if it is
+  stale, every document except `meta` is removed in the same transaction, then the caller's update runs (and reads
+  the removals as missing). History, decisions and feedback carry their own provenance and are validated per record instead (#73 onwards).
 - Ignore rules are not a version key: the scan is never cached, so a changed `.gitignore` adds and removes files on
   the next run like any other change.
 - Any failure (unresolvable root, unreadable analyzer module, unwritable repository) disables the cache with one

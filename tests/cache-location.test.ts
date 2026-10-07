@@ -92,6 +92,33 @@ describe("openRepositoryCache and commitRepositoryCache", () => {
     expect((await openRepositoryCache(copy, { keys })).cache!.fresh).toBe(false);
   });
 
+  test("invalidation is decided under the lock: other keys committed after open are dropped", async () => {
+    await commitSeed(repo);
+    const { cache: stale } = await openRepositoryCache(repo, { keys });
+    expect(stale!.fresh).toBe(false);
+    await commitSeed(repo, { ...keys, scope: "2.0.0" }, "other");
+    expect(await commitRepositoryCache(stale!)).toEqual({ committed: true });
+    expect((await stale!.store.read(seed)).value).toBeUndefined();
+  });
+
+  test("reusing a handle opened fresh keeps what it committed", async () => {
+    const { cache } = await openRepositoryCache(repo, { keys });
+    expect(cache!.fresh).toBe(true);
+    expect(await commitRepositoryCache(cache!, (tx) => tx.write(seed, { value: "x" }))).toEqual({ committed: true });
+    expect(await commitRepositoryCache(cache!)).toEqual({ committed: true });
+    expect((await cache!.store.read(seed)).value).toEqual({ value: "x" });
+  });
+
+  test("an update reading after invalidation does not see the dropped documents", async () => {
+    await commitSeed(repo);
+    const { cache } = await openRepositoryCache(repo, { keys: { ...keys, scope: "2.0.0" } });
+    let seen: Seed | undefined = { value: "unset" };
+    await commitRepositoryCache(cache!, async (tx) => {
+      seen = await tx.read(seed);
+    });
+    expect(seen).toBeUndefined();
+  });
+
   const changes: [string, (k: VersionKeys) => VersionKeys][] = [
     ["store", (k) => ({ ...k, store: k.store + 1 })],
     ["scope", (k) => ({ ...k, scope: "1.0.1" })],

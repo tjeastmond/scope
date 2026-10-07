@@ -183,6 +183,30 @@ describe("commit", () => {
     ).rejects.toThrow("invalid document name");
   });
 
+  test("tx.list fails the commit when the directory cannot be listed", async () => {
+    if (process.getuid?.() === 0) return;
+    await put();
+    await chmod(dir, 0o300);
+    const outcome = store.commit(async (tx) => {
+      await tx.list();
+    });
+    await expect(outcome).rejects.toThrow();
+  });
+
+  test("tx.read sees writes and removals staged earlier in the same transaction", async () => {
+    await put({ items: ["disk"] });
+    const seen: unknown[] = [];
+    await store.commit(async (tx) => {
+      const value = { items: ["staged"] };
+      tx.write(files, value);
+      value.items.push("mutated");
+      seen.push(await tx.read(files));
+      tx.remove(files);
+      seen.push(await tx.read(files));
+    });
+    expect(seen).toEqual([{ items: ["staged"] }, undefined]);
+  });
+
   test("staged writes are not visible if update throws, and the lock is released", async () => {
     await put({ items: ["old"] });
     await expect(
