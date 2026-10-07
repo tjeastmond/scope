@@ -261,6 +261,14 @@ describe("commit", () => {
     expect(outcome.warning).toContain("files.json");
   }, 5000);
 
+  test("a document that is a symlink is not followed, even to a valid document", async () => {
+    await writeFile(join(dir, "elsewhere.json"), JSON.stringify({ schemaVersion: 2, items: ["outside"] }));
+    await symlink(join(dir, "elsewhere.json"), docPath());
+    const outcome = await store.read(files);
+    expect(outcome.value).toBeUndefined();
+    expect(outcome.warning).toContain("files.json");
+  });
+
   test("a dangling lock symlink does not hang the wait", async () => {
     await symlink(join(dir, "nowhere"), join(dir, "lock"));
     const started = Date.now();
