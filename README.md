@@ -29,6 +29,9 @@ sent.
 Each candidate's code is cut to its first 6,000 characters for judging, with a `[truncated for judging: showed N of M
 characters]` line marking the cut; the selected output still contains the full chunk. Results carry `jevQuestionVersion`, naming the question wording used.
 
+Candidates are judged in requests of at most 16 questions, up to 4 at a time. If any request fails, the whole run
+fails; Scope never returns a partial result.
+
 **Audit the payload.** `SCOPE_JEV_PAYLOAD=print` makes Scope scan and shortlist as usual, then print the exact request
 bodies it would send (a JSON array, one element per request, each with its `state`, `questions` and `model`) to stdout
 and exit 0. The model is `TYPESAFE_DEFAULT_MODEL` if set, otherwise `jev-latest`. Nothing is sent and no key is needed.

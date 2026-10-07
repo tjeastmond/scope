@@ -11,6 +11,16 @@ export const MAX_CANDIDATES = DEFAULT_RETRIEVAL_CONFIG.shortlistSize;
 export const JEV_BATCH_MAX_CHARS = 24_000;
 
 /**
+ * Questions (candidates) per Jev request. The API documents no per-request question limit; this is a conservative cap
+ * that keeps each request's latency, and any retry of it, small. A request closes at this count or at
+ * JEV_BATCH_MAX_CHARS, whichever comes first.
+ */
+export const JEV_BATCH_MAX_QUESTIONS = 16;
+
+/** Jev requests in flight at once; well under the documented rate limit of 80 requests per second. */
+export const JEV_CONCURRENCY = 4;
+
+/**
  * Characters of one candidate's code sent to Jev for judging: a quarter of the batch cap, so one candidate plus a
  * normal task always fits. Judging only; the selected artifact still carries the full chunk.
  */

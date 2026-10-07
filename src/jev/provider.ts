@@ -7,16 +7,24 @@ import {
   TypeSafeClient,
   noul,
 } from "@typesafe-ai/sdk";
-import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_MAX_CHARS, JEV_CANDIDATE_MAX_CHARS, JEV_DEADLINE_MS } from "../config.ts";
+import {
+  JEV_ATTEMPT_TIMEOUT_MS,
+  JEV_BATCH_MAX_CHARS,
+  JEV_BATCH_MAX_QUESTIONS,
+  JEV_CANDIDATE_MAX_CHARS,
+  JEV_CONCURRENCY,
+  JEV_DEADLINE_MS,
+} from "../config.ts";
 import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
 import {
   JevAuthError,
   JevCancelledError,
+  JevError,
   JevRateLimitError,
   JevRequestError,
+  JevResponseError,
   JevServiceError,
   JevTimeoutError,
-  type JevError,
 } from "./errors.ts";
 import { validateRelevance } from "./validate.ts";
 
@@ -34,6 +42,10 @@ export interface JevClient {
 export interface JevProviderOptions {
   client?: JevClient;
   batchMaxChars?: number;
+  /** Questions (candidates) per request (default JEV_BATCH_MAX_QUESTIONS). */
+  batchMaxQuestions?: number;
+  /** Requests in flight at once (default JEV_CONCURRENCY). */
+  concurrency?: number;
   /** Characters of one candidate's code sent for judging (default JEV_CANDIDATE_MAX_CHARS). */
   candidateMaxChars?: number;
   deadlineMs?: number;
@@ -41,6 +53,7 @@ export interface JevProviderOptions {
 
 export interface JevRequestLimits {
   batchMaxChars?: number;
+  batchMaxQuestions?: number;
   candidateMaxChars?: number;
 }
 
@@ -125,14 +138,32 @@ function buildBatch(task: string, chunks: CodeChunk[], first: number, cap: numbe
 
 const requestChars = (batch: Batch) => JSON.stringify(batch.request).length;
 
-/** Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). */
-function planBatches(task: string, candidates: readonly CodeChunk[], limit: number, cap: number): Batch[] {
+function requirePositiveInteger(name: string, value: number): number {
+  if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be a positive integer.`);
+  return value;
+}
+
+/**
+ * Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). A request
+ * closes when the next candidate would exceed the character limit or the question limit.
+ */
+function planBatches(
+  task: string,
+  candidates: readonly CodeChunk[],
+  limit: number,
+  maxQuestions: number,
+  cap: number,
+): Batch[] {
+  requirePositiveInteger("batchMaxQuestions", maxQuestions);
   const model = jevModel();
   const batches: Batch[] = [];
   let current: CodeChunk[] = [];
   let first = 0;
   for (const chunk of candidates) {
-    if (current.length > 0 && requestChars(buildBatch(task, [...current, chunk], first, cap, model)) > limit) {
+    if (
+      current.length > 0 &&
+      (current.length >= maxQuestions || requestChars(buildBatch(task, [...current, chunk], first, cap, model)) > limit)
+    ) {
       batches.push(buildBatch(task, current, first, cap, model));
       first += current.length;
       current = [];
@@ -156,9 +187,15 @@ function planBatches(task: string, candidates: readonly CodeChunk[], limit: numb
 export function planJevRequests(
   task: string,
   candidates: readonly CodeChunk[],
-  { batchMaxChars = JEV_BATCH_MAX_CHARS, candidateMaxChars = JEV_CANDIDATE_MAX_CHARS }: JevRequestLimits = {},
+  {
+    batchMaxChars = JEV_BATCH_MAX_CHARS,
+    batchMaxQuestions = JEV_BATCH_MAX_QUESTIONS,
+    candidateMaxChars = JEV_CANDIDATE_MAX_CHARS,
+  }: JevRequestLimits = {},
 ): JevRequest[] {
-  return planBatches(task, candidates, batchMaxChars, candidateMaxChars).map((batch) => batch.request);
+  return planBatches(task, candidates, batchMaxChars, batchMaxQuestions, candidateMaxChars).map(
+    (batch) => batch.request,
+  );
 }
 
 const isTooLarge = (error: BadRequestError) => {
@@ -190,42 +227,103 @@ function failure(error: unknown, caller: AbortSignal | undefined, deadline: Abor
   return new JevServiceError("Jev request failed unexpectedly.");
 }
 
+/**
+ * Runs `run` over every item with at most `concurrency` in flight. Items start in order; once `stopped()` is true no
+ * further item starts. `run` must not reject (callers record failures themselves), so no rejection can go unhandled.
+ */
+async function runPool<T>(
+  items: readonly T[],
+  concurrency: number,
+  stopped: () => boolean,
+  run: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const worker = async () => {
+    while (!stopped() && next < items.length) await run(items[next++]!);
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+}
+
 /** Asks Jev one yes/no relevance question per candidate (a Noul), batched within request limits. */
 export class JevDecisionProvider implements DecisionProvider {
   private readonly client: JevClient;
   private readonly batchMaxChars: number;
+  private readonly batchMaxQuestions: number;
+  private readonly concurrency: number;
   private readonly candidateMaxChars: number;
   private readonly deadlineMs: number;
 
   constructor(options: JevProviderOptions = {}) {
     this.client = options.client ?? createJevClient();
     this.batchMaxChars = options.batchMaxChars ?? JEV_BATCH_MAX_CHARS;
+    this.batchMaxQuestions = requirePositiveInteger(
+      "batchMaxQuestions",
+      options.batchMaxQuestions ?? JEV_BATCH_MAX_QUESTIONS,
+    );
+    this.concurrency = requirePositiveInteger("concurrency", options.concurrency ?? JEV_CONCURRENCY);
     this.candidateMaxChars = options.candidateMaxChars ?? JEV_CANDIDATE_MAX_CHARS;
     this.deadlineMs = options.deadlineMs ?? JEV_DEADLINE_MS;
   }
 
   async decide({ task, candidates, signal }: DecisionRequest): Promise<DecisionResult> {
+    const seen = new Set<string>();
+    for (const { id } of candidates) {
+      if (seen.has(id)) throw new JevRequestError(`Two candidates share the chunk ID ${id}; nothing was sent to Jev.`);
+      seen.add(id);
+    }
+    const batches = planBatches(task, candidates, this.batchMaxChars, this.batchMaxQuestions, this.candidateMaxChars);
+
     const deadline = AbortSignal.timeout(this.deadlineMs);
-    const combined = signal ? AbortSignal.any([signal, deadline]) : deadline;
+    // Aborted when one request fails, so its in-flight siblings stop. `failure` looks only at the caller and deadline
+    // signals, so the original error is mapped as itself, never as a cancellation caused by this abort.
+    const internal = new AbortController();
+    const combined = AbortSignal.any([...(signal ? [signal] : []), deadline, internal.signal]);
     const started = performance.now();
-    const judgments: RelevanceJudgment[] = [];
+    const relevanceById = new Map<string, RelevanceJudgment>();
     let inputTokens = 0;
     let outputTokens = 0;
+    let firstFailure: JevError | undefined;
+    const fail = (error: JevError) => {
+      firstFailure ??= error;
+      internal.abort();
+    };
 
-    for (const { chunks, refs, request } of planBatches(task, candidates, this.batchMaxChars, this.candidateMaxChars)) {
-      let response;
-      try {
-        response = await this.client.systemOne(request, { signal: combined });
-      } catch (error) {
-        throw failure(error, signal, deadline);
-      }
-      inputTokens += response.usage.input_tokens;
-      outputTokens += response.usage.output_tokens;
-      validateRelevance(refs, response.answers).forEach((judgment, i) => {
-        judgments.push({ ...judgment, chunkId: chunks[i]!.id });
-      });
-    }
+    await runPool(
+      batches,
+      this.concurrency,
+      () => firstFailure !== undefined,
+      async ({ chunks, refs, request }) => {
+        let response;
+        try {
+          response = await this.client.systemOne(request, { signal: combined });
+        } catch (error) {
+          // Siblings aborted by an earlier failure end up here too; their errors are ignored.
+          if (firstFailure === undefined) fail(failure(error, signal, deadline));
+          return;
+        }
+        if (firstFailure !== undefined) return;
+        try {
+          const judgments = validateRelevance(refs, response.answers);
+          judgments.forEach((judgment, i) => {
+            const chunkId = chunks[i]!.id;
+            if (relevanceById.has(chunkId)) throw new JevResponseError(`Candidate ${chunkId} was judged twice.`);
+            relevanceById.set(chunkId, { ...judgment, chunkId });
+          });
+        } catch (error) {
+          fail(error instanceof JevError ? error : new JevResponseError("Jev returned an unusable answer."));
+          return;
+        }
+        inputTokens += response.usage.input_tokens;
+        outputTokens += response.usage.output_tokens;
+      },
+    );
+    if (firstFailure) throw firstFailure;
 
+    const judgments = candidates.map((chunk) => {
+      const judgment = relevanceById.get(chunk.id);
+      if (!judgment) throw new JevResponseError(`No judgment was returned for candidate ${chunk.id}.`);
+      return judgment;
+    });
     return { judgments, usage: { inputTokens, outputTokens }, latencyMs: Math.round(performance.now() - started) };
   }
 }
