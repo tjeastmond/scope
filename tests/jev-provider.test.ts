@@ -311,3 +311,11 @@ test("a cancelled signal stops a --no-jev run after the scan, with nothing on st
   expect(out.join("")).toBe("");
   expect(err.join("")).toBe("scope: Cancelled: the run was interrupted before it finished\n");
 });
+
+test("a service error names a well-formed request id and drops a malformed one", async () => {
+  const header = "x-typesafe-request-id";
+  const good = await decideWith(() => http(500, {}, { [header]: "req_abc-123" }));
+  expect((good.error as Error).message).toBe("Jev request failed (HTTP 500, request req_abc-123).");
+  const bad = await decideWith(() => http(500, {}, { [header]: "req 1; Authorization: Bearer x" }));
+  expect((bad.error as Error).message).toBe("Jev request failed (HTTP 500).");
+});
