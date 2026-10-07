@@ -38,48 +38,58 @@ const shardName = (key: string) => `${SHARD_PREFIX}${key.slice(0, 2)}`;
 // everything would rewrite the whole cache whenever a single file changes. The first two hex characters of the key
 // give at most 256 documents, so a cold run writes at most 256 and a one-file change rewrites one.
 
-const LANGUAGES: ReadonlySet<string> = new Set<Language>([
-  "typescript",
-  "javascript",
-  "python",
-  "go",
-  "java",
-  "rust",
-  "sql",
-  "html",
-  "css",
-  "scss",
-  "json",
-  "yaml",
-  "toml",
-  "markdown",
-  "text",
-]);
-const KINDS: ReadonlySet<string> = new Set<ChunkKind>([
-  "function",
-  "method",
-  "class",
-  "interface",
-  "type",
-  "component",
-  "query",
-  "table",
-  "style",
-  "template",
-  "config",
-  "section",
-  "file",
-]);
-const REFERENCE_KINDS: ReadonlySet<string> = new Set<Reference["kind"]>([
-  "import",
-  "call",
-  "type",
-  "extends",
-  "implements",
-  "style",
-  "test",
-]);
-const EVIDENCE: ReadonlySet<string> = new Set<ReferenceEvidence>(["exact", "heuristic", "unresolved"]);
+// `satisfies Record<…, true>` makes the compiler reject a value list that misses a member of the type, so a new
+// language or kind cannot make every stored shard fail validation.
+const LANGUAGES: ReadonlySet<string> = new Set(
+  Object.keys({
+    typescript: true,
+    javascript: true,
+    python: true,
+    go: true,
+    java: true,
+    rust: true,
+    sql: true,
+    html: true,
+    css: true,
+    scss: true,
+    json: true,
+    yaml: true,
+    toml: true,
+    markdown: true,
+    text: true,
+  } satisfies Record<Language, true>),
+);
+const KINDS: ReadonlySet<string> = new Set(
+  Object.keys({
+    function: true,
+    method: true,
+    class: true,
+    interface: true,
+    type: true,
+    component: true,
+    query: true,
+    table: true,
+    style: true,
+    template: true,
+    config: true,
+    section: true,
+    file: true,
+  } satisfies Record<ChunkKind, true>),
+);
+const REFERENCE_KINDS: ReadonlySet<string> = new Set(
+  Object.keys({
+    import: true,
+    call: true,
+    type: true,
+    extends: true,
+    implements: true,
+    style: true,
+    test: true,
+  } satisfies Record<Reference["kind"], true>),
+);
+const EVIDENCE: ReadonlySet<string> = new Set(
+  Object.keys({ exact: true, heuristic: true, unresolved: true } satisfies Record<ReferenceEvidence, true>),
+);
 
 type Obj = Record<string, unknown>;
 const isObject = (value: unknown): value is Obj => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -92,9 +102,20 @@ const optional = (value: Obj, key: string, check: (v: unknown) => boolean) => !(
 const isLocation = (value: unknown, file: string): value is SourceLocation =>
   isObject(value) && onlyKeys(value, ["file", "line"]) && value.file === file && isLine(value.line);
 
+const REFERENCE_KEYS = Object.keys({
+  kind: true,
+  from: true,
+  name: true,
+  specifier: true,
+  local: true,
+  namespace: true,
+  targetChunkId: true,
+  evidence: true,
+} satisfies Record<keyof Reference, true>);
+
 const isReference = (value: unknown, file: string): value is Reference =>
   isObject(value) &&
-  onlyKeys(value, ["kind", "from", "name", "specifier", "local", "namespace", "targetChunkId", "evidence"]) &&
+  onlyKeys(value, REFERENCE_KEYS) &&
   isString(value.kind) &&
   REFERENCE_KINDS.has(value.kind) &&
   isLocation(value.from, file) &&
@@ -105,19 +126,19 @@ const isReference = (value: unknown, file: string): value is Reference =>
   optional(value, "targetChunkId", isString) &&
   optional(value, "evidence", (v) => isString(v) && EVIDENCE.has(v));
 
-const CHUNK_KEYS = [
-  "id",
-  "file",
-  "language",
-  "kind",
-  "name",
-  "startLine",
-  "endLine",
-  "content",
-  "references",
-  "parentId",
-  "containerName",
-] as const;
+const CHUNK_KEYS = Object.keys({
+  id: true,
+  file: true,
+  language: true,
+  kind: true,
+  name: true,
+  startLine: true,
+  endLine: true,
+  content: true,
+  references: true,
+  parentId: true,
+  containerName: true,
+} satisfies Record<keyof CodeChunk, true>);
 
 const isChunk = (value: unknown, file: string): value is CodeChunk =>
   isObject(value) &&
