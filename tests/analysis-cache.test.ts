@@ -3,6 +3,9 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, truncate, writeFile } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analysisKey, isShard } from "../src/cache/analysis.ts";
+import { makeChunkId } from "../src/chunk-id.ts";
+import { redactSecrets } from "../src/repository/redact.ts";
+import type { CodeChunk } from "../src/types.ts";
 import { currentVersionKeys, type VersionKeys } from "../src/cache/versions.ts";
 import { main, type Io } from "../src/main.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
@@ -203,7 +206,13 @@ describe("unusable shards", () => {
     const { name, doc } = shards[0]!;
     for (const entry of Object.values(doc.entries)) {
       entry.path = "other.ts";
-      for (const chunk of entry.chunks) chunk.file = "other.ts";
+      // Ids recomputed for the new path and content unchanged, so only the path check can reject the entry.
+      for (const chunk of entry.chunks) {
+        chunk.file = "other.ts";
+        const typed = chunk as unknown as CodeChunk;
+        typed.id = makeChunkId(typed);
+        for (const reference of typed.references) reference.from.file = "other.ts";
+      }
     }
     await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
     const run = await loadChunks(repo, { cache: {} });
@@ -213,11 +222,12 @@ describe("unusable shards", () => {
     expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
   });
 
-  const plant = async (repo: string, change: (chunk: Record<string, unknown>) => void) => {
+  const plant = async (repo: string, change: (chunk: Record<string, unknown>, lines: string[]) => void) => {
     const shards = await readShards(repo);
     const { name, doc } = shards.find(({ doc }) => Object.values(doc.entries).some((e) => e.chunks.length > 0))!;
     const entry = Object.values(doc.entries).find((e) => e.chunks.length > 0)!;
-    change(entry.chunks[0] as unknown as Record<string, unknown>);
+    const lines = redactSecrets(await readFile(join(repo, entry.path), "utf8")).split("\n");
+    change(entry.chunks[0] as unknown as Record<string, unknown>, lines);
     await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
     return entry.path;
   };
@@ -225,7 +235,15 @@ describe("unusable shards", () => {
   for (const [label, change] of [
     ["edited content", (chunk: Record<string, unknown>) => (chunk.content = "INJECTED_CONTENT_4d2a")],
     ["a wrong id", (chunk: Record<string, unknown>) => (chunk.id = "badbadbadbad")],
-    ["an endLine past the source", (chunk: Record<string, unknown>) => (chunk.endLine = 99999)],
+    // The content still matches the lines that exist and the id is recomputed, so only the range bound rejects it.
+    [
+      "an endLine past the source",
+      (chunk: Record<string, unknown>, lines: string[]) => {
+        chunk.endLine = lines.length + 1;
+        chunk.content = lines.slice((chunk.startLine as number) - 1).join("\n");
+        chunk.id = makeChunkId(chunk as unknown as CodeChunk);
+      },
+    ],
     ["a parentId outside the entry", (chunk: Record<string, unknown>) => (chunk.parentId = "nosuchparent")],
   ] as const) {
     test(`a shape-valid entry with ${label} is a miss, replaced and then reused`, async () => {
