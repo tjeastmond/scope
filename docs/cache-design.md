@@ -27,7 +27,23 @@ The spike `scripts/spike-store.mjs` opens a store, writes, reads back, simulates
 document, using the compiled `dist/` code on plain Node. Recorded runs:
 
 ```text
-(filled in by #68 from: node scripts/spike-store.mjs on Node 24 and Node 26)
+$ node scripts/spike-store.mjs
+node v24.19.0
+ok  missing document reads as empty without a warning
+ok  commit then read back
+ok  interrupted write (partial .tmp) leaves the old document readable
+ok  truncated document reads as empty with a warning: files.json: not valid JSON (truncated or corrupt); rebuilding
+ok  next commit rewrites the document
+spike passed
+
+$ node scripts/spike-store.mjs
+node v26.10.0
+ok  missing document reads as empty without a warning
+ok  commit then read back
+ok  interrupted write (partial .tmp) leaves the old document readable
+ok  truncated document reads as empty with a warning: files.json: not valid JSON (truncated or corrupt); rebuilding
+ok  next commit rewrites the document
+spike passed
 ```
 
 ### Documents and atomic writes
