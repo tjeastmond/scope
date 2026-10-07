@@ -64,7 +64,9 @@ spike passed
 Reads take no lock. A run gathers what it wants to persist and commits it in one short critical section at the end:
 take the store lock, re-read the documents it updates, merge, write each one atomically, release. The lock is a file
 created with exclusive create (`O_EXCL`) holding a random token and the time. A lock older than 30 seconds is stale and
-may be broken (a commit takes milliseconds). Scope never signals or inspects other processes. A run that cannot get
+may be broken (a commit takes milliseconds). Breaking is serialized by a guard file (`lock.break`, also `O_EXCL`):
+only its holder may remove a stale lock, and only after re-reading it and finding it unchanged, so a live lock taken
+in the meantime is never removed. A guard older than 30 seconds is itself stale. Scope never signals or inspects other processes. A run that cannot get
 the lock within 2 seconds skips its commit and warns (`cache busy; this run was not cached`); its output is
 unaffected. Two concurrent runs therefore both produce correct output, and the store holds one of their commits or a
 merge of both, never a mix of half-written documents.

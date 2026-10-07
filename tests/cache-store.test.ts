@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmod, mkdtemp, readdir, readFile, rm, stat, truncate, utimes, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lutimes,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  symlink,
+  truncate,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DocumentStore, type DocumentType } from "../src/cache/store.ts";
@@ -115,6 +127,17 @@ describe("unusable documents read as empty with a warning", () => {
     expect(await store.read(migrating)).toEqual({ value: { items: ["x"] } });
   });
 
+  test("a migration result that fails the shape check yields a warning", async () => {
+    await writeFile(docPath(), JSON.stringify({ schemaVersion: 1, names: "bad" }));
+    const outcome = await store.read({
+      ...files,
+      migrate: (_from, payload) => ({ items: (payload as { names: unknown }).names }) as Files,
+    });
+    expect(outcome.value).toBeUndefined();
+    expect(outcome.warning).toContain("could not be migrated");
+    expect(outcome.warning).not.toContain("\n");
+  });
+
   test("a migration that discards yields a warning", async () => {
     await writeFile(docPath(), JSON.stringify({ schemaVersion: 1, items: [] }));
     const outcome = await store.read({ ...files, migrate: () => undefined });
@@ -183,12 +206,54 @@ describe("commit", () => {
     expect(await short.commit((tx) => tx.write(files, { items: [] }))).toEqual({ committed: true });
   });
 
-  test("does not delete a lock another holder now owns", async () => {
-    await store.commit(async (tx) => {
-      tx.write(files, { items: ["a"] });
+  test("writes nothing when the lock now belongs to another holder, and leaves that lock alone", async () => {
+    await put({ items: ["old"] });
+    const outcome = await store.commit(async (tx) => {
+      tx.write(files, { items: ["new"] });
       await writeFile(join(dir, "lock"), JSON.stringify({ token: "someone-else", createdAt: Date.now() }));
     });
+    expect(outcome).toEqual({ committed: false, warning: "cache lock lost; this run was not cached" });
+    expect((await store.read(files)).value).toEqual({ items: ["old"] });
     expect(JSON.parse(await readFile(join(dir, "lock"), "utf8")).token).toBe("someone-else");
+  });
+
+  test("a fresh break guard keeps a stale lock in place and the commit busy", async () => {
+    const lock = join(dir, "lock");
+    await writeFile(lock, JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
+    await writeFile(join(dir, "lock.break"), "");
+    const outcome = await store.commit((tx) => tx.write(files, { items: ["new"] }), { lockWaitMs: 100 });
+    expect(outcome).toEqual({ committed: false, warning: "cache busy; this run was not cached" });
+    expect(JSON.parse(await readFile(lock, "utf8")).token).toBe("dead");
+  });
+
+  test("a stale break guard is cleared and the stale lock is broken", async () => {
+    await writeFile(join(dir, "lock"), JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
+    const guard = join(dir, "lock.break");
+    await writeFile(guard, "");
+    const past = new Date(Date.now() - 120_000);
+    await utimes(guard, past, past);
+    expect(await put()).toEqual({ committed: true });
+    const names = await readdir(dir);
+    expect(names).not.toContain("lock.break");
+    expect(names).not.toContain("lock");
+  });
+
+  test("a dangling lock symlink does not hang the wait", async () => {
+    await symlink(join(dir, "nowhere"), join(dir, "lock"));
+    const started = Date.now();
+    const outcome = await store.commit((tx) => tx.write(files, { items: ["x"] }), { lockWaitMs: 100 });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(outcome).toEqual({ committed: false, warning: "cache busy; this run was not cached" });
+  });
+
+  test("a stale dangling lock symlink is broken", async () => {
+    const lock = join(dir, "lock");
+    await symlink(join(dir, "nowhere"), lock);
+    const past = new Date(Date.now() - 120_000);
+    await lutimes(lock, past, past);
+    expect(await put()).toEqual({ committed: true });
+    expect((await store.read(files)).value).toEqual({ items: ["a"] });
+    expect(await readdir(dir)).not.toContain("lock");
   });
 
   test("removes old stray .tmp files and keeps fresh ones", async () => {
@@ -236,6 +301,8 @@ describe("concurrency", () => {
     const codes = await Promise.all(children.map((child) => child.exited));
     expect(codes).toEqual(children.map(() => 0));
     expect((await store.read(counter)).value).toEqual({ value: processes * times });
-    expect((await readdir(dir)).filter((name) => name.endsWith(".tmp") || name === "lock")).toEqual([]);
+    expect(
+      (await readdir(dir)).filter((name) => name.endsWith(".tmp") || name === "lock" || name === "lock.break"),
+    ).toEqual([]);
   }, 15_000);
 });

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { link, mkdir, open, readdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, open, readdir, readFile, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 /** A lock older than this is stale and may be broken. A commit takes milliseconds. */
@@ -11,6 +11,7 @@ export const TMP_MAX_AGE_MS = 60_000;
 
 const LOCK_POLL_MS = 25;
 const LOCK_FILE = "lock";
+const BREAK_GUARD_FILE = "lock.break";
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const MAX_WARNING_LENGTH = 200;
 
@@ -107,7 +108,10 @@ async function parseDocument<T>(path: string, type: DocumentType<T>): Promise<Pa
     } catch {
       migrated = undefined;
     }
-    return migrated === undefined ? { problem: `schemaVersion ${schemaVersion} is outdated` } : { value: migrated };
+    if (migrated === undefined) return { problem: `schemaVersion ${schemaVersion} is outdated` };
+    // A migration is code too: its result must pass the same shape check as a current document.
+    if (!type.validate(migrated)) return { problem: `schemaVersion ${schemaVersion} could not be migrated` };
+    return { value: migrated };
   }
   if (!type.validate(payload)) return { problem: "unexpected shape" };
   return { value: payload };
@@ -200,6 +204,10 @@ export class DocumentStore {
       await this.#sweepTemps().catch(() => undefined);
       // An error from `update` (including a bad staged write) propagates, whatever its type; nothing is written.
       await update(tx);
+      // Defense in depth: never write unless the lock file still holds our token.
+      if ((await this.#readLockToken(join(this.directory, LOCK_FILE))) !== token) {
+        return { committed: false, warning: "cache lock lost; this run was not cached" };
+      }
       try {
         for (const [name, { text }] of staged) {
           if (text === undefined) await rm(join(this.directory, `${name}.json`), { force: true });
@@ -231,53 +239,91 @@ export class DocumentStore {
       } catch (error) {
         if (codeOf(error) !== "EEXIST") throw error;
       }
-      if (await this.#breakIfStale(lockPath)) continue;
       if (Date.now() >= deadline) return undefined;
+      if (await this.#breakIfStale(lockPath)) continue;
       await sleep(LOCK_POLL_MS);
     }
   }
 
   /**
-   * Removes a stale lock. The lock is first renamed to a unique name, so of two breakers only one succeeds. If what was
-   * moved turns out to be fresh (another breaker replaced the stale lock in between), it is put back.
+   * Removes a stale lock. Breaking is serialized by a guard file (`lock.break`, exclusive create): only its holder may
+   * break, and it re-reads the lock under the guard and proceeds only if that is still the same stale lock. A fresh
+   * lock taken in between is therefore never moved. Returns `true` to retry the exclusive create right away.
    */
   async #breakIfStale(lockPath: string): Promise<boolean> {
-    const age = await this.#lockAge(lockPath);
-    if (age === undefined) return true; // vanished: retry the exclusive create right away
-    if (age <= this.#staleMs) return false;
-    const moved = join(this.directory, `.${LOCK_FILE}.${randomHex()}.tmp`);
+    const seen = await this.#inspectLock(lockPath);
+    if (seen === undefined) return true; // vanished: retry right away
+    if (seen.age <= this.#staleMs) return false;
+    const guardPath = join(this.directory, BREAK_GUARD_FILE);
     try {
-      await rename(lockPath, moved);
-    } catch {
-      return true; // someone else broke or released it first
+      await (await open(guardPath, "wx")).close();
+    } catch (error) {
+      if (codeOf(error) !== "EEXIST") throw error;
+      const guard = await this.#inspectLock(guardPath);
+      if (guard === undefined) return true;
+      if (guard.age <= this.#staleMs) return false; // another breaker is at work: keep waiting
+      await rm(guardPath, { force: true }); // its holder crashed
+      return true;
     }
-    const movedAge = await this.#lockAge(moved);
-    if (movedAge !== undefined && movedAge <= this.#staleMs) {
-      // We moved a live lock. Restore it unless a newer one already exists.
-      await link(moved, lockPath).catch(() => undefined);
+    try {
+      const current = await this.#inspectLock(lockPath);
+      if (current === undefined) return true;
+      const same =
+        seen.token !== undefined
+          ? current.token === seen.token
+          : current.ino === seen.ino && current.mtimeMs === seen.mtimeMs;
+      if (current.age <= this.#staleMs || !same) return false; // replaced by a live lock in the meantime
+      const moved = join(this.directory, `.${LOCK_FILE}.${randomHex()}.tmp`);
+      try {
+        await rename(lockPath, moved);
+      } catch (error) {
+        if (codeOf(error) !== "ENOENT") throw error;
+        return true;
+      }
+      await rm(moved, { force: true }).catch(() => undefined);
+      return true;
+    } finally {
+      await rm(guardPath, { force: true }).catch(() => undefined);
     }
-    await rm(moved, { force: true }).catch(() => undefined);
-    return true;
   }
 
-  /** Age of a lock in ms: the older of its modification time and the `createdAt` it records. `undefined` if missing. */
-  async #lockAge(path: string): Promise<number | undefined> {
-    let modified: number;
+  /**
+   * Age of a lock in ms (the older of its own modification time and the `createdAt` it records), its token and file
+   * identity. `undefined` if missing. Uses lstat, so a symlink is judged by itself; other lstat errors propagate.
+   * Reading the content is best effort.
+   */
+  async #inspectLock(
+    path: string,
+  ): Promise<{ age: number; token: string | undefined; ino: number; mtimeMs: number } | undefined> {
+    let info;
     try {
-      modified = (await stat(path)).mtimeMs;
-    } catch {
-      return undefined;
+      info = await lstat(path);
+    } catch (error) {
+      if (codeOf(error) === "ENOENT") return undefined;
+      throw error;
     }
-    let created = modified;
+    let created = info.mtimeMs;
+    let token: string | undefined;
     try {
       const doc: unknown = JSON.parse(await readFile(path, "utf8"));
-      if (isPlainObject(doc) && typeof doc.createdAt === "number" && Number.isFinite(doc.createdAt)) {
-        created = doc.createdAt;
+      if (isPlainObject(doc)) {
+        if (typeof doc.createdAt === "number" && Number.isFinite(doc.createdAt)) created = doc.createdAt;
+        if (typeof doc.token === "string") token = doc.token;
       }
     } catch {
       // Empty while its owner is still writing it, or unreadable: the modification time decides.
     }
-    return Date.now() - Math.min(modified, created);
+    return { age: Date.now() - Math.min(info.mtimeMs, created), token, ino: info.ino, mtimeMs: info.mtimeMs };
+  }
+
+  /** The token recorded in the lock file, or `undefined` if it is missing or unreadable. */
+  async #readLockToken(path: string): Promise<string | undefined> {
+    try {
+      const doc: unknown = JSON.parse(await readFile(path, "utf8"));
+      return isPlainObject(doc) && typeof doc.token === "string" ? doc.token : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Removes the lock only if it still holds our token; a lock another run took over is left alone. */
