@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { JEV_MAX_RETRIES } from "../src/config.ts";
-import { JevServiceError, JevTimeoutError } from "../src/jev/errors.ts";
+import { JevCancelledError, JevServiceError, JevTimeoutError } from "../src/jev/errors.ts";
 import { createJevClient, JevDecisionProvider, type JevClient } from "../src/jev/provider.ts";
 import type { CodeChunk } from "../src/types.ts";
 
@@ -57,6 +57,16 @@ test("the deadline holds even when a request ignores its signal", async () => {
   const { error, ms } = await timed(() => provider.decide({ task: "t", candidates }));
   expect(error).toBeInstanceOf(JevTimeoutError);
   expect(ms).toBeLessThan(200 + SLACK_MS);
+});
+
+test("a Ctrl-C is reported as a cancellation even when a request ignores its signal", async () => {
+  const client: JevClient = { systemOne: () => new Promise(() => {}) };
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 50);
+  const provider = new JevDecisionProvider({ client, deadlineMs: 5_000 });
+  const { error, ms } = await timed(() => provider.decide({ task: "t", candidates, signal: controller.signal }));
+  expect(error).toBeInstanceOf(JevCancelledError);
+  expect(ms).toBeLessThan(50 + SLACK_MS);
 });
 
 test("with the real SDK, attempts that keep timing out end at the overall deadline", async () => {
