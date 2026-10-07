@@ -154,6 +154,33 @@ describe("openRepositoryCache and commitRepositoryCache", () => {
     expect(await readdir(repo)).not.toContain(".gitignore");
   });
 
+  test("a symlinked store directory is refused on open and on commit, and its target is untouched", async () => {
+    const outside = join(base, "outside");
+    await mkdir(outside);
+    await writeFile(join(outside, "settings.json"), "{}");
+    const { cache } = await openRepositoryCache(repo, { keys });
+    await mkdir(join(repo, CACHE_DIR));
+    await symlink(outside, cache!.directory);
+    const reopened = await openRepositoryCache(repo, { keys });
+    expect(reopened.cache).toBeUndefined();
+    expect(reopened.warnings[0]).toContain("symlinks are not followed");
+    const outcome = await commitRepositoryCache(cache!);
+    expect(outcome.committed).toBe(false);
+    expect((await readdir(outside)).sort()).toEqual(["settings.json"]);
+  });
+
+  test("a symlinked .scope directory is refused on open and on commit, and its target is untouched", async () => {
+    const outside = join(base, "outside");
+    await mkdir(join(outside, `store-v${STORE_MAJOR}`), { recursive: true });
+    await writeFile(join(outside, `store-v${STORE_MAJOR}`, "settings.json"), "{}");
+    const { cache } = await openRepositoryCache(repo, { keys });
+    await symlink(outside, join(repo, CACHE_DIR));
+    expect((await openRepositoryCache(repo, { keys })).cache).toBeUndefined();
+    expect((await commitRepositoryCache(cache!)).committed).toBe(false);
+    expect((await readdir(outside)).sort()).toEqual([`store-v${STORE_MAJOR}`]);
+    expect(await readdir(join(outside, `store-v${STORE_MAJOR}`))).toEqual(["settings.json"]);
+  });
+
   test("a store directory of another major survives a commit", async () => {
     const old = join(repo, CACHE_DIR, "store-v0");
     await mkdir(old, { recursive: true });

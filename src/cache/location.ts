@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import { mkdir, open, realpath } from "node:fs/promises";
+import { lstat, mkdir, open, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { DocumentStore, type CommitOutcome, type DocumentType, type Transaction } from "./store.ts";
 import { STORE_MAJOR, currentVersionKeys, type VersionKeys } from "./versions.ts";
@@ -40,6 +40,18 @@ export interface RepositoryCache {
 const isStale = (meta: Meta | undefined, current: { root: string; keys: VersionKeys }) =>
   meta === undefined || meta.root !== current.root || !isDeepStrictEqual(meta.keys, current.keys);
 
+/**
+ * Throws unless `path` is missing or a real directory. `.scope` and the store directory come from the repository,
+ * which is untrusted: a symlink there could point the cache's writes and removals at an unrelated directory.
+ */
+async function assertNotLinked(path: string): Promise<void> {
+  try {
+    if (!(await lstat(path)).isDirectory()) throw new Error(`${path} is not a directory (symlinks are not followed)`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
+
 const oneLine = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 200);
 
@@ -56,6 +68,8 @@ export async function openRepositoryCache(
     const root = await realpath(repoRoot);
     const keys = options.keys ?? (await currentVersionKeys());
     const directory = join(root, CACHE_DIR, `store-v${STORE_MAJOR}`);
+    await assertNotLinked(join(root, CACHE_DIR));
+    await assertNotLinked(directory);
     const store = new DocumentStore(directory);
     const { value, warning } = await store.read(metaType);
     const fresh = isStale(value, { root, keys });
@@ -68,6 +82,7 @@ export async function openRepositoryCache(
 /** Creates `.scope/.gitignore` (`*`) when missing so git ignores the cache. Never touches any other .gitignore. */
 async function ensureGitignore(root: string): Promise<void> {
   const directory = join(root, CACHE_DIR);
+  await assertNotLinked(directory);
   await mkdir(directory, { recursive: true });
   try {
     const handle = await open(join(directory, ".gitignore"), "wx");
@@ -94,6 +109,7 @@ export async function commitRepositoryCache(
 ): Promise<CommitOutcome> {
   try {
     await ensureGitignore(cache.root);
+    await assertNotLinked(cache.directory);
   } catch (error) {
     return { committed: false, warning: `cache not written: ${oneLine(error)}` };
   }

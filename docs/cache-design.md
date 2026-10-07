@@ -101,6 +101,8 @@ one of their commits or a merge of both, never a mix of half-written documents.
   the removals as missing). History, decisions and feedback carry their own provenance and are validated per record instead (#73 onwards).
 - Ignore rules are not a version key: the scan is never cached, so a changed `.gitignore` adds and removes files on
   the next run like any other change.
+- `.scope/` and the store directory must be real directories: if either is a symlink (repository contents are
+  untrusted), the cache is disabled rather than reading, writing or removing through the link.
 - Any failure (unresolvable root, unreadable analyzer module, unwritable repository) disables the cache with one
   warning and never fails the run.
 - The CLI will use the store by default. `--no-cache` (or `SCOPE_CACHE=off`) will run without reading or writing it.
