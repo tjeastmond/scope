@@ -16,3 +16,11 @@ export class RetrievalConfigError extends Error {
     this.name = "RetrievalConfigError";
   }
 }
+
+/** The user cancelled the run (Ctrl-C) before it finished; nothing is written. */
+export class CancelledError extends Error {
+  constructor() {
+    super("the run was interrupted before it finished");
+    this.name = "CancelledError";
+  }
+}

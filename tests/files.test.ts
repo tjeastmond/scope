@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { CancelledError } from "../src/errors.ts";
 import { renderResult } from "../src/output/text.ts";
 import { scanRepository } from "../src/repository/files.ts";
 import { runScope } from "../src/scope.ts";
@@ -224,4 +225,11 @@ test("a source file whose first NUL byte is past the sniffed prefix is still nev
   const repo = await makeRepo({ "src/late.ts": late, "src/ok.ts": "export function fine() {}\n" });
   const { result } = await runScope({ task: "anything", repo, noJev: true });
   expect(result.chunks.map((c) => c.chunk.name)).toEqual(["fine"]);
+});
+
+test("a cancelled signal stops the traversal with CancelledError", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const scan = scanRepository(join(import.meta.dir, "../fixtures/mixed-app"), {}, controller.signal);
+  await expect(scan).rejects.toThrow(CancelledError);
 });

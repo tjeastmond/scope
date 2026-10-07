@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { open, realpath, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { CancelledError } from "../errors.ts";
 import { scanRepository } from "../repository/files.ts";
 
 /** `--output` cannot be honoured. A runtime failure (exit code 1), not a usage error. */
@@ -12,7 +13,7 @@ export class OutputError extends Error {
 }
 
 export interface PreparedOutput {
-  /** Writes the artifact to the target atomically. Cleans up after itself if it fails. */
+  /** Writes the artifact to the target atomically; once `signal` is aborted it leaves the target untouched. Cleans up after itself if it fails. */
   commit(text: string): Promise<void>;
   /** Removes the temporary file if one exists. Safe to call at any point, any number of times. */
   discard(): Promise<void>;
@@ -47,7 +48,7 @@ async function resolveTarget(path: string): Promise<string> {
  * a directory and, after resolving symlinks, must not be a file Scope would analyze (that would overwrite repository
  * source). Any other existing file, such as a previous output, may be replaced. `root` is the real repository root.
  */
-export async function prepareOutput(root: string, outputPath: string): Promise<PreparedOutput> {
+export async function prepareOutput(root: string, outputPath: string, signal?: AbortSignal): Promise<PreparedOutput> {
   const fail = (reason: string) => new OutputError(`cannot write --output ${outputPath}: ${reason}`);
   let target: string;
   try {
@@ -59,7 +60,7 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   const inRepository = target.startsWith(`${root}${sep}`);
   /** Runs at preparation and again at commit: the run can take a while, and the repository may change meanwhile. */
   const assertNotSource = async () => {
-    const { files, warnings } = await scanRepository(root);
+    const { files, warnings } = await scanRepository(root, {}, signal);
     if (files.some((file) => join(root, file) === target)) {
       throw fail("it is a source file of the repository and would be overwritten");
     }
@@ -101,11 +102,13 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
         } finally {
           await handle.close();
         }
+        // The last point a Ctrl-C can still leave the destination as it was.
+        if (signal?.aborted) throw new CancelledError();
         await rename(tempPath, target);
         tempPath = undefined;
       } catch (error) {
         await discard();
-        throw error instanceof OutputError ? error : fail(cause(error));
+        throw error instanceof OutputError || error instanceof CancelledError ? error : fail(cause(error));
       }
     },
   };

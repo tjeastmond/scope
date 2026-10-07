@@ -1,8 +1,8 @@
-import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
+import { JevCancelledError, JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
 import { parseArgs } from "node:util";
 import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
-import { UsageError } from "./errors.ts";
+import { CancelledError, UsageError } from "./errors.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
@@ -31,6 +31,8 @@ export interface Io {
   stderr: (text: string) => void;
   /** Test seam: replaces the real Jev provider. */
   provider?: DecisionProvider;
+  /** Aborted when the user cancels (Ctrl-C); stops the scan and the Jev request. Tests abort it without real signals. */
+  signal?: AbortSignal;
 }
 
 export interface CliOptions {
@@ -95,6 +97,8 @@ export function parseCli(argv: string[]): CliOptions {
 }
 
 const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
+  [CancelledError, "Cancelled"],
+  [JevCancelledError, "Cancelled"],
   [JevUnavailableError, "Jev unavailable"],
   [JevResponseError, "Jev returned an unusable response"],
   [JevRequestError, "Jev request not sent"],
@@ -119,7 +123,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
     const output =
       options.output === undefined
         ? undefined
-        : await prepareOutput(resolveRepository(options.repo).root, options.output);
+        : await prepareOutput(resolveRepository(options.repo).root, options.output, io.signal);
     try {
       await run(options, io, output);
       return 0;
@@ -139,7 +143,10 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
     explain: options.explain,
     noJev: options.noJev,
     provider: io.provider,
+    signal: io.signal,
   });
+  // A Ctrl-C that lands after Jev answered still cancels: nothing is printed or written.
+  if (io.signal?.aborted) throw new CancelledError();
   for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
   if (decision) {
     const { inputTokens, outputTokens } = decision.usage ?? {};

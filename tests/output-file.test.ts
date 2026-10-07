@@ -3,7 +3,9 @@ import { chmodSync, cpSync, existsSync, readdirSync, readFileSync, symlinkSync }
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { CancelledError } from "../src/errors.ts";
 import { main, type Io } from "../src/main.ts";
+import { prepareOutput } from "../src/output/file.ts";
 import { FORMATS } from "../src/output/index.ts";
 import type { DecisionProvider } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
@@ -232,4 +234,46 @@ test("an output directory swapped for a symlink to source during the run is not 
   expect(run.stderr()).toContain("the destination changed during the run");
   expect(readFileSync(join(repo, SOURCE), "utf8")).toBe(before);
   expect(existsSync(join(repo, "api", "src", "models", "out.ts"))).toBe(false);
+});
+
+test("a Ctrl-C that lands after Jev answers writes nothing and leaves the destination as it was", async () => {
+  const target = join(tmp, "out", "artifact");
+  await writeFile(target, "previous artifact\n");
+  const controller = new AbortController();
+  const inner = fakeProvider({ fallback: 0.6 });
+  const provider: DecisionProvider = {
+    decide: async (request) => {
+      const result = await inner.decide(request);
+      controller.abort();
+      return result;
+    },
+  };
+  const run = capture(provider);
+  const code = await main(args("--output", target), { ...run.io, signal: controller.signal });
+
+  expect(code).toBe(1);
+  expect(run.stdout()).toBe("");
+  expect(run.stderr()).toBe("scope: Cancelled: the run was interrupted before it finished\n");
+  expect(readFileSync(target, "utf8")).toBe("previous artifact\n");
+  expect(readdirSync(join(tmp, "out"))).toEqual(["artifact"]);
+});
+
+test("commit with a cancelled signal leaves the destination untouched and no temporary file", async () => {
+  const target = join(tmp, "out", "artifact");
+  await writeFile(target, "previous artifact\n");
+  const controller = new AbortController();
+  const output = await prepareOutput(repo, target, controller.signal);
+  controller.abort();
+
+  await expect(output.commit("new artifact\n")).rejects.toThrow(CancelledError);
+  await output.discard();
+  expect(readFileSync(target, "utf8")).toBe("previous artifact\n");
+  expect(readdirSync(join(tmp, "out"))).toEqual(["artifact"]);
+});
+
+test("a cancelled signal stops the --output safety scan during preparation", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(prepareOutput(repo, join(tmp, "out", "artifact"), controller.signal)).rejects.toThrow(CancelledError);
+  expect(readdirSync(join(tmp, "out"))).toEqual([]);
 });
