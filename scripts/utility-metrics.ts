@@ -24,23 +24,25 @@ export interface EvaluationInput {
   required: readonly (readonly string[])[];
   usefulIds: ReadonlySet<string>;
   irrelevantIds: ReadonlySet<string>;
-  /** Content length by chunk id, for every chunk that can be selected. */
-  charsById: ReadonlyMap<string, number>;
+  /** Characters Scope would emit for the selection: merged-region content, so overlapping chunks count once. */
+  selectedChars: number;
   /** Characters of the all-candidate baseline (`--no-jev`). */
   baselineChars: number;
 }
 
+/** Characters in the emitted regions (`ScopeResult.regions`): each line counted once however many chunks cover it. */
+export const regionChars = (regions: readonly { content: string }[]): number =>
+  regions.reduce((sum, region) => sum + region.content.length, 0);
+
 export function evaluateSelection(input: EvaluationInput): SelectionEvaluation {
-  const { selectedIds, required, usefulIds, irrelevantIds, charsById, baselineChars } = input;
+  const { selectedIds, required, usefulIds, irrelevantIds, selectedChars, baselineChars } = input;
   const found = required.filter((ids) => ids.some((id) => selectedIds.has(id))).length;
   const requiredIds = new Set(required.flat());
   let good = 0;
   let labeled = 0;
   let unlabeledSelected = 0;
   let irrelevantSelected = 0;
-  let selectedChars = 0;
   for (const id of selectedIds) {
-    selectedChars += charsById.get(id) ?? 0;
     const isGood = requiredIds.has(id) || usefulIds.has(id);
     const isBad = irrelevantIds.has(id);
     if (isGood) good += 1;

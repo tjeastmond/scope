@@ -16,6 +16,7 @@ import { FIXTURES, loadLabeledTasks, resolve, type LabeledTask } from "../tests/
 import {
   blendScores,
   evaluateSelection,
+  regionChars,
   summarize,
   type SelectionEvaluation,
   type Summary,
@@ -110,7 +111,6 @@ async function collect(): Promise<void> {
 
 interface Prepared {
   chunkMap: Map<string, CodeChunk>;
-  charsById: Map<string, number>;
   tasks: Map<string, LabeledTask>;
   required: Map<string, string[][]>;
   useful: Map<string, Set<string>>;
@@ -123,7 +123,6 @@ async function prepare(): Promise<Prepared> {
   const ids = (labels: string[]) => labels.flatMap((label) => resolve(label, chunks).map((chunk) => chunk.id));
   return {
     chunkMap: new Map(chunks.map((chunk) => [chunk.id, chunk])),
-    charsById: new Map(chunks.map((chunk) => [chunk.id, chunk.content.length])),
     tasks: new Map(tasks.map((task) => [task.id, task])),
     required: new Map(tasks.map((t) => [t.id, t.required.map((label) => resolve(label, chunks).map((c) => c.id))])),
     useful: new Map(tasks.map((t) => [t.id, new Set(ids(t.useful))])),
@@ -131,15 +130,21 @@ async function prepare(): Promise<Prepared> {
   };
 }
 
+interface Selection {
+  ids: Set<string>;
+  /** Characters of the merged regions Scope emits, so overlapping chunks count once. */
+  chars: number;
+}
+
 /** Selects with the real selector (supports included) from the given scores, one per cached candidate. */
-function select(prep: Prepared, run: CachedRun, scores: readonly number[], minScore: number): Set<string> {
+function select(prep: Prepared, run: CachedRun, scores: readonly number[], minScore: number): Selection {
   const scored: SelectedChunk[] = run.candidates.map((candidate, i) => {
     const chunk = prep.chunkMap.get(candidate.id);
     if (!chunk) throw new Error(`Cached chunk ${candidate.id} no longer exists; re-run with --collect.`);
     return { chunk, signals: {}, score: scores[i]!, reason: "sweep" };
   });
   const result = selectByRelevance(scored, { task: "", mode: "jev", chunks: prep.chunkMap, minScore });
-  return new Set(result.chunks.map((item) => item.chunk.id));
+  return { ids: new Set(result.chunks.map((item) => item.chunk.id)), chars: regionChars(result.regions) };
 }
 
 function evaluate(prep: Prepared, run: CachedRun, scores: readonly number[], minScore: number): SelectionEvaluation {
@@ -149,14 +154,14 @@ function evaluate(prep: Prepared, run: CachedRun, scores: readonly number[], min
     run.candidates.map(() => 1),
     MIN_RELEVANCE,
   );
-  const baselineChars = [...baseline].reduce((sum, id) => sum + (prep.charsById.get(id) ?? 0), 0);
+  const selected = select(prep, run, scores, minScore);
   return evaluateSelection({
-    selectedIds: select(prep, run, scores, minScore),
+    selectedIds: selected.ids,
+    selectedChars: selected.chars,
     required: prep.required.get(run.taskId)!,
     usefulIds: prep.useful.get(run.taskId)!,
     irrelevantIds: prep.irrelevant.get(run.taskId)!,
-    charsById: prep.charsById,
-    baselineChars,
+    baselineChars: baseline.chars,
   });
 }
 

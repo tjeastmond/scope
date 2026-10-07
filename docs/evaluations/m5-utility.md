@@ -17,7 +17,8 @@ from labeled tasks and tests whether blending Scope's deterministic retrieval sc
 - The sweep re-selects from the cached scores with the real `selectByRelevance`, so supporting-declaration pull-ins
   count. Averages are over runs (tasks x repeats); ranges are min to max over those runs.
 - The token budget was removed in #165, so the issue's "relevance/cost trade-off" is measured as output size: the
-  selected characters against the `--no-jev` baseline (every candidate, plus its supports), as "size reduction".
+  characters of the merged regions Scope would emit (`mergeRegions`, so overlapping chunks count once) against the same
+  measure for the `--no-jev` baseline (every candidate, plus its supports), as "size reduction".
   No tokens are estimated.
 - Metrics: required recall is the share of required labels whose chunk is selected (a label counts when any chunk it
   resolves to is selected). Useful recall is the same for useful labels. Precision is selected chunks labeled required
@@ -34,17 +35,17 @@ Tuning tasks:
 
 | threshold | required recall | useful recall | precision | irrelevant | unlabeled     | selected         | size reduction |
 | --------- | --------------- | ------------- | --------- | ---------- | ------------- | ---------------- | -------------- |
-| 0.30      | 100%            | 63% (50%-67%) | 100%      | 0.0        | 3.7 (3.0-5.0) | 12.0 (11.0-13.0) | 57% (47%-67%)  |
-| 0.35      | 100%            | 53% (44%-67%) | 100%      | 0.0        | 3.2 (2.0-4.0) | 10.7 (10.0-12.0) | 60% (49%-72%)  |
-| 0.40      | 100%            | 43% (33%-50%) | 100%      | 0.0        | 2.7 (2.0-4.0) | 9.3 (7.0-11.0)   | 63% (49%-77%)  |
-| 0.45      | 100%            | 28% (22%-38%) | 100%      | 0.0        | 1.5 (1.0-2.0) | 6.8 (6.0-8.0)    | 76% (69%-82%)  |
-| 0.50      | 100%            | 22% (13%-25%) | 100%      | 0.0        | 1.0 (0.0-2.0) | 5.8 (5.0-6.0)    | 81% (79%-82%)  |
-| 0.55      | 100%            | 17% (13%-22%) | 100%      | 0.0        | 1.0 (0.0-2.0) | 5.5 (5.0-6.0)    | 82% (81%-82%)  |
-| 0.60      | 100%            | 14% (11%-22%) | 100%      | 0.0        | 0.8 (0.0-2.0) | 5.0 (4.0-6.0)    | 82% (81%-84%)  |
-| 0.65      | 100%            | 10% (0%-13%)  | 100%      | 0.0        | 0.7 (0.0-2.0) | 4.5 (3.0-5.0)    | 83% (81%-86%)  |
-| 0.70      | 100%            | 6% (0%-13%)   | 100%      | 0.0        | 0.2 (0.0-1.0) | 3.7 (2.0-5.0)    | 86% (81%-94%)  |
-| 0.75      | 100%            | 6% (0%-13%)   | 100%      | 0.0        | 0.0           | 3.5 (2.0-5.0)    | 88% (81%-94%)  |
-| 0.80      | 100%            | 6% (0%-13%)   | 100%      | 0.0        | 0.0           | 3.5 (2.0-5.0)    | 88% (81%-94%)  |
+| 0.30      | 100%            | 63% (50%-67%) | 100%      | 0.0        | 3.7 (3.0-5.0) | 12.0 (11.0-13.0) | 56% (48%-65%)  |
+| 0.35      | 100%            | 53% (44%-67%) | 100%      | 0.0        | 3.2 (2.0-4.0) | 10.7 (10.0-12.0) | 59% (50%-70%)  |
+| 0.40      | 100%            | 43% (33%-50%) | 100%      | 0.0        | 2.7 (2.0-4.0) | 9.3 (7.0-11.0)   | 63% (50%-76%)  |
+| 0.45      | 100%            | 28% (22%-38%) | 100%      | 0.0        | 1.5 (1.0-2.0) | 6.8 (6.0-8.0)    | 74% (66%-81%)  |
+| 0.50      | 100%            | 22% (13%-25%) | 100%      | 0.0        | 1.0 (0.0-2.0) | 5.8 (5.0-6.0)    | 78% (75%-81%)  |
+| 0.55      | 100%            | 17% (13%-22%) | 100%      | 0.0        | 1.0 (0.0-2.0) | 5.5 (5.0-6.0)    | 79% (78%-81%)  |
+| 0.60      | 100%            | 14% (11%-22%) | 100%      | 0.0        | 0.8 (0.0-2.0) | 5.0 (4.0-6.0)    | 80% (78%-83%)  |
+| 0.65      | 100%            | 10% (0%-13%)  | 100%      | 0.0        | 0.7 (0.0-2.0) | 4.5 (3.0-5.0)    | 81% (78%-85%)  |
+| 0.70      | 100%            | 6% (0%-13%)   | 100%      | 0.0        | 0.2 (0.0-1.0) | 3.7 (2.0-5.0)    | 84% (78%-93%)  |
+| 0.75      | 100%            | 6% (0%-13%)   | 100%      | 0.0        | 0.0           | 3.5 (2.0-5.0)    | 86% (78%-93%)  |
+| 0.80      | 100%            | 6% (0%-13%)   | 100%      | 0.0        | 0.0           | 3.5 (2.0-5.0)    | 86% (78%-93%)  |
 
 Held-out task:
 
@@ -76,8 +77,8 @@ Findings:
   (`translate`, `messages`) are not in the 30-candidate shortlist. That is a retrieval gap (see `bun run recall`), outside
   what the threshold or blending of shortlisted candidates can fix.
 - Lowering the threshold below 0.5 only adds unlabeled and marginal chunks: from 0.50 to 0.40 the tuning size reduction
-  falls from 81% to 63% (held-out 84% to 74%) while required recall and precision do not change. Raising it from 0.50
-  to 0.60 gains about 1 point of size reduction on tuning (4 on held-out) and loses useful chunks (`Billing.Invoice`,
+  falls from 78% to 63% (held-out 84% to 74%) while required recall and precision do not change. Raising it from 0.50
+  to 0.60 gains about 2 points of size reduction on tuning (4 on held-out) and loses useful chunks (`Billing.Invoice`,
   the SQL query chunk, whose repeats scored 0.58 to 0.69).
 
 ## Chosen default
@@ -85,8 +86,9 @@ Findings:
 Rule: the highest threshold that keeps 100% required recall on every tuning repeat, preferring a margin from scores that
 flip between runs. Applied literally, the first part allows up to 0.80, but the held-out task loses its one reachable
 required chunk from 0.75, and useful context is lost steadily as the threshold rises. A threshold of 0.5 keeps a 0.2
-margin below the lowest reachable required chunk across all tasks (0.70), keeps every required chunk in every
-repeat, and sits where the size reduction has largely flattened (about 81 to 84%) on the way up. The chunks that flip at
+margin below the lowest reachable required chunk across all tasks (0.70), keeps every shortlisted (reachable) required chunk in
+every repeat (the held-out task's `translate` and `messages` are never shortlisted), and sits where the size reduction
+has largely flattened (78% on tuning, 84% held-out) on the way up. The chunks that flip at
 0.50 are marginal context, so the flipping costs little. `MIN_RELEVANCE` stays at 0.5.
 
 ## Blending
@@ -116,6 +118,8 @@ candidates (so in [0, 1]), with w in {0, 0.05, 0.1, 0.2} on the held-out task, a
 | 0.60 / w=0.05      | 33%             | 50%           | 100%      | 0.0        | 3.0           | 5.0            | 86%            |
 | 0.60 / w=0.1       | 33%             | 50%           | 100%      | 0.0        | 3.0           | 5.0            | 86%            |
 | 0.60 / w=0.2       | 33%             | 50%           | 100%      | 0.0        | 3.7 (3.0-4.0) | 5.7 (5.0-6.0)  | 85% (84%-86%)  |
+
+Usage in the cache: 60537 input and 4842 output tokens, latency 203 (161-263) ms
 
 Verdict: no benefit. Required recall, useful recall and precision are identical at every weight; blending only lifts
 unlabeled chunks over the line, so the selection grows (for example at 0.50, w=0.2: 7.3 chunks and 78% size reduction

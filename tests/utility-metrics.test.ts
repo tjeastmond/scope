@@ -1,19 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { blendScores, evaluateSelection, summarize } from "../scripts/utility-metrics.ts";
+import { mergeRegions } from "../src/context/regions.ts";
+import type { CodeChunk, SelectedChunk } from "../src/types.ts";
+import { blendScores, evaluateSelection, regionChars, summarize } from "../scripts/utility-metrics.ts";
 
-const charsById = new Map([
-  ["r1", 100],
-  ["r2", 100],
-  ["u1", 50],
-  ["i1", 30],
-  ["x1", 20],
-  ["s1", 10],
-]);
 const base = {
   required: [["r1"], ["r2", "r2b"]],
   usefulIds: new Set(["u1"]),
   irrelevantIds: new Set(["i1"]),
-  charsById,
+  selectedChars: 150,
   baselineChars: 310,
 };
 
@@ -47,6 +41,28 @@ describe("evaluateSelection", () => {
     expect(e.selectedChars).toBe(150);
     expect(e.sizeReduction).toBeCloseTo(1 - 150 / 310, 10);
     expect(evaluateSelection({ ...base, baselineChars: 0, selectedIds: new Set() }).sizeReduction).toBe(0);
+  });
+});
+
+describe("regionChars", () => {
+  const chunk = (id: string, startLine: number, endLine: number): SelectedChunk => {
+    const lines = Array.from({ length: endLine - startLine + 1 }, (_, i) => `line${startLine + i}`);
+    return {
+      chunk: { id, file: "a.ts", language: "typescript", startLine, endLine, content: lines.join("\n") } as CodeChunk,
+      signals: {},
+      score: 1,
+      reason: "t",
+    };
+  };
+
+  test("counts overlapping and nested chunks once, as Scope emits them", () => {
+    const outer = chunk("outer", 1, 3);
+    const nested = chunk("nested", 2, 2);
+    const overlapping = chunk("overlap", 3, 4);
+    const regions = mergeRegions([outer, nested, overlapping]);
+    const summed = [outer, nested, overlapping].reduce((sum, item) => sum + item.chunk.content.length, 0);
+    expect(regionChars(regions)).toBe("line1\nline2\nline3\nline4".length);
+    expect(regionChars(regions)).toBeLessThan(summed);
   });
 });
 
