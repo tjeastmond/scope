@@ -402,10 +402,12 @@ export class DocumentStore {
   async #release(token: string): Promise<void> {
     const lockPath = join(this.directory, LOCK_FILE);
     try {
+      // A replaced directory is left alone; our lock in the original goes stale and is broken by a later run.
+      await this.#verifyDirectory();
       const doc: unknown = JSON.parse(await readRegularFile(lockPath));
       if (isPlainObject(doc) && doc.token === token) await rm(lockPath, { force: true });
     } catch {
-      // Already gone or unreadable: nothing of ours to release.
+      // Already gone, unreadable or the directory was replaced: nothing of ours to release.
     }
   }
 

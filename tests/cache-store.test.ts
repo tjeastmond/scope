@@ -222,7 +222,7 @@ describe("commit", () => {
       const guarded = new DocumentStore(dir, {
         verifyDirectory: () => {
           calls += 1;
-          if (calls === failOn) throw new Error("directory replaced");
+          if (calls >= failOn) throw new Error("directory replaced");
         },
       });
       const outcome = await guarded.commit((tx) => {
@@ -231,8 +231,14 @@ describe("commit", () => {
       });
       expect(outcome).toEqual({ committed: false, warning: "cache not written: directory replaced" });
       expect(updated).toBe(failOn === 3);
-      // The sweep runs once the directory has been verified under the lock, so only a late failure sees it done.
-      expect((await readdir(dir)).sort()).toEqual(failOn === 3 ? ["files.json"] : ["files.json", "old.tmp"]);
+      // The sweep runs once the directory has been verified under the lock, so only a late failure sees it done. Once
+      // the directory fails verification, even our own lock is left for a later run to break.
+      const expected = {
+        1: ["files.json", "old.tmp"],
+        2: ["files.json", "lock", "old.tmp"],
+        3: ["files.json", "lock"],
+      };
+      expect((await readdir(dir)).sort()).toEqual(expected[failOn]);
       expect((await store.read(files)).value).toEqual({ items: ["old"] });
     });
   }
