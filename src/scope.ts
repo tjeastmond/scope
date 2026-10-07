@@ -12,7 +12,7 @@ import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
-import type { CodeChunk, DecisionProvider, DecisionResult, ScopeResult, SelectedChunk } from "./types.ts";
+import type { CodeChunk, DecisionProvider, DecisionResult, JevMetrics, ScopeResult, SelectedChunk } from "./types.ts";
 
 export interface ScopeOptions {
   task: string;
@@ -99,6 +99,29 @@ export async function previewJevPayload(options: {
   return { requests: planJevRequests(task, candidates), candidateCount: candidates.length };
 }
 
+const isCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
+
+/**
+ * Jev's overhead from what the provider reported. Nothing is invented: without both totals and a latency there is no
+ * `jev` key, and malformed per-request entries are dropped. Per-request detail is only kept under `--explain`.
+ */
+function jevMetrics(decision: DecisionResult | undefined, explain: boolean): { jev?: JevMetrics } {
+  if (!decision) return {};
+  const { usage, latencyMs, requests } = decision;
+  if (!isCount(usage?.inputTokens) || !isCount(usage?.outputTokens) || !isCount(latencyMs)) return {};
+  const perRequest = requests?.every((r) => isCount(r?.latencyMs) && isCount(r.inputTokens) && isCount(r.outputTokens))
+    ? requests
+    : undefined;
+  return {
+    jev: {
+      ...(perRequest === undefined ? {} : { requestCount: perRequest.length }),
+      latencyMs,
+      usage: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
+      ...(explain && perRequest !== undefined ? { requests: perRequest } : {}),
+    },
+  };
+}
+
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const { task, repo = ".", noJev = false, explain = false, signal } = options;
@@ -144,5 +167,5 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
     ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
-  return { result, decision };
+  return { result: { ...result, ...jevMetrics(decision, explain) }, decision };
 }

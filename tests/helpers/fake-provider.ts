@@ -24,6 +24,7 @@ export function fakeProvider({ relevance = {}, fallback = 0.1, failure }: FakePr
         judgments: failure === "partial" ? judgments.slice(1) : judgments,
         usage: { inputTokens: 5, outputTokens: 1 },
         latencyMs: 3,
+        requests: [{ latencyMs: 3, inputTokens: 5, outputTokens: 1 }],
       };
     },
   };

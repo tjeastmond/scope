@@ -221,6 +221,7 @@ describe("JSON contract", () => {
       "skipped",
       ...(result.retrievalConfigVersion === undefined ? [] : ["retrievalConfigVersion"]),
       ...(result.jevQuestionVersion === undefined ? [] : ["jevQuestionVersion"]),
+      ...(result.jev === undefined ? [] : ["jev"]),
     ]);
     expect(Object.keys(payload.regions[0])).toEqual(["file", "language", "startLine", "endLine", "content", "chunks"]);
     expect(Object.keys(payload.regions[0].chunks[0])).toEqual(

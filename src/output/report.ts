@@ -18,12 +18,20 @@ export const scoreLabel = (relevance: number | undefined, score: number): string
 
 /** Mode, region count and retrieval version; the same facts in every human-readable format. */
 export function summaryLines(result: ScopeResult, quote: Quote): string[] {
-  const { mode, regions, retrievalConfigVersion, jevQuestionVersion } = result;
+  const { mode, regions, retrievalConfigVersion, jevQuestionVersion, jev } = result;
   return [
     `Mode: ${mode}`,
     `Regions: ${regions.length}`,
     ...(retrievalConfigVersion === undefined ? [] : [`Retrieval config: ${quote(retrievalConfigVersion)}`]),
     ...(jevQuestionVersion === undefined ? [] : [`Jev questions: ${quote(jevQuestionVersion)}`]),
+    // Overhead of the external service, not part of the selected context; shown under --explain only.
+    ...(result.explain && jev
+      ? [
+          ...(jev.requestCount === undefined ? [] : [`Jev requests: ${jev.requestCount}`]),
+          `Jev latency: ${jev.latencyMs} ms (wall clock)`,
+          `Jev tokens: ${jev.usage.inputTokens} input / ${jev.usage.outputTokens} output`,
+        ]
+      : []),
   ];
 }
 

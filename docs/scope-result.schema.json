@@ -14,9 +14,42 @@
     "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
     "retrievalConfigVersion": { "type": "string" },
     "jevQuestionVersion": { "type": "string" },
+    "jev": { "$ref": "#/$defs/jev" },
     "explain": { "const": true }
   },
   "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "jev": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latencyMs", "usage"],
+      "properties": {
+        "requestCount": { "$ref": "#/$defs/count" },
+        "latencyMs": { "$ref": "#/$defs/count" },
+        "usage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["inputTokens", "outputTokens"],
+          "properties": {
+            "inputTokens": { "$ref": "#/$defs/count" },
+            "outputTokens": { "$ref": "#/$defs/count" }
+          }
+        },
+        "requests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["latencyMs", "inputTokens", "outputTokens"],
+            "properties": {
+              "latencyMs": { "$ref": "#/$defs/count" },
+              "inputTokens": { "$ref": "#/$defs/count" },
+              "outputTokens": { "$ref": "#/$defs/count" }
+            }
+          }
+        }
+      }
+    },
     "language": {
       "enum": [
         "typescript",

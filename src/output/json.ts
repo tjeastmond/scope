@@ -1,5 +1,5 @@
 import { signalPairs } from "./report.ts";
-import type { ChunkKind, Language, ScopeMode, ScopeResult, SelectedChunk, SkippedChunk } from "../types.ts";
+import type { ChunkKind, JevMetrics, Language, ScopeMode, ScopeResult, SelectedChunk, SkippedChunk } from "../types.ts";
 
 /** Provenance of one chunk inside a region. `relevance` is absent in `no-jev` mode; `score` is not a probability. */
 export interface JsonChunk {
@@ -41,6 +41,11 @@ export interface JsonPayload {
   retrievalConfigVersion?: string;
   /** Version of the Jev question text and criteria; absent in `no-jev` mode. */
   jevQuestionVersion?: string;
+  /**
+   * Jev's overhead, separate from the selected context; absent in `no-jev` mode and when Jev was not called. `latencyMs`
+   * is the wall clock of the whole decision (requests overlap); tokens are as reported by Jev. No cost is reported.
+   */
+  jev?: JevMetrics;
   /** Present (true) only under `--explain`. */
   explain?: true;
 }
@@ -77,6 +82,22 @@ const toJsonSkipped = (item: SkippedChunk): SkippedChunk => ({
   score: item.score,
 });
 
+// Keys are written out explicitly so their order is fixed and the output deterministic.
+const toJsonJev = ({ requestCount, latencyMs, usage, requests }: JevMetrics): JevMetrics => ({
+  ...(requestCount === undefined ? {} : { requestCount }),
+  latencyMs,
+  usage: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
+  ...(requests === undefined
+    ? {}
+    : {
+        requests: requests.map((r) => ({
+          latencyMs: r.latencyMs,
+          inputTokens: r.inputTokens,
+          outputTokens: r.outputTokens,
+        })),
+      }),
+});
+
 export function toJsonPayload(result: ScopeResult): JsonPayload {
   const byId = new Map(result.chunks.map((item) => [item.chunk.id, item]));
   return {
@@ -99,6 +120,7 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
     skipped: result.skipped.map(toJsonSkipped),
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
     ...(result.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: result.jevQuestionVersion }),
+    ...(result.jev === undefined ? {} : { jev: toJsonJev(result.jev) }),
     ...(result.explain ? { explain: true as const } : {}),
   };
 }
