@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { open, realpath, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { CancelledError } from "../errors.ts";
 import { scanRepository } from "../repository/files.ts";
 
 /** `--output` cannot be honoured. A runtime failure (exit code 1), not a usage error. */
@@ -12,8 +13,8 @@ export class OutputError extends Error {
 }
 
 export interface PreparedOutput {
-  /** Writes the artifact to the target atomically. Cleans up after itself if it fails. */
-  commit(text: string): Promise<void>;
+  /** Writes the artifact to the target atomically; a cancelled `signal` leaves the target untouched. Cleans up after itself if it fails. */
+  commit(text: string, signal?: AbortSignal): Promise<void>;
   /** Removes the temporary file if one exists. Safe to call at any point, any number of times. */
   discard(): Promise<void>;
 }
@@ -89,7 +90,7 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   };
   return {
     discard,
-    async commit(text) {
+    async commit(text, signal) {
       try {
         // A symlink swapped in along the path during the run would send the write somewhere the preflight never checked.
         if ((await resolveTarget(resolve(outputPath))) !== target) throw fail("the destination changed during the run");
@@ -101,11 +102,13 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
         } finally {
           await handle.close();
         }
+        // The last point a Ctrl-C can still leave the destination as it was.
+        if (signal?.aborted) throw new CancelledError();
         await rename(tempPath, target);
         tempPath = undefined;
       } catch (error) {
         await discard();
-        throw error instanceof OutputError ? error : fail(cause(error));
+        throw error instanceof OutputError || error instanceof CancelledError ? error : fail(cause(error));
       }
     },
   };

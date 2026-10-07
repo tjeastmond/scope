@@ -145,6 +145,8 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
     provider: io.provider,
     signal: io.signal,
   });
+  // A Ctrl-C that lands after Jev answered still cancels: nothing is printed or written.
+  if (io.signal?.aborted) throw new CancelledError();
   for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
   if (decision) {
     const { inputTokens, outputTokens } = decision.usage ?? {};
@@ -158,7 +160,7 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
   }
   const artifact = renderFormat(options.format, result);
   if (output) {
-    await output.commit(artifact);
+    await output.commit(artifact, io.signal);
     io.stderr(`scope: wrote ${options.output}\n`);
   } else {
     io.stdout(artifact);

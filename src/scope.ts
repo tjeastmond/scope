@@ -51,7 +51,7 @@ export async function loadChunks(
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
-  const { files, warnings } = await scanRepository(root);
+  const { files, warnings } = await scanRepository(root, {}, signal);
   for (const file of files) {
     if (signal?.aborted) throw new CancelledError();
     const bytes = await readFile(join(root, file));

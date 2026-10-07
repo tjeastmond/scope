@@ -1,6 +1,7 @@
 import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join, posix, relative, sep } from "node:path";
 import ignore, { type Ignore } from "ignore";
+import { CancelledError } from "../errors.ts";
 import { MAX_FILE_BYTES, MAX_SCAN_BYTES, MAX_SCAN_DEPTH, MAX_SCAN_FILES } from "../config.ts";
 
 /** Why a path was left out of the scan. Add members here as new eligibility rules arrive. */
@@ -156,7 +157,11 @@ async function readIgnoreFile(path: string, maxBytes: number): Promise<string> {
  * scanned under its own path, and following the alias would let it dodge the secret, `.gitignore` and directory
  * exclusions that apply to the target. Only binary sniffing reads file content.
  */
-export async function scanRepository(root: string, overrides: Partial<ScanLimits> = {}): Promise<ScanResult> {
+export async function scanRepository(
+  root: string,
+  overrides: Partial<ScanLimits> = {},
+  signal?: AbortSignal,
+): Promise<ScanResult> {
   const limits = { ...DEFAULT_LIMITS, ...overrides };
   const realRoot = await realpath(root);
   const files: string[] = [];
@@ -180,6 +185,8 @@ export async function scanRepository(root: string, overrides: Partial<ScanLimits
     const rules = gitignore ? [...inherited, { base: directory, matcher: ignore().add(gitignore) }] : inherited;
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
+      // A Ctrl-C stops the traversal itself, not just the work after it, so a large repository is not walked to the end.
+      if (signal?.aborted) throw new CancelledError();
       if (stopped) return;
       const path = directory ? `${directory}/${entry.name}` : entry.name;
       let isDirectory = entry.isDirectory();
