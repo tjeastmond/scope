@@ -126,7 +126,7 @@ afterEach(() => {
 
 test("fails clearly when the API key is missing and never names the variable's value", () => {
   delete process.env.TYPESAFE_API_KEY;
-  expect(() => createJevClient()).toThrow(/TYPESAFE_API_KEY is not set.*--no-jev/);
+  expect(() => createJevClient()).toThrow(/TYPESAFE_API_KEY is not set/);
   process.env.TYPESAFE_API_KEY = "   ";
   expect(() => createJevClient()).toThrow(JevUnavailableError);
   expect(() => new JevDecisionProvider()).toThrow(JevUnavailableError);
@@ -267,7 +267,7 @@ test("the CLI never prints the key or echoed content, and prints nothing to stdo
       stderr: (t) => err.push(t),
       provider: new JevDecisionProvider({ client }),
     });
-    expect(code).toBe(1);
+    expect(code).toBeGreaterThanOrEqual(3); // each Jev failure class has its own code, none is 0, 1 or 2
     expect(out.join("")).toBe("");
     expect(err.join("")).not.toContain(FAKE_KEY);
     expect(err.join("")).not.toContain("SECRET_SOURCE");
@@ -307,7 +307,7 @@ test("a cancelled signal stops a --no-jev run after the scan, with nothing on st
     { stdout: (t) => out.push(t), stderr: (t) => err.push(t), signal: controller.signal },
   );
 
-  expect(code).toBe(1);
+  expect(code).toBe(130);
   expect(out.join("")).toBe("");
   expect(err.join("")).toBe("scope: Cancelled: the run was interrupted before it finished\n");
 });

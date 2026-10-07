@@ -92,9 +92,7 @@ export const jevModel = (): string => process.env.TYPESAFE_DEFAULT_MODEL?.trim()
 /** Builds the real client. Reads TYPESAFE_API_KEY from the environment only and never enables SDK logging. */
 export function createJevClient(options: JevClientOptions = {}): JevClient {
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
-    throw new JevAuthError(
-      "TYPESAFE_API_KEY is not set. Set it to run Scope with Jev, or pass --no-jev for the offline baseline.",
-    );
+    throw new JevAuthError("TYPESAFE_API_KEY is not set.");
   }
   // logLevel "off": debug logging would print request bodies (source code) and part of the key.
   return new TypeSafeClient({

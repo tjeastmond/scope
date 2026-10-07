@@ -52,14 +52,14 @@ test("with a decision provider, selects the chunks it judged relevant and report
 
 test("the default path without a key fails with guidance and prints nothing to stdout", async () => {
   const run = capture();
-  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(1);
+  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(3);
   expect(run.stdout()).toBe("");
-  expect(run.stderr()).toMatch(/TYPESAFE_API_KEY is not set.*--no-jev/);
+  expect(run.stderr()).toMatch(/TYPESAFE_API_KEY is not set[\s\S]*--no-jev/);
 });
 
 test("an incomplete provider response fails instead of becoming offline-style results", async () => {
   const run = capture({ decide: async () => ({ judgments: [], usage: {}, latencyMs: 1 }) });
-  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(1);
+  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(7);
   expect(run.stdout()).toBe("");
   expect(run.stderr()).toContain("Missing judgments");
 });
@@ -112,13 +112,13 @@ const failing = (error: Error): DecisionProvider => ({
 });
 
 test.each([
-  [new JevUnavailableError("Jev request failed (HTTP 429, rate limited; try again later)."), "Jev unavailable:"],
-  [new JevResponseError("Missing judgments for 3 candidate(s)."), "Jev returned an unusable response:"],
-  [new JevRequestError("big.ts:1 with the task is too large."), "Jev request not sent:"],
-])("%s exits 1 with a distinct label, empty stdout, and never the key", async (error, label) => {
+  [new JevUnavailableError("Jev request failed (HTTP 429, rate limited; try again later)."), "Jev unavailable:", 6],
+  [new JevResponseError("Missing judgments for 3 candidate(s)."), "Jev returned an unusable response:", 7],
+  [new JevRequestError("big.ts:1 with the task is too large."), "Jev request not sent:", 8],
+])("%s exits with a distinct label, its own exit code, empty stdout, and never the key", async (error, label, code) => {
   process.env.TYPESAFE_API_KEY = KEY;
   const run = capture(failing(error));
-  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(1);
+  expect(await main([TASK, "--repo", FIXTURE], run.io)).toBe(code);
   expect(run.stdout()).toBe("");
   expect(run.stderr()).toContain(label);
   expect(run.stderr()).not.toContain(KEY);
@@ -260,7 +260,7 @@ test.skipIf(!built)("compiled CLI under Node: --no-jev works, default path witho
   expect(offline.code).toBe(0);
   expect(offline.stdout).toContain("== src/");
   const online = await run();
-  expect(online.code).toBe(1);
+  expect(online.code).toBe(3);
   expect(online.stdout).toBe("");
   expect(online.stderr).toContain("TYPESAFE_API_KEY");
 });

@@ -143,7 +143,7 @@ test("a previous output is replaced and leaves no temporary files", async () => 
 test("a run that fails after the preflight leaves neither the target nor a temporary file", async () => {
   const target = join(tmp, "out", "artifact.txt");
   const run = capture({ decide: async () => ({ judgments: [] }) });
-  expect(await main(args("--output", target), run.io)).toBe(1);
+  expect(await main(args("--output", target), run.io)).toBe(7);
   expect(readdirSync(join(tmp, "out"))).toEqual([]);
 });
 
@@ -251,7 +251,7 @@ test("a Ctrl-C that lands after Jev answers writes nothing and leaves the destin
   const run = capture(provider);
   const code = await main(args("--output", target), { ...run.io, signal: controller.signal });
 
-  expect(code).toBe(1);
+  expect(code).toBe(130);
   expect(run.stdout()).toBe("");
   expect(run.stderr()).toBe("scope: Cancelled: the run was interrupted before it finished\n");
   expect(readFileSync(target, "utf8")).toBe("previous artifact\n");

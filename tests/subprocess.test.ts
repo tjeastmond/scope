@@ -2,7 +2,9 @@
 // content and repeatability. The Node under test is `SCOPE_NODE` (default: `node` on PATH), so the same suite runs on
 // Node 24 and 26:  bun run build && SCOPE_NODE=~/.nvm/versions/node/v26.10.0/bin/node bun test tests/subprocess.test.ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -86,7 +88,7 @@ suite("the compiled CLI as a subprocess", () => {
 
   describe("exit codes", () => {
     const failing: [string, string[], number, RegExp][] = [
-      ["the default path without a Jev key", [TASK, "--repo", FIXTURE], 1, /TYPESAFE_API_KEY/],
+      ["the default path without a Jev key", [TASK, "--repo", FIXTURE], 3, /TYPESAFE_API_KEY/],
       [
         "an unwritable --output directory",
         [TASK, "--repo", FIXTURE, "--no-jev", "--output", "/no/such/dir/x.md"],
@@ -104,7 +106,7 @@ suite("the compiled CLI as a subprocess", () => {
       ["a missing repository", [TASK, "--repo", "/no/such/repo", "--no-jev"], 2, /./],
     ];
     for (const [name, args, code, message] of failing) {
-      test(`${name}: exit ${code}, nothing on stdout, one diagnostic on stderr`, () => {
+      test(`${name}: exit ${code}, nothing on stdout, diagnostics on stderr`, () => {
         const run = scope(...args);
         expect(run.code).toBe(code);
         expect(run.stdout.length).toBe(0);
@@ -138,6 +140,186 @@ suite("the compiled CLI as a subprocess", () => {
       expect(run.code).toBe(0);
       expect(JSON.parse(text(run)).regions).toEqual([]);
       expect(run.stderr).toContain("scope: warning: No relevant chunks found");
+    });
+  });
+
+  // Every Jev failure class against a local fake of the Jev API (the SDK honours TYPESAFE_BASE_URL). The server must
+  // answer while the CLI runs, so these use async `spawn`, not `spawnSync`. The key is a fake that never leaves the
+  // machine. A timeout (exit 5) is not covered here: attempts last 30 s and the deadline 90 s, and shipped code has no
+  // override; tests/exit-codes.test.ts covers exit 5 through main() with a fake provider.
+  describe("Jev failures against a fake Jev server", () => {
+    const FAKE_KEY = "fake-key-for-subprocess-tests";
+    type Handler = (request: IncomingMessage, response: ServerResponse, body: string) => void;
+
+    const json = (response: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) => {
+      response.writeHead(status, { "content-type": "application/json", ...headers });
+      response.end(JSON.stringify(body));
+    };
+    const answersFor = (body: string, noul = 0.9) => ({
+      answers: Object.fromEntries(Object.keys(JSON.parse(body).questions).map((ref) => [ref, { type: "noul", noul }])),
+      usage: { input_tokens: 10, output_tokens: 2 },
+    });
+
+    const startServer = async (handler: Handler) => {
+      const requests: string[] = [];
+      const server: Server = createServer((request, response) => {
+        let body = "";
+        request.on("data", (chunk) => (body += chunk));
+        request.on("end", () => {
+          requests.push(body);
+          handler(request, response, body);
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const port = (server.address() as AddressInfo).port;
+      const stop = () =>
+        new Promise<void>((resolve) => {
+          server.close(() => resolve());
+          server.closeAllConnections();
+        });
+      return { url: `http://127.0.0.1:${port}`, requests, stop };
+    };
+
+    interface AsyncRun extends Run {
+      signal: NodeJS.Signals | null;
+    }
+    const scopeAsync = (baseUrl: string | undefined, key: string, onStart?: (kill: () => void) => void) =>
+      new Promise<AsyncRun>((resolve, reject) => {
+        const childEnv: NodeJS.ProcessEnv = { ...process.env, TYPESAFE_API_KEY: key };
+        if (baseUrl === undefined) delete childEnv.TYPESAFE_BASE_URL;
+        else childEnv.TYPESAFE_BASE_URL = baseUrl;
+        const proc = spawn(NODE, [CLI, TASK, "--repo", FIXTURE], { cwd: ROOT, env: childEnv });
+        const out: Buffer[] = [];
+        let err = "";
+        proc.stdout.on("data", (chunk: Buffer) => out.push(chunk));
+        proc.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+        proc.on("error", reject);
+        proc.on("close", (code, signal) => resolve({ stdout: Buffer.concat(out), stderr: err, code, signal }));
+        let interrupted = false;
+        // Once: the CLI sends several requests at once, and a second Ctrl-C terminates the process by design.
+        onStart?.(() => {
+          if (!interrupted) proc.kill("SIGINT");
+          interrupted = true;
+        });
+      });
+
+    /** Runs the CLI against a fake server with `handler` and checks the failure's label, guidance and exit code. */
+    const expectFailure = async (handler: Handler, code: number, label: RegExp) => {
+      const server = await startServer(handler);
+      try {
+        const run = await scopeAsync(server.url, FAKE_KEY);
+        expect(run.code).toBe(code);
+        expect(run.stdout.length).toBe(0);
+        expectDiagnosticsOnly(run.stderr);
+        const lines = run.stderr.split("\n").filter((line) => line !== "");
+        expect(lines).toHaveLength(2);
+        expect(lines[0]).toMatch(label);
+        expect(lines[1]).toMatch(/^scope: .*--no-jev/);
+        expect(run.stderr).not.toContain(FAKE_KEY);
+      } finally {
+        await server.stop();
+      }
+    };
+
+    test("a valid answer exits 0 with the artifact on stdout (the harness works)", async () => {
+      const server = await startServer((_request, response, body) => json(response, 200, answersFor(body)));
+      try {
+        const run = await scopeAsync(server.url, FAKE_KEY);
+        expect(run.code).toBe(0);
+        expectDiagnosticsOnly(run.stderr);
+        expect(text(run).startsWith("Scope context for:")).toBe(true);
+        expect(server.requests.length).toBeGreaterThan(0);
+      } finally {
+        await server.stop();
+      }
+    });
+
+    test("a missing key: exit 3, nothing sent", async () => {
+      const server = await startServer((_request, response) => json(response, 200, {}));
+      try {
+        const run = await scopeAsync(server.url, "");
+        expect(run.code).toBe(3);
+        expect(run.stdout.length).toBe(0);
+        expectDiagnosticsOnly(run.stderr);
+        expect(run.stderr).toContain("scope: Jev unavailable: TYPESAFE_API_KEY is not set.");
+        expect(run.stderr).toMatch(/scope: Set TYPESAFE_API_KEY.*--no-jev/);
+        expect(server.requests).toHaveLength(0);
+      } finally {
+        await server.stop();
+      }
+    });
+
+    test("HTTP 401: exit 3", () =>
+      expectFailure((_request, response) => json(response, 401, { detail: "no" }), 3, /Jev unavailable: .*401/));
+
+    test(
+      "HTTP 429: exit 4",
+      () =>
+        expectFailure(
+          (_request, response) => json(response, 429, { detail: "slow down" }, { "retry-after-ms": "0" }),
+          4,
+          /Jev unavailable: .*rate limit/,
+        ),
+      20_000,
+    );
+
+    test(
+      "HTTP 503: exit 6",
+      () =>
+        expectFailure(
+          (_request, response) => json(response, 503, { detail: "unavailable" }, { "retry-after-ms": "0" }),
+          6,
+          /Jev unavailable: .*503/,
+        ),
+      20_000,
+    );
+
+    test("a closed port (connection refused): exit 6", async () => {
+      const probe = await startServer(() => {});
+      const closed = probe.url;
+      await probe.stop();
+      const run = await scopeAsync(closed, FAKE_KEY);
+      expect(run.code).toBe(6);
+      expect(run.stdout.length).toBe(0);
+      expectDiagnosticsOnly(run.stderr);
+      expect(run.stderr).toContain("scope: Jev unavailable: Could not reach Jev");
+      expect(run.stderr).toMatch(/scope: Check your network.*--no-jev/);
+    }, 30_000);
+
+    test("HTTP 200 with no usable answers: exit 7", () =>
+      expectFailure(
+        (_request, response) => json(response, 200, { answers: {}, usage: { input_tokens: 1, output_tokens: 1 } }),
+        7,
+        /Jev returned an unusable response:/,
+      ));
+
+    test("HTTP 200 with an out-of-range relevance: exit 7", () =>
+      expectFailure(
+        (_request, response, body) => json(response, 200, answersFor(body, 7)),
+        7,
+        /Jev returned an unusable response:.*invalid relevance/,
+      ));
+
+    test("HTTP 400 max_tokens_exceeded: exit 8", () =>
+      expectFailure(
+        (_request, response) => json(response, 400, { detail: { error_type: "max_tokens_exceeded" } }),
+        8,
+        /Jev request not sent:/,
+      ));
+
+    test("SIGINT while Jev never answers: exit 130, empty stdout, Cancelled", async () => {
+      let interrupt: (() => void) | undefined;
+      const server = await startServer(() => interrupt?.()); // never answers
+      try {
+        const run = await scopeAsync(server.url, FAKE_KEY, (kill) => (interrupt = kill));
+        expect(run.signal).toBeNull();
+        expect(run.code).toBe(130);
+        expect(run.stdout.length).toBe(0);
+        expectDiagnosticsOnly(run.stderr);
+        expect(run.stderr).toBe("scope: Cancelled: Jev request cancelled.\n");
+      } finally {
+        await server.stop();
+      }
     });
   });
 

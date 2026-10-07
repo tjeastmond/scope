@@ -64,13 +64,22 @@ scope "Add retry handling to Stripe webhook processing"
 diagnostic baseline, not a replacement for Jev's relevance judgment.
 
 **Failures.** If Jev cannot complete, Scope fails; it never falls back to offline results. Stdout stays empty, the error
-goes to stderr, and the exit code is non-zero:
+goes to stderr, and the exit code says what failed. A Jev failure prints two lines: the labelled message, then one line of
+setup or retry guidance that also names `--no-jev` as the offline baseline you can choose instead (Scope never switches
+to it on its own).
 
-| Exit code | Meaning                                                                                                                                                                                                                                                        |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0         | Success                                                                                                                                                                                                                                                        |
-| 1         | Runtime failure. The message starts with `Jev unavailable:` (missing key, 401/403, 429, network, timeout), `Jev returned an unusable response:` (missing, duplicate or out-of-range answers) or `Jev request not sent:` (a request too large for Jev's limits) |
-| 2         | Usage error (bad argument, `--repo` is not a directory)                                                                                                                                                                                                        |
+| Exit code | Meaning                                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| 0         | Success                                                                                                    |
+| 1         | Any other failure (for example an unwritable `--output`, or an unexpected error)                           |
+| 2         | Usage error (bad argument, `--repo` is not a directory)                                                    |
+| 3         | `Jev unavailable:` the key is missing (`TYPESAFE_API_KEY` is not set) or Jev rejected it (HTTP 401 or 403) |
+| 4         | `Jev unavailable:` rate limited (HTTP 429)                                                                 |
+| 5         | `Jev unavailable:` a request attempt or Scope's overall deadline timed out                                 |
+| 6         | `Jev unavailable:` Jev failed or could not be reached (HTTP 5xx, other HTTP errors, network errors)        |
+| 7         | `Jev returned an unusable response:` missing, duplicate or out-of-range answers                            |
+| 8         | `Jev request not sent:` a request too large for Jev's limits                                               |
+| 130       | `Cancelled:` interrupted with Ctrl-C (128 + SIGINT); stdout stays empty and no guidance line is printed    |
 
 ## Status
 
