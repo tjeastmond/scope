@@ -3,10 +3,16 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { main, type Io } from "../src/main.ts";
-import { JevDecisionProvider, planJevRequests, type JevClient } from "../src/jev/provider.ts";
+import {
+  createJevClient,
+  JevDecisionProvider,
+  planJevRequests,
+  type JevClient,
+  type JevRequest,
+} from "../src/jev/provider.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
 
-type Call = { state: Record<string, unknown>; questions: Record<string, unknown> };
+type Call = JevRequest;
 
 const TASK = "retry webhook delivery";
 const SECRET_LITERAL = "PLANTEDLITERAL12345678";
@@ -16,7 +22,11 @@ const BINARY = "PLANTED_BINARY_MARKER";
 const SECRET_NAMED = "PLANTED_SECRETNAME_MARKER";
 
 let tmp: string;
-const saved = { key: process.env.TYPESAFE_API_KEY, payload: process.env.SCOPE_JEV_PAYLOAD };
+const saved = {
+  key: process.env.TYPESAFE_API_KEY,
+  payload: process.env.SCOPE_JEV_PAYLOAD,
+  model: process.env.TYPESAFE_DEFAULT_MODEL,
+};
 beforeEach(async () => {
   delete process.env.TYPESAFE_API_KEY;
   delete process.env.SCOPE_JEV_PAYLOAD;
@@ -47,6 +57,7 @@ afterEach(async () => {
   for (const [name, value] of [
     ["TYPESAFE_API_KEY", saved.key],
     ["SCOPE_JEV_PAYLOAD", saved.payload],
+    ["TYPESAFE_DEFAULT_MODEL", saved.model],
   ] as const) {
     if (value === undefined) delete process.env[name];
     else process.env[name] = value;
@@ -180,4 +191,24 @@ test.each([
   expect(await main([TASK, "--repo", tmp, ...extra], run.io)).toBe(2);
   expect(run.stdout()).toBe("");
   expect(run.stderr()).toMatch(message);
+});
+
+test("the real SDK transmits exactly the planned body, model included, and honors TYPESAFE_DEFAULT_MODEL", async () => {
+  const candidates = ["a", "b"].map((id) => chunk(id, `export function ${id}() {}`));
+  for (const model of [undefined, "jev-pinned-test"]) {
+    process.env.TYPESAFE_API_KEY = "fake-key-for-capture";
+    if (model === undefined) delete process.env.TYPESAFE_DEFAULT_MODEL;
+    else process.env.TYPESAFE_DEFAULT_MODEL = model;
+    const sent: string[] = [];
+    const fakeFetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      sent.push(String(init?.body));
+      // A non-retried failure: only the transmitted body matters here.
+      return new Response(JSON.stringify({ detail: "stop" }), { status: 400 });
+    }) as typeof fetch;
+    const provider = new JevDecisionProvider({ client: createJevClient({ fetch: fakeFetch }) });
+    await expect(provider.decide({ task: "t", candidates })).rejects.toThrow();
+    const planned = planJevRequests("t", candidates);
+    expect(sent).toEqual(planned.map((request) => JSON.stringify(request)));
+    expect(planned[0]!.model).toBe(model ?? "jev-latest");
+  }
 });

@@ -23,7 +23,7 @@ import { validateRelevance } from "./validate.ts";
 /** The slice of the SDK client Scope uses, so tests can inject a fake. */
 export interface JevClient {
   systemOne(
-    request: { state: Record<string, unknown>; questions: Record<string, unknown> },
+    request: { state: Record<string, unknown>; questions: Record<string, unknown>; model: string },
     options: { signal: AbortSignal },
   ): PromiseLike<{
     answers: Readonly<Record<string, unknown>>;
@@ -57,7 +57,15 @@ const CRITERIA = {
 export interface JevClientOptions {
   /** Timeout of one HTTP attempt in milliseconds (default JEV_ATTEMPT_TIMEOUT_MS). */
   attemptTimeoutMs?: number;
+  /** Test seam: the SDK's HTTP transport (default: global fetch). */
+  fetch?: typeof fetch;
 }
+
+/**
+ * The model Jev answers with, resolved the way the SDK resolves its default (TYPESAFE_DEFAULT_MODEL, then
+ * `jev-latest`). Scope sends it explicitly, so the SDK transmits the planned body unchanged and the payload audit names it.
+ */
+export const jevModel = (): string => process.env.TYPESAFE_DEFAULT_MODEL?.trim() || "jev-latest";
 
 /** Builds the real client. Reads TYPESAFE_API_KEY from the environment only and never enables SDK logging. */
 export function createJevClient(options: JevClientOptions = {}): JevClient {
@@ -70,6 +78,7 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
   return new TypeSafeClient({
     logLevel: "off",
     timeout: options.attemptTimeoutMs ?? JEV_ATTEMPT_TIMEOUT_MS,
+    ...(options.fetch ? { fetch: options.fetch } : {}),
   }) as unknown as JevClient;
 }
 
@@ -101,35 +110,36 @@ interface Batch {
 
 /** One request for a group of candidates. Question IDs are not sent to the model, so each question names its
  * candidate by its state path; `first` keeps refs unique across batches. */
-function buildBatch(task: string, chunks: CodeChunk[], first: number, cap: number): Batch {
+function buildBatch(task: string, chunks: CodeChunk[], first: number, cap: number, model: string): Batch {
   const refs = chunks.map((_chunk, i) => `c${first + i}`);
   const state = { task, candidates: Object.fromEntries(chunks.map((chunk, i) => [refs[i], describe(chunk, cap)])) };
   const questions = Object.fromEntries(refs.map((ref) => [ref, noul(question(ref), CRITERIA)]));
-  return { chunks, refs, request: { state, questions } };
+  return { chunks, refs, request: { state, questions, model } };
 }
 
 const requestChars = (batch: Batch) => JSON.stringify(batch.request).length;
 
 /** Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). */
 function planBatches(task: string, candidates: readonly CodeChunk[], limit: number, cap: number): Batch[] {
+  const model = jevModel();
   const batches: Batch[] = [];
   let current: CodeChunk[] = [];
   let first = 0;
   for (const chunk of candidates) {
-    if (current.length > 0 && requestChars(buildBatch(task, [...current, chunk], first, cap)) > limit) {
-      batches.push(buildBatch(task, current, first, cap));
+    if (current.length > 0 && requestChars(buildBatch(task, [...current, chunk], first, cap, model)) > limit) {
+      batches.push(buildBatch(task, current, first, cap, model));
       first += current.length;
       current = [];
     }
     current.push(chunk);
-    const size = requestChars(buildBatch(task, current, first, cap));
+    const size = requestChars(buildBatch(task, current, first, cap, model));
     if (current.length === 1 && size > limit) {
       throw new JevRequestError(
         `${chunk.file}:${chunk.startLine} with the task is too large to send to Jev (${size} characters).`,
       );
     }
   }
-  if (current.length > 0) batches.push(buildBatch(task, current, first, cap));
+  if (current.length > 0) batches.push(buildBatch(task, current, first, cap, model));
   return batches;
 }
 
