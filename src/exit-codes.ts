@@ -5,7 +5,6 @@ import {
   JevRateLimitError,
   JevRequestError,
   JevResponseError,
-  JevServiceError,
   JevTimeoutError,
   JevUnavailableError,
 } from "./jev/errors.ts";
@@ -37,7 +36,7 @@ export function exitCodeFor(error: unknown): number {
   if (error instanceof JevAuthError) return EXIT_CODES.jevAuth;
   if (error instanceof JevRateLimitError) return EXIT_CODES.jevRateLimit;
   if (error instanceof JevTimeoutError) return EXIT_CODES.jevTimeout;
-  if (error instanceof JevServiceError || error instanceof JevUnavailableError) return EXIT_CODES.jevService;
+  if (error instanceof JevUnavailableError) return EXIT_CODES.jevService;
   if (error instanceof JevResponseError) return EXIT_CODES.jevResponse;
   if (error instanceof JevRequestError) return EXIT_CODES.jevRequest;
   return EXIT_CODES.failure;

@@ -4,7 +4,6 @@ import {
   JevRateLimitError,
   JevRequestError,
   JevResponseError,
-  JevServiceError,
   JevTimeoutError,
   JevUnavailableError,
 } from "./jev/errors.ts";
@@ -123,7 +122,6 @@ const GUIDANCE: [new (...args: never[]) => Error, string][] = [
   [JevAuthError, `Set TYPESAFE_API_KEY to a valid TypeSafe key, ${NO_JEV}`],
   [JevRateLimitError, `Wait a moment and retry, ${NO_JEV}`],
   [JevTimeoutError, `Retry; if it keeps timing out, narrow the task or point --repo at a smaller directory, ${NO_JEV}`],
-  [JevServiceError, `Check your network connection and retry later, ${NO_JEV}`],
   [JevUnavailableError, `Check your network connection and retry later, ${NO_JEV}`],
   [JevResponseError, `Retry; if it persists, report it with the message above, ${NO_JEV}`],
   [JevRequestError, `Narrow the task or point --repo at a smaller directory, ${NO_JEV}`],
