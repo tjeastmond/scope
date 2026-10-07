@@ -154,6 +154,121 @@ describe("unusable documents read as empty with a warning", () => {
 });
 
 describe("commit", () => {
+  test("tx.list names the documents on disk and tx.removeName deletes by name", async () => {
+    await put();
+    await writeFile(docPath("other"), "{}");
+    await writeFile(join(dir, "Bad_Name.json"), "{}");
+    await writeFile(join(dir, "notes.txt"), "x");
+    let listed: string[] = [];
+    await store.commit(async (tx) => {
+      listed = await tx.list();
+      tx.removeName("other");
+    });
+    expect(listed).toEqual(["files", "other"]);
+    expect(await readdir(dir)).not.toContain("other.json");
+    expect(await readdir(dir)).toContain("files.json");
+  });
+
+  test("tx.list is empty when the store directory does not exist yet, and removeName rejects bad names", async () => {
+    const fresh = new DocumentStore(join(dir, "missing"));
+    let listed: string[] | undefined;
+    await fresh.commit(async (tx) => {
+      listed = await tx.list();
+    });
+    expect(listed).toEqual([]);
+    await expect(
+      store.commit((tx) => {
+        tx.removeName("../escape");
+      }),
+    ).rejects.toThrow("invalid document name");
+  });
+
+  test("tx.list fails the commit when the directory cannot be listed", async () => {
+    if (process.getuid?.() === 0) return;
+    await put();
+    await chmod(dir, 0o300);
+    const outcome = store.commit(async (tx) => {
+      await tx.list();
+    });
+    await expect(outcome).rejects.toThrow();
+  });
+
+  test("tx.read sees writes and removals staged earlier in the same transaction", async () => {
+    await put({ items: ["disk"] });
+    const seen: unknown[] = [];
+    await store.commit(async (tx) => {
+      const value = { items: ["staged"] };
+      tx.write(files, value);
+      value.items.push("mutated");
+      const first = await tx.read(files);
+      first?.items.push("mutated");
+      seen.push(await tx.read(files));
+      tx.remove(files);
+      seen.push(await tx.read(files));
+    });
+    expect(seen).toEqual([{ items: ["staged"] }, undefined]);
+  });
+
+  for (const [failOn, stage] of [
+    [1, "before taking the lock"],
+    [2, "after taking the lock, before cleanup and update"],
+    [3, "before writing"],
+  ] as const) {
+    test(`verifyDirectory failing ${stage} touches nothing and does not commit`, async () => {
+      await put({ items: ["old"] });
+      const old = new Date(Date.now() - 10 * 60_000);
+      await writeFile(join(dir, "old.tmp"), "x");
+      await utimes(join(dir, "old.tmp"), old, old);
+      let calls = 0;
+      let updated = false;
+      const guarded = new DocumentStore(dir, {
+        verifyDirectory: () => {
+          calls += 1;
+          if (calls >= failOn) throw new Error("directory replaced");
+        },
+      });
+      const outcome = await guarded.commit((tx) => {
+        updated = true;
+        tx.write(files, { items: ["new"] });
+      });
+      expect(outcome).toEqual({ committed: false, warning: "cache not written: directory replaced" });
+      expect(updated).toBe(failOn === 3);
+      // The sweep runs once the directory has been verified under the lock, so only a late failure sees it done. Once
+      // the directory fails verification, even our own lock is left for a later run to break.
+      const expected = {
+        1: ["files.json", "old.tmp"],
+        2: ["files.json", "lock", "old.tmp"],
+        3: ["files.json", "lock"],
+      };
+      expect((await readdir(dir)).sort()).toEqual(expected[failOn]);
+      expect((await store.read(files)).value).toEqual({ items: ["old"] });
+    });
+  }
+
+  for (const [failOn, stage] of [
+    [2, "before claiming a stale lock"],
+    [3, "before moving a stale lock away"],
+  ] as const) {
+    test(`verifyDirectory failing ${stage} leaves the stale lock in place`, async () => {
+      const lockPath = join(dir, "lock");
+      await writeFile(lockPath, JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
+      const old = new Date(Date.now() - 120_000);
+      await utimes(lockPath, old, old);
+      let calls = 0;
+      const guarded = new DocumentStore(dir, {
+        verifyDirectory: () => {
+          calls += 1;
+          if (calls === failOn) throw new Error("directory replaced");
+        },
+      });
+      const outcome = await guarded.commit((tx) => tx.write(files, { items: ["new"] }));
+      expect(outcome).toEqual({ committed: false, warning: "cache not written: directory replaced" });
+      expect(JSON.parse(await readFile(lockPath, "utf8")).token).toBe("dead");
+      const claims = (await readdir(dir)).filter((name) => name.startsWith(".lock.break."));
+      expect(claims).toHaveLength(failOn === 2 ? 0 : 1);
+    });
+  }
+
   test("staged writes are not visible if update throws, and the lock is released", async () => {
     await put({ items: ["old"] });
     await expect(

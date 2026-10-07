@@ -79,26 +79,35 @@ than hanging. A run that cannot get the lock within 2 seconds skips its commit a
 not cached`); its output is unaffected. Two concurrent runs therefore both produce correct output, and the store holds
 one of their commits or a merge of both, never a mix of half-written documents.
 
-## Location, partitioning and version keys (#69, _planned_)
+## Location and version keys (#69)
 
 - The store lives in `.scope/` at the repository root (the `--repo` path, which is exactly the root; Scope never walks
   up to a git root). The scanner already skips `.scope/` (M2), so cache files are never scanned or sent to Jev.
-- On first write Scope creates `.scope/.gitignore` containing `*`, so git ignores the directory without Scope ever
-  editing the user's own `.gitignore`. The README tells users this.
-- Layout: `.scope/store-v<major>/<partition>/`, where `<partition>` is the first 16 hex digits of the SHA-256 of the
-  repository's real path. A copied or moved repository gets a new partition; two repositories never share one.
-  Partitions not used for 30 days are removed on the next commit.
-- `meta.json` in each partition records the repository root and the version keys: store schema, Scope's package
-  version, the analyzer fingerprint (a SHA-256 over the source of every module that affects analysis: `analyzers/`,
-  `chunk-id`, `repository/language` and `repository/redact`, so any change to them invalidates without a manual
-  bump), the `web-tree-sitter` version and the grammar package versions. When any key differs, the source-analysis
-  data of the partition is discarded and rebuilt; history, decisions and feedback carry their own provenance and are
-  validated per record instead.
+- On the first commit Scope creates `.scope/.gitignore` containing `*`, only when it is missing, so git ignores the
+  directory without Scope ever editing the user's own `.gitignore`. The README tells users this.
+- Layout: `.scope/store-v<STORE_MAJOR>/`. There are no partition subdirectories: `.scope/` lives inside the repository,
+  so two repositories never share a store. Directories for another store major are left untouched, since an older
+  Scope may still use them.
+- `meta.json` records the repository's real path (`root`), the version keys and `lastUsed`. It is read on open and
+  written on every commit. Opening writes nothing.
+- The version keys are: the store major, Scope's package version, the analyzer fingerprint (a SHA-256 over the contents
+  of every module that affects analysis: all of `analyzers/`, `chunk-id`, `repository/language` and
+  `repository/redact`, so any change to them invalidates without a manual bump), the `web-tree-sitter` package version
+  and the package versions of the grammar sources (`tree-sitter-wasms` and `@tree-sitter-grammars/tree-sitter-yaml`).
+- The cache is `fresh` when meta is missing or unusable, or when its `root` or any key differs. A copied or moved
+  repository has a different real path and so rebuilds; a symlinked path to the same repository does not. A commit
+  re-reads `meta` under the lock, since another run may have committed other keys after this one opened; if it is
+  stale, every document except `meta` is removed in the same transaction, then the caller's update runs (and reads
+  the removals as missing). History, decisions and feedback carry their own provenance and are validated per record instead (#73 onwards).
 - Ignore rules are not a version key: the scan is never cached, so a changed `.gitignore` adds and removes files on
   the next run like any other change.
-- The CLI uses the store by default. `--no-cache` (or `SCOPE_CACHE=off`) runs without reading or writing it. An
-  unwritable repository directory gives one warning and an uncached run. `runScope` takes the store as an option and
-  uses none by default, so library callers and tests never write into a repository by accident.
+- `.scope/` and the store directory must be real directories: if either is a symlink (repository contents are
+  untrusted), the cache is disabled rather than reading, writing or removing through the link.
+- Any failure (unresolvable root, unreadable analyzer module, unwritable repository) disables the cache with one
+  warning and never fails the run.
+- The CLI will use the store by default. `--no-cache` (or `SCOPE_CACHE=off`) will run without reading or writing it.
+  `runScope` will take the store as an option and use none by default, so library callers and tests never write into
+  a repository by accident.
 
 ## Source analysis cache (#70, #71, #72, _planned_)
 
@@ -142,7 +151,6 @@ one of their commits or a merge of both, never a mix of half-written documents.
 | Run history           | Newest 200 runs, none older than 90 days (#73)            |
 | Reusable decisions    | Newest 500, none older than 7 days (#75)                  |
 | Feedback              | Newest 2,000 observations, none older than 365 days (#76) |
-| Partitions            | Removed after 30 days unused                              |
 
 ## What is never stored
 

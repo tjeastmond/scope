@@ -38,12 +38,19 @@ export interface ReadOutcome<T> {
 
 /** Staged changes inside a commit. Nothing is written until the update function returns. */
 export interface Transaction {
-  /** Reads fresh from disk inside the lock; a missing or unusable document is `undefined`. */
+  /**
+   * Reads fresh from disk inside the lock; a missing or unusable document is `undefined`. A document staged for
+   * removal in this transaction reads as `undefined`; a staged write reads back as written.
+   */
   read<T>(type: DocumentType<T>): Promise<T | undefined>;
   /** Stages a document; written atomically after the update function returns. The payload must be a plain object. */
   write<T>(type: DocumentType<T>, value: T): void;
   /** Stages a deletion. */
   remove(type: DocumentType<unknown>): void;
+  /** Names of the documents present on disk (`*.json` files whose name is valid), without the extension. */
+  list(): Promise<string[]>;
+  /** Stages the deletion of a document by name, for documents whose type the caller does not know. */
+  removeName(name: string): void;
 }
 
 export type CommitOutcome = { committed: true } | { committed: false; warning: string };
@@ -55,6 +62,12 @@ export interface DocumentStoreOptions {
   lockWaitMs?: number;
   /** Test seam: runs after a breaker has re-checked a stale lock and before it moves it away. */
   beforeBreakRename?: () => Promise<void> | void;
+  /**
+   * Throws if the store directory is no longer the one the caller chose (for example, replaced by a symlink). A commit
+   * runs it before every attempt to take the lock, before claiming and before moving a stale lock, after taking the
+   * lock and before any cleanup or update, and before writing; a failure means nothing more is touched and the commit is not cached.
+   */
+  verifyDirectory?: () => Promise<void> | void;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -169,12 +182,14 @@ export class DocumentStore {
   readonly #staleMs: number;
   readonly #waitMs: number;
   readonly #beforeBreakRename: (() => Promise<void> | void) | undefined;
+  readonly #verifyDirectory: () => Promise<void> | void;
 
   /** `directory` is absolute and is created on the first commit. Choosing it is the caller's concern. */
   constructor(directory: string, options: DocumentStoreOptions = {}) {
     this.directory = directory;
     this.#staleMs = options.lockStaleMs ?? LOCK_STALE_MS;
     this.#beforeBreakRename = options.beforeBreakRename;
+    this.#verifyDirectory = options.verifyDirectory ?? (() => undefined);
     this.#waitMs = options.lockWaitMs ?? LOCK_WAIT_MS;
   }
 
@@ -199,22 +214,43 @@ export class DocumentStore {
   ): Promise<CommitOutcome> {
     const staged = new Map<string, { type: DocumentType<unknown>; text: string | undefined }>();
     const tx: Transaction = {
-      read: async (type) => {
+      read: async <T>(type: DocumentType<T>) => {
         assertName(type);
+        const pending = staged.get(type.name);
+        if (pending) {
+          if (pending.text === undefined) return undefined;
+          // A fresh copy of what will be written, like a read from disk; never the caller's or a shared object.
+          const written = JSON.parse(pending.text) as Record<string, unknown>;
+          delete written.schemaVersion;
+          return written as T;
+        }
         return (await parseDocument(join(this.directory, `${type.name}.json`), type)).value;
       },
       write: (type, value) => {
         assertName(type);
         if (!isPlainObject(value)) throw new TypeError(`${type.name}: payload must be a plain object`);
         if ("schemaVersion" in value) throw new TypeError(`${type.name}: payload must not contain schemaVersion`);
-        staged.set(type.name, {
-          type: type as DocumentType<unknown>,
-          text: JSON.stringify({ schemaVersion: type.schemaVersion, ...value }),
-        });
+        const text = JSON.stringify({ schemaVersion: type.schemaVersion, ...value });
+        staged.set(type.name, { type: type as DocumentType<unknown>, text });
       },
       remove: (type) => {
         assertName(type);
         staged.set(type.name, { type, text: undefined });
+      },
+      list: async () => {
+        const entries = await readdir(this.directory, { withFileTypes: true }).catch((error: unknown) => {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+          throw error;
+        });
+        return entries
+          .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+          .map((entry) => entry.name.slice(0, -".json".length))
+          .filter((name) => NAME_PATTERN.test(name))
+          .sort();
+      },
+      removeName: (name) => {
+        assertName({ name });
+        staged.set(name, { type: { name } as DocumentType<unknown>, text: undefined });
       },
     };
 
@@ -227,6 +263,11 @@ export class DocumentStore {
       return { committed: false, warning: `cache not written: ${reason(error)}` };
     }
     try {
+      try {
+        await this.#verifyDirectory();
+      } catch (error) {
+        return { committed: false, warning: `cache not written: ${reason(error)}` };
+      }
       await this.#sweepTemps().catch(() => undefined);
       // An error from `update` (including a bad staged write) propagates, whatever its type; nothing is written.
       await update(tx);
@@ -235,6 +276,7 @@ export class DocumentStore {
         return { committed: false, warning: "cache lock lost; this run was not cached" };
       }
       try {
+        await this.#verifyDirectory();
         for (const [name, { text }] of staged) {
           if (text === undefined) await rm(join(this.directory, `${name}.json`), { force: true });
           else await writeAtomic(this.directory, name, text);
@@ -253,6 +295,7 @@ export class DocumentStore {
     const lockPath = join(this.directory, LOCK_FILE);
     const deadline = Date.now() + waitMs;
     for (;;) {
+      await this.#verifyDirectory();
       const token = randomHex();
       try {
         const handle = await open(lockPath, "wx");
@@ -286,6 +329,7 @@ export class DocumentStore {
     let claimed = false;
     for (let level = 0; level <= MAX_BREAK_LEVEL && !claimed; level++) {
       const claim = join(this.directory, `${BREAK_CLAIM_PREFIX}${id}.${level}.tmp`);
+      await this.#verifyDirectory();
       try {
         await (await open(claim, "wx")).close();
         claimed = true;
@@ -301,6 +345,7 @@ export class DocumentStore {
     if (current === undefined) return true;
     if (lockIdentity(current) !== id || current.age <= this.#staleMs) return true; // replaced by another lock
     await this.#beforeBreakRename?.();
+    await this.#verifyDirectory();
     const moved = join(this.directory, `.${LOCK_FILE}.${randomHex()}.tmp`);
     try {
       await rename(lockPath, moved);
@@ -360,10 +405,12 @@ export class DocumentStore {
   async #release(token: string): Promise<void> {
     const lockPath = join(this.directory, LOCK_FILE);
     try {
+      // A replaced directory is left alone; our lock in the original goes stale and is broken by a later run.
+      await this.#verifyDirectory();
       const doc: unknown = JSON.parse(await readRegularFile(lockPath));
       if (isPlainObject(doc) && doc.token === token) await rm(lockPath, { force: true });
     } catch {
-      // Already gone or unreadable: nothing of ours to release.
+      // Already gone, unreadable or the directory was replaced: nothing of ours to release.
     }
   }
 

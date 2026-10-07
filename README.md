@@ -81,6 +81,12 @@ to it on its own).
 | 8         | `Jev request not sent:` a request too large for Jev's limits                                               |
 | 130       | `Cancelled:` interrupted with Ctrl-C (128 + SIGINT); stdout stays empty and no guidance line is printed    |
 
+## Local cache (`.scope/`)
+
+Scope keeps derived data in `.scope/` at the repository root. It creates `.scope/.gitignore` so git ignores the
+directory, and it never edits your own `.gitignore`. You can delete the directory at any time; Scope rebuilds what it
+needs on the next run.
+
 ## Status
 
 Early development. See [docs/scope-implementation-plan.md](docs/scope-implementation-plan.md).
