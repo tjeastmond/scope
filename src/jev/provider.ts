@@ -28,6 +28,7 @@ import {
   JevServiceError,
   JevTimeoutError,
 } from "./errors.ts";
+import { redactSecrets } from "../repository/redact.ts";
 import { validateRelevance } from "./validate.ts";
 
 /** The slice of the SDK client Scope uses, so tests can inject a fake. */
@@ -220,6 +221,16 @@ const isTooLarge = (error: BadRequestError) => {
  * timeout, so a Ctrl-C is told apart from a deadline. Deliberately omits the SDK message, body, headers and `cause`
  * (they can echo request content and credentials); only the error kind, HTTP status and request id are used.
  */
+/**
+ * Whether a server-supplied request id may appear in an error message. It is untrusted: it must be short and plain, and
+ * must not carry the API key or any other credential-shaped text.
+ */
+function isSafeRequestId(id: string | null | undefined): id is string {
+  if (!id || !/^[\w-]{1,64}$/.test(id)) return false;
+  const key = process.env.TYPESAFE_API_KEY?.trim();
+  return !(key && id.includes(key)) && redactSecrets(id) === id;
+}
+
 function failure(error: unknown, caller: AbortSignal | undefined, deadline: AbortSignal): JevError {
   if (caller?.aborted) return new JevCancelledError("Jev request cancelled.");
   if (deadline.aborted) return new JevTimeoutError("Jev did not respond before Scope's overall deadline; try again.");
@@ -232,7 +243,7 @@ function failure(error: unknown, caller: AbortSignal | undefined, deadline: Abor
     if (status === 429) return new JevRateLimitError("Jev rate limit reached (HTTP 429); try again later.");
     if (error instanceof BadRequestError && isTooLarge(error))
       return new JevRequestError("The request exceeds Jev's token limit; narrow the task or the repository.");
-    const id = error.requestId?.match(/^[\w-]{1,64}$/) ? `, request ${error.requestId}` : "";
+    const id = isSafeRequestId(error.requestId) ? `, request ${error.requestId}` : "";
     return new JevServiceError(`Jev request failed (HTTP ${status}${id}).`);
   }
   if (error instanceof APIConnectionError) return new JevServiceError("Could not reach Jev (connection error).");
