@@ -212,12 +212,18 @@ export class DocumentStore {
     update: (tx: Transaction) => Promise<void> | void,
     options: { lockWaitMs?: number } = {},
   ): Promise<CommitOutcome> {
-    const staged = new Map<string, { type: DocumentType<unknown>; text: string | undefined; value?: unknown }>();
+    const staged = new Map<string, { type: DocumentType<unknown>; text: string | undefined }>();
     const tx: Transaction = {
       read: async <T>(type: DocumentType<T>) => {
         assertName(type);
         const pending = staged.get(type.name);
-        if (pending) return pending.value as T | undefined;
+        if (pending) {
+          if (pending.text === undefined) return undefined;
+          // A fresh copy of what will be written, like a read from disk; never the caller's or a shared object.
+          const written = JSON.parse(pending.text) as Record<string, unknown>;
+          delete written.schemaVersion;
+          return written as T;
+        }
         return (await parseDocument(join(this.directory, `${type.name}.json`), type)).value;
       },
       write: (type, value) => {
@@ -225,10 +231,7 @@ export class DocumentStore {
         if (!isPlainObject(value)) throw new TypeError(`${type.name}: payload must be a plain object`);
         if ("schemaVersion" in value) throw new TypeError(`${type.name}: payload must not contain schemaVersion`);
         const text = JSON.stringify({ schemaVersion: type.schemaVersion, ...value });
-        // Read back what will be written, not the caller's (mutable) object.
-        const written = JSON.parse(text) as Record<string, unknown>;
-        delete written.schemaVersion;
-        staged.set(type.name, { type: type as DocumentType<unknown>, text, value: written });
+        staged.set(type.name, { type: type as DocumentType<unknown>, text });
       },
       remove: (type) => {
         assertName(type);

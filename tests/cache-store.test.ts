@@ -200,6 +200,8 @@ describe("commit", () => {
       const value = { items: ["staged"] };
       tx.write(files, value);
       value.items.push("mutated");
+      const first = await tx.read(files);
+      first?.items.push("mutated");
       seen.push(await tx.read(files));
       tx.remove(files);
       seen.push(await tx.read(files));
