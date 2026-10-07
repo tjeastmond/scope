@@ -32,6 +32,11 @@ characters]` line marking the cut; the selected output still contains the full c
 Candidates are judged in requests of at most 16 questions, up to 4 at a time. If any request fails, the whole run
 fails; Scope never returns a partial result.
 
+**Time limits.** Each request attempt times out after 30 seconds. The SDK retries a failed attempt at most twice (HTTP
+408, 429 and 5xx, connection errors and timeouts), waiting at most 10 seconds between attempts. Scope adds no retries
+of its own. All Jev requests of a run share a 90-second overall deadline (`JEV_DEADLINE_MS` in `src/config.ts`): past
+it, the run fails with `Jev unavailable: ... deadline` and stdout stays empty.
+
 **Audit the payload.** `SCOPE_JEV_PAYLOAD=print` makes Scope scan and shortlist as usual, then print the exact request
 bodies it would send (a JSON array, one element per request, each with its `state`, `questions` and `model`) to stdout
 and exit 0. The model is `TYPESAFE_DEFAULT_MODEL` if set, otherwise `jev-latest`. Nothing is sent and no key is needed.

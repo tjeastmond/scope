@@ -14,6 +14,8 @@ import {
   JEV_CANDIDATE_MAX_CHARS,
   JEV_CONCURRENCY,
   JEV_DEADLINE_MS,
+  JEV_MAX_RETRIES,
+  JEV_MAX_RETRY_AFTER_MS,
 } from "../config.ts";
 import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
 import {
@@ -98,6 +100,18 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
   return new TypeSafeClient({
     logLevel: "off",
     timeout: options.attemptTimeoutMs ?? JEV_ATTEMPT_TIMEOUT_MS,
+    // Spelled out rather than inherited, so the worst case documented at JEV_DEADLINE_MS rests on values Scope sets.
+    retry: {
+      maxRetries: JEV_MAX_RETRIES,
+      backoffInitialMs: 500,
+      backoffMaxMs: 5_000,
+      backoffJitter: 0.25,
+      httpStatuses: new Set([408, 429, ...Array.from({ length: 100 }, (_unused, i) => 500 + i)]),
+      respectRetryAfter: true,
+      maxRetryAfterMs: JEV_MAX_RETRY_AFTER_MS,
+      apiConnectionError: true,
+      apiTimeoutError: true,
+    },
     ...(options.fetch ? { fetch: options.fetch } : {}),
   }) as unknown as JevClient;
 }
@@ -297,7 +311,21 @@ export class JevDecisionProvider implements DecisionProvider {
       internal.abort();
     };
 
-    await runPool(
+    // The deadline holds even if a request ignores its signal: the run stops waiting the moment any signal fires.
+    let stopWaiting = () => {};
+    const stopped = new Promise<void>((resolve) => {
+      const onAbort = () => {
+        if (signal?.aborted) fail(new JevCancelledError("Jev request cancelled."));
+        else if (deadline.aborted)
+          fail(new JevTimeoutError("Jev did not respond before Scope's overall deadline; try again."));
+        resolve();
+      };
+      if (combined.aborted) onAbort();
+      else combined.addEventListener("abort", onAbort, { once: true });
+      stopWaiting = () => combined.removeEventListener("abort", onAbort);
+    });
+
+    const pool = runPool(
       batches,
       this.concurrency,
       () => firstFailure !== undefined,
@@ -328,6 +356,8 @@ export class JevDecisionProvider implements DecisionProvider {
         }
       },
     );
+    await Promise.race([pool, stopped]);
+    stopWaiting();
     if (firstFailure) throw firstFailure;
 
     const judgments = candidates.map((chunk) => {

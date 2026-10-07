@@ -32,11 +32,30 @@ export const JEV_CANDIDATE_MAX_CHARS = 6_000;
  */
 export const JEV_QUESTION_VERSION = "relevance-v1";
 
-/** Overall deadline for judging all candidates; the SDK only bounds each attempt. */
+/**
+ * Overall deadline for judging all candidates: the Jev phase of a run never takes longer, even if a request ignores
+ * cancellation. The SDK bounds only each attempt and has no total retry budget. Without this deadline the worst case
+ * would be ceil(batches / JEV_CONCURRENCY) rounds of one batch's worst case, which is (JEV_MAX_RETRIES + 1) attempts x
+ * JEV_ATTEMPT_TIMEOUT_MS plus JEV_MAX_RETRIES waits of at most JEV_MAX_RETRY_AFTER_MS: 3 x 30 s + 2 x 10 s = 110 s per
+ * round. So this deadline, not the retries, is the bound. Measured attempts take well under a second
+ * (docs/jev-sdk-notes.md).
+ */
 export const JEV_DEADLINE_MS = 90_000;
 
-/** Per-attempt SDK timeout. */
+/** Per-attempt SDK timeout, covering the full response. */
 export const JEV_ATTEMPT_TIMEOUT_MS = 30_000;
+
+/**
+ * SDK retries after the first attempt, for HTTP 408, 429 and 5xx, connection errors and attempt timeouts. Scope adds
+ * no retry loop of its own.
+ */
+export const JEV_MAX_RETRIES = 2;
+
+/**
+ * Longest server-requested `Retry-After` the SDK waits before a retry (the SDK default is 60 s). A longer request falls
+ * back to the SDK's backoff of 0.5 s doubling to at most 5 s.
+ */
+export const JEV_MAX_RETRY_AFTER_MS = 10_000;
 
 /** Candidates scoring below this are never selected. */
 export const MIN_RELEVANCE = 0.5;
