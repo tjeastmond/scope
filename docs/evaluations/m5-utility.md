@@ -117,8 +117,6 @@ candidates (so in [0, 1]), with w in {0, 0.05, 0.1, 0.2} on the held-out task, a
 | 0.60 / w=0.1       | 33%             | 50%           | 100%      | 0.0        | 3.0           | 5.0            | 86%            |
 | 0.60 / w=0.2       | 33%             | 50%           | 100%      | 0.0        | 3.7 (3.0-4.0) | 5.7 (5.0-6.0)  | 85% (84%-86%)  |
 
-Usage in the cache: 60537 input and 4842 output tokens, latency 203 (161-263) ms
-
 Verdict: no benefit. Required recall, useful recall and precision are identical at every weight; blending only lifts
 unlabeled chunks over the line, so the selection grows (for example at 0.50, w=0.2: 7.3 chunks and 78% size reduction
 against 6.0 and 84%). The deterministic score cannot recover the two required chunks that are outside the shortlist,

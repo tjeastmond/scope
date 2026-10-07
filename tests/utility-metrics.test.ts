@@ -37,6 +37,9 @@ describe("evaluateSelection", () => {
     expect(e.precision).toBeUndefined();
     expect(e.usefulRecall).toBe(0);
     expect(evaluateSelection({ ...base, selectedIds: new Set(["u1"]) }).usefulRecall).toBe(1);
+    expect(
+      evaluateSelection({ ...base, usefulIds: new Set(), selectedIds: new Set(["r1"]) }).usefulRecall,
+    ).toBeUndefined();
   });
 
   test("size reduction compares selected characters with the baseline", () => {
