@@ -44,6 +44,10 @@ export interface Transaction {
   write<T>(type: DocumentType<T>, value: T): void;
   /** Stages a deletion. */
   remove(type: DocumentType<unknown>): void;
+  /** Names of the documents present on disk (`*.json` files whose name is valid), without the extension. */
+  list(): Promise<string[]>;
+  /** Stages the deletion of a document by name, for documents whose type the caller does not know. */
+  removeName(name: string): void;
 }
 
 export type CommitOutcome = { committed: true } | { committed: false; warning: string };
@@ -215,6 +219,18 @@ export class DocumentStore {
       remove: (type) => {
         assertName(type);
         staged.set(type.name, { type, text: undefined });
+      },
+      list: async () => {
+        const entries = await readdir(this.directory, { withFileTypes: true }).catch(() => []);
+        return entries
+          .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+          .map((entry) => entry.name.slice(0, -".json".length))
+          .filter((name) => NAME_PATTERN.test(name))
+          .sort();
+      },
+      removeName: (name) => {
+        assertName({ name });
+        staged.set(name, { type: { name } as DocumentType<unknown>, text: undefined });
       },
     };
 

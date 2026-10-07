@@ -154,6 +154,35 @@ describe("unusable documents read as empty with a warning", () => {
 });
 
 describe("commit", () => {
+  test("tx.list names the documents on disk and tx.removeName deletes by name", async () => {
+    await put();
+    await writeFile(docPath("other"), "{}");
+    await writeFile(join(dir, "Bad_Name.json"), "{}");
+    await writeFile(join(dir, "notes.txt"), "x");
+    let listed: string[] = [];
+    await store.commit(async (tx) => {
+      listed = await tx.list();
+      tx.removeName("other");
+    });
+    expect(listed).toEqual(["files", "other"]);
+    expect(await readdir(dir)).not.toContain("other.json");
+    expect(await readdir(dir)).toContain("files.json");
+  });
+
+  test("tx.list is empty when the store directory does not exist yet, and removeName rejects bad names", async () => {
+    const fresh = new DocumentStore(join(dir, "missing"));
+    let listed: string[] | undefined;
+    await fresh.commit(async (tx) => {
+      listed = await tx.list();
+    });
+    expect(listed).toEqual([]);
+    await expect(
+      store.commit((tx) => {
+        tx.removeName("../escape");
+      }),
+    ).rejects.toThrow("invalid document name");
+  });
+
   test("staged writes are not visible if update throws, and the lock is released", async () => {
     await put({ items: ["old"] });
     await expect(
