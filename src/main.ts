@@ -17,7 +17,7 @@ import { previewJevPayload, runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
 
 const HELP = `Usage: scope "<task>" [--repo <path>] [--format text|markdown|json]
-             [--output <path>] [--no-jev] [--explain]
+             [--output <path>] [--no-jev] [--explain] [--no-cache]
 
 Select the smallest useful code context for a task.
 
@@ -27,12 +27,14 @@ Options:
   --output <path>    Write the artifact to a file instead of stdout (default: stdout)
   --explain          Add selection evidence for every chunk (default: off)
   --no-jev           Skip Jev and use the offline baseline (no credentials or network)
+  --no-cache         Do not read or write the local analysis cache in .scope/
   -h, --help         Show this help
 
 Only the artifact goes to stdout (or to the --output file); warnings, Jev usage and the final "wrote" line go to
 stderr. --output refuses to overwrite a source file of the repository and replaces other files atomically.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
+SCOPE_CACHE=off also turns the cache off.
 SCOPE_JEV_PAYLOAD=print prints the exact Jev request bodies to stdout instead of sending them (no key needed).
 `;
 
@@ -54,6 +56,8 @@ export interface CliOptions {
   output?: string;
   noJev: boolean;
   explain: boolean;
+  /** Use the local analysis cache in `.scope/`. Off with `--no-cache` or `SCOPE_CACHE=off`. */
+  cache: boolean;
 }
 
 /** Parses and validates every flag in one place, before anything is scanned. Throws UsageError. */
@@ -69,6 +73,7 @@ export function parseCli(argv: string[]): CliOptions {
         output: { type: "string" },
         explain: { type: "boolean" },
         "no-jev": { type: "boolean" },
+        "no-cache": { type: "boolean" },
         help: { type: "boolean", short: "h" },
       },
     });
@@ -84,7 +89,12 @@ export function parseCli(argv: string[]): CliOptions {
     );
   }
   const { values, positionals } = parsed;
-  const base = { noJev: values["no-jev"] ?? false, explain: values.explain ?? false };
+  const base = {
+    noJev: values["no-jev"] ?? false,
+    explain: values.explain ?? false,
+    // Any SCOPE_CACHE value other than "off" leaves the cache on.
+    cache: !(values["no-cache"] ?? false) && process.env.SCOPE_CACHE !== "off",
+  };
   if (values.help || argv.length === 0) {
     return { ...base, help: true, task: "", repo: ".", format: "text" };
   }
@@ -196,6 +206,7 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
     repo: options.repo,
     explain: options.explain,
     noJev: options.noJev,
+    cache: options.cache,
     provider: io.provider,
     signal: io.signal,
   });

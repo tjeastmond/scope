@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { AnalysisCache, analysisKey } from "./cache/analysis.ts";
+import { openRepositoryCache } from "./cache/location.ts";
+import type { VersionKeys } from "./cache/versions.ts";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
 import { JEV_QUESTION_VERSION } from "./config.ts";
@@ -26,6 +29,11 @@ export interface ScopeOptions {
   explain?: boolean;
   /** Aborted when the user cancels: stops the scan and the Jev request with a CancelledError or JevCancelledError. */
   signal?: AbortSignal;
+  /**
+   * Reuse and store per-file analysis in `<repo>/.scope/` (default: false, so library callers and tests never write
+   * into a repository unless they ask). Output is identical either way; cache problems only add warnings.
+   */
+  cache?: boolean;
 }
 
 export interface ScopeRun {
@@ -47,12 +55,30 @@ const HEAD_CHARS = 1024;
  */
 export async function loadChunks(
   repo: string,
-  { detailed = false, signal }: { detailed?: boolean; signal?: AbortSignal } = {},
-): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
+  {
+    detailed = false,
+    signal,
+    cache,
+  }: {
+    detailed?: boolean;
+    signal?: AbortSignal;
+    /** Turns the analysis cache on; undefined means off. `keys` is a test seam for the version keys. */
+    cache?: { keys?: VersionKeys };
+  } = {},
+): Promise<{ chunks: CodeChunk[]; warnings: string[]; analysis?: { reused: number; analyzed: number } }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
   const { files, warnings } = await scanRepository(root, {}, signal);
+  let analysisCache: AnalysisCache | undefined;
+  const openWarnings: string[] = [];
+  if (cache) {
+    const opened = await openRepositoryCache(root, { keys: cache.keys });
+    openWarnings.push(...opened.warnings);
+    if (opened.cache) analysisCache = new AnalysisCache(opened.cache, opened.warnings);
+  }
+  let reused = 0;
+  let analyzed = 0;
   for (const file of files) {
     if (signal?.aborted) throw new CancelledError();
     const bytes = await readFile(join(root, file));
@@ -65,21 +91,39 @@ export async function loadChunks(
     const text = bytes.toString("utf8");
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
-    const source = redactSecrets(text);
-    const analysis = await analyzeFile({ path: file, source }, language);
+    const key = analysisKey(file, bytes);
+    let analysis = await analysisCache?.lookup(file, key);
+    if (analysis) reused++;
+    else {
+      const result = await analyzeFile({ path: file, source: redactSecrets(text) }, language);
+      analysis = { chunks: result.chunks, warnings: result.warnings, textOnly: result.textOnly === true };
+      analysisCache?.record(file, key, analysis);
+      analyzed++;
+    }
     chunks.push(...analysis.chunks);
     if (analysis.textOnly) textOnly.push(file);
     else warnings.push(...analysis.warnings);
   }
   const summary = textOnlySummary(textOnly, detailed);
   if (summary) warnings.push(summary);
-  return { chunks, warnings };
+  if (!cache) return { chunks, warnings };
+  if (signal?.aborted) throw new CancelledError();
+  await analysisCache?.commit();
+  // Cache problems (open, read, commit) come last and once each, so the rest of the warnings match an uncached run.
+  const cacheWarnings = analysisCache ? analysisCache.warnings : openWarnings;
+  return { chunks, warnings: [...warnings, ...cacheWarnings], analysis: { reused, analyzed } };
 }
 
 /** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */
-async function prepareCandidates(task: string, repo: string, detailed: boolean, signal: AbortSignal | undefined) {
+async function prepareCandidates(
+  task: string,
+  repo: string,
+  detailed: boolean,
+  signal: AbortSignal | undefined,
+  cache?: { keys?: VersionKeys },
+) {
   if (!task.trim()) throw new UsageError("A task description is required.");
-  const { chunks, warnings } = await loadChunks(repo, { detailed, signal });
+  const { chunks, warnings } = await loadChunks(repo, { detailed, signal, cache });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
   return { chunks, scanWarnings: warnings, ...selectCandidates(task, chunks) };
@@ -131,7 +175,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     candidates,
     ranking,
     warning: retrievalWarning,
-  } = await prepareCandidates(task, repo, explain, signal);
+  } = await prepareCandidates(task, repo, explain, signal, options.cache ? {} : undefined);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   // With nothing to judge Jev is skipped; selection then returns an empty artifact carrying retrieval's guidance.

@@ -85,7 +85,7 @@ to it on its own).
 
 Scope keeps derived data in `.scope/` at the repository root. It creates `.scope/.gitignore` so git ignores the
 directory, and it never edits your own `.gitignore`. You can delete the directory at any time; Scope rebuilds what it
-needs on the next run.
+needs on the next run. `--no-cache` (or `SCOPE_CACHE=off`) makes a run neither read nor write it.
 
 ## Status
 
