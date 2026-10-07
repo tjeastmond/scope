@@ -1,4 +1,4 @@
-import { JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
+import { JevCancelledError, JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
 import { parseArgs } from "node:util";
 import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
@@ -31,6 +31,8 @@ export interface Io {
   stderr: (text: string) => void;
   /** Test seam: replaces the real Jev provider. */
   provider?: DecisionProvider;
+  /** Aborted when the user cancels (Ctrl-C); forwarded to the Jev request. Tests abort it without real signals. */
+  signal?: AbortSignal;
 }
 
 export interface CliOptions {
@@ -95,6 +97,7 @@ export function parseCli(argv: string[]): CliOptions {
 }
 
 const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
+  [JevCancelledError, "Cancelled"],
   [JevUnavailableError, "Jev unavailable"],
   [JevResponseError, "Jev returned an unusable response"],
   [JevRequestError, "Jev request not sent"],
@@ -139,6 +142,7 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
     explain: options.explain,
     noJev: options.noJev,
     provider: io.provider,
+    signal: io.signal,
   });
   for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
   if (decision) {

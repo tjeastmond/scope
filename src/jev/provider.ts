@@ -1,7 +1,23 @@
-import { TypeSafeClient, noul } from "@typesafe-ai/sdk";
+import {
+  APIConnectionError,
+  APIError,
+  APITimeoutError,
+  APIUserAbortError,
+  BadRequestError,
+  TypeSafeClient,
+  noul,
+} from "@typesafe-ai/sdk";
 import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_MAX_CHARS, JEV_DEADLINE_MS } from "../config.ts";
 import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
-import { JevRequestError, JevUnavailableError } from "./errors.ts";
+import {
+  JevAuthError,
+  JevCancelledError,
+  JevRateLimitError,
+  JevRequestError,
+  JevServiceError,
+  JevTimeoutError,
+  type JevError,
+} from "./errors.ts";
 import { validateRelevance } from "./validate.ts";
 
 /** The slice of the SDK client Scope uses, so tests can inject a fake. */
@@ -29,15 +45,23 @@ const CRITERIA = {
   false: "The code is unrelated to the task, or only shares words with it.",
 };
 
+export interface JevClientOptions {
+  /** Timeout of one HTTP attempt in milliseconds (default JEV_ATTEMPT_TIMEOUT_MS). */
+  attemptTimeoutMs?: number;
+}
+
 /** Builds the real client. Reads TYPESAFE_API_KEY from the environment only and never enables SDK logging. */
-export function createJevClient(): JevClient {
+export function createJevClient(options: JevClientOptions = {}): JevClient {
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
-    throw new JevUnavailableError(
+    throw new JevAuthError(
       "TYPESAFE_API_KEY is not set. Set it to run Scope with Jev, or pass --no-jev for the offline baseline.",
     );
   }
   // logLevel "off": debug logging would print request bodies (source code) and part of the key.
-  return new TypeSafeClient({ logLevel: "off", timeout: JEV_ATTEMPT_TIMEOUT_MS }) as unknown as JevClient;
+  return new TypeSafeClient({
+    logLevel: "off",
+    timeout: options.attemptTimeoutMs ?? JEV_ATTEMPT_TIMEOUT_MS,
+  }) as unknown as JevClient;
 }
 
 function describe(chunk: CodeChunk) {
@@ -90,20 +114,33 @@ function planBatches(task: string, candidates: readonly CodeChunk[], limit: numb
   return batches;
 }
 
-const STATUS_HINTS: Record<number, string> = {
-  401: "authentication failed; check TYPESAFE_API_KEY",
-  403: "access denied; check TYPESAFE_API_KEY",
-  429: "rate limited; try again later",
+const isTooLarge = (error: BadRequestError) => {
+  const detail = (error.body as { detail?: unknown } | null | undefined)?.detail;
+  return (detail as { error_type?: unknown } | null | undefined)?.error_type === "max_tokens_exceeded";
 };
 
-function failure(error: unknown, signal: AbortSignal): JevUnavailableError {
-  if (signal.aborted) return new JevUnavailableError("Jev did not complete: the request was cancelled or timed out.");
-  const status = (error as { status?: unknown } | null)?.status;
-  const name = error instanceof Error ? error.name : "Error";
-  const detail =
-    typeof status === "number" ? `HTTP ${status}${STATUS_HINTS[status] ? `, ${STATUS_HINTS[status]}` : ""}` : name;
-  // Deliberately omit the SDK message, body and `cause`: they can echo request content and credentials.
-  return new JevUnavailableError(`Jev request failed (${detail}).`);
+/**
+ * Maps an SDK failure to a typed Scope error. `caller` is the caller's signal and `deadline` Scope's own overall
+ * timeout, so a Ctrl-C is told apart from a deadline. Deliberately omits the SDK message, body, headers and `cause`
+ * (they can echo request content and credentials); only the error kind, HTTP status and request id are used.
+ */
+function failure(error: unknown, caller: AbortSignal | undefined, deadline: AbortSignal): JevError {
+  if (caller?.aborted) return new JevCancelledError("Jev request cancelled.");
+  if (deadline.aborted) return new JevTimeoutError("Jev did not respond before Scope's overall deadline; try again.");
+  if (error instanceof APIUserAbortError) return new JevCancelledError("Jev request cancelled.");
+  if (error instanceof APITimeoutError) return new JevTimeoutError("Jev request timed out; try again.");
+  if (error instanceof APIError) {
+    const { status } = error;
+    if (status === 401) return new JevAuthError("Jev rejected the credentials (HTTP 401); check TYPESAFE_API_KEY.");
+    if (status === 403) return new JevAuthError("Jev denied access (HTTP 403); check TYPESAFE_API_KEY.");
+    if (status === 429) return new JevRateLimitError("Jev rate limit reached (HTTP 429); try again later.");
+    if (error instanceof BadRequestError && isTooLarge(error))
+      return new JevRequestError("The request exceeds Jev's token limit; narrow the task or the repository.");
+    const id = error.requestId?.match(/^[\w-]{1,64}$/) ? `, request ${error.requestId}` : "";
+    return new JevServiceError(`Jev request failed (HTTP ${status}${id}).`);
+  }
+  if (error instanceof APIConnectionError) return new JevServiceError("Could not reach Jev (connection error).");
+  return new JevServiceError("Jev request failed unexpectedly.");
 }
 
 /** Asks Jev one yes/no relevance question per candidate (a Noul), batched within request limits. */
@@ -131,7 +168,7 @@ export class JevDecisionProvider implements DecisionProvider {
       try {
         response = await this.client.systemOne(request, { signal: combined });
       } catch (error) {
-        throw failure(error, combined);
+        throw failure(error, signal, deadline);
       }
       inputTokens += response.usage.input_tokens;
       outputTokens += response.usage.output_tokens;
