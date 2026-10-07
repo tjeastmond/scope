@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { JEV_QUESTION_VERSION } from "../src/config.ts";
@@ -9,9 +10,9 @@ import type { CodeChunk } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
 
 /**
- * The question design is locked by a checked-in snapshot of the planned request bodies. The snapshot records the
- * question version it was produced under: changing the question text or criteria changes the snapshot, and the version
- * assertion makes the author bump JEV_QUESTION_VERSION in the same change. Regenerate with
+ * The question design is locked twice: a checked-in snapshot of the planned request bodies, and a hand-kept fingerprint
+ * per question version (QUESTION_FINGERPRINTS) that regeneration cannot update, so changing the question text or
+ * criteria also requires a new JEV_QUESTION_VERSION. Regenerate the snapshot with
  * `UPDATE_GOLDEN=1 bun test tests/jev-questions.test.ts` and review the diff.
  */
 const GOLDEN = join(import.meta.dir, "golden/jev-payload.json");
@@ -57,6 +58,21 @@ test("the planned question payload matches its golden snapshot, produced under t
   const expected = await readFile(GOLDEN, "utf8");
   expect(actual).toBe(expected);
   expect(JSON.parse(expected).questionVersion).toBe(JEV_QUESTION_VERSION);
+});
+
+/**
+ * Every question version ever released, with the fingerprint of its question text and criteria. Edited by hand, never
+ * regenerated: a change to the wording or criteria fails here until it gets a new version and a new entry.
+ */
+const QUESTION_FINGERPRINTS: Record<string, string> = {
+  "relevance-v1": "1e3b2edac330da6232f407af579e846e8dbdb6fc8a5364bba1d21c3562a325b4",
+};
+
+test("the question text and criteria match the fingerprint recorded for the current question version", () => {
+  const [request] = planJevRequests(TASK, chunks);
+  const design = JSON.stringify(request!.questions.c0);
+  const fingerprint = createHash("sha256").update(design).digest("hex");
+  expect(QUESTION_FINGERPRINTS[JEV_QUESTION_VERSION]).toBe(fingerprint);
 });
 
 test("each question names its candidate by state path and says how the candidate is identified", () => {
