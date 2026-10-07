@@ -27,7 +27,7 @@ code plus metadata: repository-relative path, symbol name, kind and line range. 
 sent.
 
 Each candidate's code is cut to its first 6,000 characters for judging, with a `[truncated for judging: showed N of M
-characters]` line marking the cut; the selected output still contains the full chunk.
+characters]` line marking the cut; the selected output still contains the full chunk. Results carry `jevQuestionVersion`, naming the question wording used.
 
 **Audit the payload.** `SCOPE_JEV_PAYLOAD=print` makes Scope scan and shortlist as usual, then print the exact request
 bodies it would send (a JSON array, one element per request, each with its `state`, `questions` and `model`) to stdout

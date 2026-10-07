@@ -72,6 +72,7 @@ const result: ScopeResult = {
   warnings: ["src/legacy.ts: 2 syntax errors; text fallback used."],
   skipped: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(skip),
   retrievalConfigVersion: "golden-1",
+  jevQuestionVersion: "golden-q1",
 };
 
 test.each([...FORMATS])("the %s format matches its golden file", async (format) => {

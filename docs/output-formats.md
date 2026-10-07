@@ -55,7 +55,7 @@ followed by the source, then the report sections below.
 
 Text and Markdown share one set of facts (`src/output/report.ts`):
 
-- **Summary:** mode, number of regions, and `retrievalConfigVersion` when present. The artifact reports no size.
+- **Summary:** mode, number of regions, `retrievalConfigVersion` when present, and `jevQuestionVersion` (the version of the Jev question text and criteria; absent in `no-jev` mode). The artifact reports no size.
 - **Left out (below relevance minimum):** with `--explain`, every candidate that scored below the minimum, most
   relevant first, with location and `relevance` or `score`. Without it they are only counted, never listed.
 - Empty sections are omitted. `relevance` is Jev's judgment; `score` is a ranking signal. Neither is a probability or
@@ -89,11 +89,12 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
               chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
                          signals?, origin? }] }],
   warnings, skipped: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
-  retrievalConfigVersion?, explain? }
+  retrievalConfigVersion?, jevQuestionVersion?, explain? }
 ```
 
 Source content appears once, on the region; chunk entries carry provenance only. `relevance` is absent in `no-jev`
-mode. `signals` and `origin` on a chunk, and the top-level `explain`, appear only with `--explain`.
+mode, and so is `jevQuestionVersion` (an additive field; `schemaVersion` stays 2). `signals` and `origin` on a chunk,
+and the top-level `explain`, appear only with `--explain`.
 
 ### schemaVersion
 

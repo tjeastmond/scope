@@ -1,0 +1,60 @@
+{
+  "questionVersion": "relevance-v1",
+  "requests": [
+    {
+      "state": {
+        "task": "Add retry handling to webhook delivery",
+        "candidates": {
+          "c0": {
+            "path": "src/zzqPath.ts",
+            "symbol": "zzqSymbol",
+            "kind": "function",
+            "lines": "3-6",
+            "code": "export function zzqSymbol() {\n  return 1;\n}"
+          },
+          "c1": {
+            "path": "src/zzqOther.ts",
+            "symbol": "zzqOtherSymbol",
+            "kind": "function",
+            "lines": "10-12",
+            "code": "export function zzqOtherSymbol() {\n  return 2;\n}"
+          },
+          "c2": {
+            "path": "src/zzqThird.ts",
+            "symbol": null,
+            "kind": "function",
+            "lines": "1-2",
+            "code": "export const zzqThird = 3;"
+          }
+        }
+      },
+      "questions": {
+        "c0": {
+          "type": "noul",
+          "instructions": "Is the code in `candidates.c0` (identified by its `path`, `symbol` and `lines`) needed to complete the task described in `task`?",
+          "criteria": {
+            "true": "The code must be read or changed to complete the task, or defines something that code doing so depends on.",
+            "false": "The code is unrelated to the task, or only shares words with it."
+          }
+        },
+        "c1": {
+          "type": "noul",
+          "instructions": "Is the code in `candidates.c1` (identified by its `path`, `symbol` and `lines`) needed to complete the task described in `task`?",
+          "criteria": {
+            "true": "The code must be read or changed to complete the task, or defines something that code doing so depends on.",
+            "false": "The code is unrelated to the task, or only shares words with it."
+          }
+        },
+        "c2": {
+          "type": "noul",
+          "instructions": "Is the code in `candidates.c2` (identified by its `path`, `symbol` and `lines`) needed to complete the task described in `task`?",
+          "criteria": {
+            "true": "The code must be read or changed to complete the task, or defines something that code doing so depends on.",
+            "false": "The code is unrelated to the task, or only shares words with it."
+          }
+        }
+      },
+      "model": "jev-latest"
+    }
+  ]
+}

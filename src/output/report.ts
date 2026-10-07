@@ -18,11 +18,12 @@ export const scoreLabel = (relevance: number | undefined, score: number): string
 
 /** Mode, region count and retrieval version; the same facts in every human-readable format. */
 export function summaryLines(result: ScopeResult, quote: Quote): string[] {
-  const { mode, regions, retrievalConfigVersion } = result;
+  const { mode, regions, retrievalConfigVersion, jevQuestionVersion } = result;
   return [
     `Mode: ${mode}`,
     `Regions: ${regions.length}`,
     ...(retrievalConfigVersion === undefined ? [] : [`Retrieval config: ${quote(retrievalConfigVersion)}`]),
+    ...(jevQuestionVersion === undefined ? [] : [`Jev questions: ${quote(jevQuestionVersion)}`]),
   ];
 }
 

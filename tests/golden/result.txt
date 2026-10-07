@@ -3,6 +3,7 @@ Scope context for: Validate invoice totals
 Mode: jev
 Regions: 1
 Retrieval config: golden-1
+Jev questions: golden-q1
 
 == src/invoices.ts:3-5 total (relevance 0.91) ==
 function total(a: number, b: number) {

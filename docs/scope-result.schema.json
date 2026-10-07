@@ -13,6 +13,7 @@
     "warnings": { "type": "array", "items": { "type": "string" } },
     "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
     "retrievalConfigVersion": { "type": "string" },
+    "jevQuestionVersion": { "type": "string" },
     "explain": { "const": true }
   },
   "$defs": {

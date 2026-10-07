@@ -191,6 +191,8 @@ export interface ScopeResult {
   skipped: SkippedChunk[];
   /** Version of the retrieval weights and caps that prepared the candidates. */
   retrievalConfigVersion?: string;
+  /** Version of the Jev question text and criteria; absent in `no-jev` mode. */
+  jevQuestionVersion?: string;
   /** Set by `--explain`: renderers add the selection evidence. */
   explain?: true;
 }

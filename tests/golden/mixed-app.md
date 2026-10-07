@@ -9,6 +9,7 @@ Show each invoice's due date in the invoice list: render it in the frontend row 
 - Mode: jev
 - Regions: 12
 - Retrieval config: ` retrieval-v3 `
+- Jev questions: ` relevance-v1 `
 
 ## Warnings
 

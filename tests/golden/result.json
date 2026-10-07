@@ -118,5 +118,6 @@
       "score": 0.36
     }
   ],
-  "retrievalConfigVersion": "golden-1"
+  "retrievalConfigVersion": "golden-1",
+  "jevQuestionVersion": "golden-q1"
 }

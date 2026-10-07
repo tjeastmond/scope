@@ -161,5 +161,6 @@
     }
   ],
   "retrievalConfigVersion": "golden-1",
+  "jevQuestionVersion": "golden-q1",
   "explain": true
 }

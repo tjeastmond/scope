@@ -9,6 +9,7 @@ Validate invoice totals
 - Mode: jev
 - Regions: 1
 - Retrieval config: ` golden-1 `
+- Jev questions: ` golden-q1 `
 
 ## Warnings
 
