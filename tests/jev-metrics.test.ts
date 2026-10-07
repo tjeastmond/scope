@@ -123,6 +123,20 @@ test("a provider that reports no usage or latency yields no jev key rather than 
   expect(payload).not.toHaveProperty("jev");
 });
 
+test("malformed per-request entries are dropped, keeping the validated totals", async () => {
+  const provider: DecisionProvider = {
+    decide: async ({ candidates }) => ({
+      judgments: candidates.map((c) => ({ chunkId: c.id, relevance: 0.9 })),
+      usage: { inputTokens: 5, outputTokens: 1 },
+      latencyMs: 3,
+      requests: [{ latencyMs: -1, inputTokens: 5, outputTokens: Number.NaN }],
+    }),
+  };
+  const payload = JSON.parse(await run(["--format", "json", "--explain"], provider));
+  expect(payload.jev).toEqual({ latencyMs: 3, usage: { inputTokens: 5, outputTokens: 1 } });
+  expect(validate(payload)).toBe(true);
+});
+
 test("text and Markdown show the Jev lines only under --explain", async () => {
   for (const format of ["text", "markdown"]) {
     const plain = await run(["--format", format], fakeProvider());

@@ -103,18 +103,21 @@ const isCount = (value: unknown): value is number => typeof value === "number" &
 
 /**
  * Jev's overhead from what the provider reported. Nothing is invented: without both totals and a latency there is no
- * `jev` key. Per-request detail is only kept under `--explain`.
+ * `jev` key, and malformed per-request entries are dropped. Per-request detail is only kept under `--explain`.
  */
 function jevMetrics(decision: DecisionResult | undefined, explain: boolean): { jev?: JevMetrics } {
   if (!decision) return {};
   const { usage, latencyMs, requests } = decision;
   if (!isCount(usage?.inputTokens) || !isCount(usage?.outputTokens) || !isCount(latencyMs)) return {};
+  const perRequest = requests?.every((r) => isCount(r?.latencyMs) && isCount(r.inputTokens) && isCount(r.outputTokens))
+    ? requests
+    : undefined;
   return {
     jev: {
-      ...(requests === undefined ? {} : { requestCount: requests.length }),
+      ...(perRequest === undefined ? {} : { requestCount: perRequest.length }),
       latencyMs,
       usage: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens },
-      ...(explain && requests !== undefined ? { requests } : {}),
+      ...(explain && perRequest !== undefined ? { requests: perRequest } : {}),
     },
   };
 }
