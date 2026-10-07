@@ -4,7 +4,7 @@ import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
 import { resolveRepository } from "./repository/root.ts";
-import { runScope } from "./scope.ts";
+import { previewJevPayload, runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
 
 const HELP = `Usage: scope "<task>" [--repo <path>] [--format text|markdown|json]
@@ -24,6 +24,7 @@ Only the artifact goes to stdout (or to the --output file); warnings, Jev usage 
 stderr. --output refuses to overwrite a source file of the repository and replaces other files atomically.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
+SCOPE_JEV_PAYLOAD=print prints the exact Jev request bodies to stdout instead of sending them (no key needed).
 `;
 
 export interface Io {
@@ -111,12 +112,38 @@ function describeError(error: unknown): string {
   return label ? `${label}: ${error.message}` : error.message;
 }
 
+/** Whether SCOPE_JEV_PAYLOAD=print asks for the payload audit; rejects every unusable combination. */
+function payloadMode(options: CliOptions): boolean {
+  const value = process.env.SCOPE_JEV_PAYLOAD;
+  if (value === undefined || value === "") return false;
+  if (value !== "print") throw new UsageError(`SCOPE_JEV_PAYLOAD must be "print" (or unset): got "${value}"`);
+  if (options.noJev)
+    throw new UsageError("SCOPE_JEV_PAYLOAD=print has nothing to print with --no-jev: nothing is sent.");
+  if (options.output !== undefined)
+    throw new UsageError("SCOPE_JEV_PAYLOAD=print always writes the payload to stdout; remove --output.");
+  return true;
+}
+
 /** Runs the CLI and returns the exit code. Results go to stdout (or the --output file) only on success. */
 export async function main(argv: string[], io: Io): Promise<number> {
   try {
     const options = parseCli(argv);
     if (options.help) {
       io.stdout(HELP);
+      return 0;
+    }
+    const payload = payloadMode(options);
+    if (payload) {
+      const { requests, candidateCount } = await previewJevPayload({
+        task: options.task,
+        repo: options.repo,
+        signal: io.signal,
+      });
+      if (io.signal?.aborted) throw new CancelledError();
+      io.stdout(`${JSON.stringify(requests, null, 2)}\n`);
+      io.stderr(
+        `scope: printed the Jev payload (${requests.length} requests, ${candidateCount} candidates); nothing was sent\n`,
+      );
       return 0;
     }
     // Checked, and the directory probed, before the (possibly paid) Jev request.

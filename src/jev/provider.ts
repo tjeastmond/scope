@@ -7,7 +7,7 @@ import {
   TypeSafeClient,
   noul,
 } from "@typesafe-ai/sdk";
-import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_MAX_CHARS, JEV_DEADLINE_MS } from "../config.ts";
+import { JEV_ATTEMPT_TIMEOUT_MS, JEV_BATCH_MAX_CHARS, JEV_CANDIDATE_MAX_CHARS, JEV_DEADLINE_MS } from "../config.ts";
 import type { CodeChunk, DecisionProvider, DecisionRequest, DecisionResult, RelevanceJudgment } from "../types.ts";
 import {
   JevAuthError,
@@ -34,8 +34,17 @@ export interface JevClient {
 export interface JevProviderOptions {
   client?: JevClient;
   batchMaxChars?: number;
+  /** Characters of one candidate's code sent for judging (default JEV_CANDIDATE_MAX_CHARS). */
+  candidateMaxChars?: number;
   deadlineMs?: number;
 }
+
+export interface JevRequestLimits {
+  batchMaxChars?: number;
+  candidateMaxChars?: number;
+}
+
+export type JevRequest = Parameters<JevClient["systemOne"]>[0];
 
 const question = (ref: string) =>
   `Is the code in \`candidates.${ref}\` needed to complete the task described in \`task\`?`;
@@ -64,27 +73,37 @@ export function createJevClient(options: JevClientOptions = {}): JevClient {
   }) as unknown as JevClient;
 }
 
-function describe(chunk: CodeChunk) {
+/** The code Jev sees: the whole chunk, or its first `cap` characters plus a marker saying how much was cut. */
+function judgedCode(content: string, cap: number): string {
+  if (content.length <= cap) return content;
+  let end = cap;
+  // Never cut between the halves of a surrogate pair.
+  const last = content.charCodeAt(end - 1);
+  if (end > 0 && last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return `${content.slice(0, end)}\n[truncated for judging: showed ${end} of ${content.length} characters]`;
+}
+
+function describe(chunk: CodeChunk, cap: number) {
   return {
     path: chunk.file,
     symbol: chunk.name ?? null,
     kind: chunk.kind,
     lines: `${chunk.startLine}-${chunk.endLine}`,
-    code: chunk.content,
+    code: judgedCode(chunk.content, cap),
   };
 }
 
 interface Batch {
   chunks: CodeChunk[];
   refs: string[];
-  request: Parameters<JevClient["systemOne"]>[0];
+  request: JevRequest;
 }
 
 /** One request for a group of candidates. Question IDs are not sent to the model, so each question names its
  * candidate by its state path; `first` keeps refs unique across batches. */
-function buildBatch(task: string, chunks: CodeChunk[], first: number): Batch {
+function buildBatch(task: string, chunks: CodeChunk[], first: number, cap: number): Batch {
   const refs = chunks.map((_chunk, i) => `c${first + i}`);
-  const state = { task, candidates: Object.fromEntries(chunks.map((chunk, i) => [refs[i], describe(chunk)])) };
+  const state = { task, candidates: Object.fromEntries(chunks.map((chunk, i) => [refs[i], describe(chunk, cap)])) };
   const questions = Object.fromEntries(refs.map((ref) => [ref, noul(question(ref), CRITERIA)]));
   return { chunks, refs, request: { state, questions } };
 }
@@ -92,26 +111,38 @@ function buildBatch(task: string, chunks: CodeChunk[], first: number): Batch {
 const requestChars = (batch: Batch) => JSON.stringify(batch.request).length;
 
 /** Greedily fills requests, measuring each as it would be serialized (task, metadata and questions included). */
-function planBatches(task: string, candidates: readonly CodeChunk[], limit: number): Batch[] {
+function planBatches(task: string, candidates: readonly CodeChunk[], limit: number, cap: number): Batch[] {
   const batches: Batch[] = [];
   let current: CodeChunk[] = [];
   let first = 0;
   for (const chunk of candidates) {
-    if (current.length > 0 && requestChars(buildBatch(task, [...current, chunk], first)) > limit) {
-      batches.push(buildBatch(task, current, first));
+    if (current.length > 0 && requestChars(buildBatch(task, [...current, chunk], first, cap)) > limit) {
+      batches.push(buildBatch(task, current, first, cap));
       first += current.length;
       current = [];
     }
     current.push(chunk);
-    const size = requestChars(buildBatch(task, current, first));
+    const size = requestChars(buildBatch(task, current, first, cap));
     if (current.length === 1 && size > limit) {
       throw new JevRequestError(
         `${chunk.file}:${chunk.startLine} with the task is too large to send to Jev (${size} characters).`,
       );
     }
   }
-  if (current.length > 0) batches.push(buildBatch(task, current, first));
+  if (current.length > 0) batches.push(buildBatch(task, current, first, cap));
   return batches;
+}
+
+/**
+ * The exact request bodies sent to Jev for these candidates, in order. `decide` sends these same objects, so an audit of
+ * this output cannot drift from what leaves the machine.
+ */
+export function planJevRequests(
+  task: string,
+  candidates: readonly CodeChunk[],
+  { batchMaxChars = JEV_BATCH_MAX_CHARS, candidateMaxChars = JEV_CANDIDATE_MAX_CHARS }: JevRequestLimits = {},
+): JevRequest[] {
+  return planBatches(task, candidates, batchMaxChars, candidateMaxChars).map((batch) => batch.request);
 }
 
 const isTooLarge = (error: BadRequestError) => {
@@ -147,11 +178,13 @@ function failure(error: unknown, caller: AbortSignal | undefined, deadline: Abor
 export class JevDecisionProvider implements DecisionProvider {
   private readonly client: JevClient;
   private readonly batchMaxChars: number;
+  private readonly candidateMaxChars: number;
   private readonly deadlineMs: number;
 
   constructor(options: JevProviderOptions = {}) {
     this.client = options.client ?? createJevClient();
     this.batchMaxChars = options.batchMaxChars ?? JEV_BATCH_MAX_CHARS;
+    this.candidateMaxChars = options.candidateMaxChars ?? JEV_CANDIDATE_MAX_CHARS;
     this.deadlineMs = options.deadlineMs ?? JEV_DEADLINE_MS;
   }
 
@@ -163,7 +196,7 @@ export class JevDecisionProvider implements DecisionProvider {
     let inputTokens = 0;
     let outputTokens = 0;
 
-    for (const { chunks, refs, request } of planBatches(task, candidates, this.batchMaxChars)) {
+    for (const { chunks, refs, request } of planBatches(task, candidates, this.batchMaxChars, this.candidateMaxChars)) {
       let response;
       try {
         response = await this.client.systemOne(request, { signal: combined });

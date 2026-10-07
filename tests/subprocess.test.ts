@@ -113,6 +113,20 @@ suite("the compiled CLI as a subprocess", () => {
       });
     }
 
+    test("SCOPE_JEV_PAYLOAD=print prints the request bodies as JSON without a key and sends nothing", () => {
+      const proc = spawnSync(NODE, [CLI, TASK, "--repo", FIXTURE], {
+        cwd: ROOT,
+        env: { ...env, SCOPE_JEV_PAYLOAD: "print" },
+        maxBuffer: 256 * 1024 * 1024,
+      });
+      expect(proc.status).toBe(0);
+      expectDiagnosticsOnly(proc.stderr.toString("utf8"));
+      expect(proc.stderr.toString("utf8")).toContain("nothing was sent");
+      const requests = JSON.parse(proc.stdout.toString("utf8"));
+      expect(requests.length).toBeGreaterThan(0);
+      expect(requests[0].state.task).toBe(TASK);
+    });
+
     test("--help exits 0 with usage on stdout", () => {
       const run = scope("--help");
       expect(run.code).toBe(0);

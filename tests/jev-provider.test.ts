@@ -86,7 +86,7 @@ test("every emitted request fits the configured character limit", async () => {
 
 test("the default limit splits large non-ASCII candidates into several requests", async () => {
   const { client, calls } = fakeClient();
-  const candidates = ["a", "b", "c"].map((id) => chunk(id, "漢".repeat(9000)));
+  const candidates = ["a", "b", "c", "d", "e"].map((id) => chunk(id, "漢".repeat(9000)));
   await new JevDecisionProvider({ client }).decide({ task: "t", candidates });
 
   expect(calls.length).toBeGreaterThan(1);
