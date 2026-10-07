@@ -29,6 +29,8 @@ beforeEach(async () => {
     join(tmp, "binary.ts"),
     Buffer.concat([
       Buffer.from(`export function retryWebhookBinary() { return "${BINARY}"; }\n`),
+      // Past the scanner's 8 KiB sniff window, so only the full-content NUL check in loadChunks can exclude it.
+      Buffer.from(`// ${"padding ".repeat(1200)}\n`),
       Buffer.from([0, 1, 2]),
     ]),
   );
