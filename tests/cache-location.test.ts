@@ -1,5 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmod, cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  cp,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CACHE_DIR, commitRepositoryCache, openRepositoryCache } from "../src/cache/location.ts";
@@ -179,6 +191,23 @@ describe("openRepositoryCache and commitRepositoryCache", () => {
     expect((await commitRepositoryCache(cache!)).committed).toBe(false);
     expect((await readdir(outside)).sort()).toEqual([`store-v${STORE_MAJOR}`]);
     expect(await readdir(join(outside, `store-v${STORE_MAJOR}`))).toEqual(["settings.json"]);
+  });
+
+  test("a store directory replaced by a symlink while the lock is awaited is refused", async () => {
+    const outside = join(base, "outside");
+    await mkdir(outside);
+    await writeFile(join(outside, "settings.json"), "{}");
+    const { cache } = await openRepositoryCache(repo, { keys });
+    await mkdir(cache!.directory, { recursive: true });
+    await writeFile(join(cache!.directory, "lock"), JSON.stringify({ token: "other", createdAt: Date.now() }));
+    const pending = commitRepositoryCache(cache!);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await rename(cache!.directory, `${cache!.directory}.held`);
+    await symlink(outside, cache!.directory);
+    const outcome = await pending;
+    expect(outcome.committed).toBe(false);
+    expect(outcome.committed === false && outcome.warning).toContain("symlinks are not followed");
+    expect((await readdir(outside)).sort()).toEqual(["settings.json"]);
   });
 
   test("a store directory of another major survives a commit", async () => {
