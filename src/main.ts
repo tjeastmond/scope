@@ -123,7 +123,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
     const output =
       options.output === undefined
         ? undefined
-        : await prepareOutput(resolveRepository(options.repo).root, options.output);
+        : await prepareOutput(resolveRepository(options.repo).root, options.output, io.signal);
     try {
       await run(options, io, output);
       return 0;
@@ -160,7 +160,7 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
   }
   const artifact = renderFormat(options.format, result);
   if (output) {
-    await output.commit(artifact, io.signal);
+    await output.commit(artifact);
     io.stderr(`scope: wrote ${options.output}\n`);
   } else {
     io.stdout(artifact);

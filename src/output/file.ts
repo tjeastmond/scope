@@ -13,8 +13,8 @@ export class OutputError extends Error {
 }
 
 export interface PreparedOutput {
-  /** Writes the artifact to the target atomically; a cancelled `signal` leaves the target untouched. Cleans up after itself if it fails. */
-  commit(text: string, signal?: AbortSignal): Promise<void>;
+  /** Writes the artifact to the target atomically; once `signal` is aborted it leaves the target untouched. Cleans up after itself if it fails. */
+  commit(text: string): Promise<void>;
   /** Removes the temporary file if one exists. Safe to call at any point, any number of times. */
   discard(): Promise<void>;
 }
@@ -48,7 +48,7 @@ async function resolveTarget(path: string): Promise<string> {
  * a directory and, after resolving symlinks, must not be a file Scope would analyze (that would overwrite repository
  * source). Any other existing file, such as a previous output, may be replaced. `root` is the real repository root.
  */
-export async function prepareOutput(root: string, outputPath: string): Promise<PreparedOutput> {
+export async function prepareOutput(root: string, outputPath: string, signal?: AbortSignal): Promise<PreparedOutput> {
   const fail = (reason: string) => new OutputError(`cannot write --output ${outputPath}: ${reason}`);
   let target: string;
   try {
@@ -60,7 +60,7 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   const inRepository = target.startsWith(`${root}${sep}`);
   /** Runs at preparation and again at commit: the run can take a while, and the repository may change meanwhile. */
   const assertNotSource = async () => {
-    const { files, warnings } = await scanRepository(root);
+    const { files, warnings } = await scanRepository(root, {}, signal);
     if (files.some((file) => join(root, file) === target)) {
       throw fail("it is a source file of the repository and would be overwritten");
     }
@@ -90,7 +90,7 @@ export async function prepareOutput(root: string, outputPath: string): Promise<P
   };
   return {
     discard,
-    async commit(text, signal) {
+    async commit(text) {
       try {
         // A symlink swapped in along the path during the run would send the write somewhere the preflight never checked.
         if ((await resolveTarget(resolve(outputPath))) !== target) throw fail("the destination changed during the run");

@@ -261,12 +261,19 @@ test("a Ctrl-C that lands after Jev answers writes nothing and leaves the destin
 test("commit with a cancelled signal leaves the destination untouched and no temporary file", async () => {
   const target = join(tmp, "out", "artifact");
   await writeFile(target, "previous artifact\n");
-  const output = await prepareOutput(repo, target);
   const controller = new AbortController();
+  const output = await prepareOutput(repo, target, controller.signal);
   controller.abort();
 
-  await expect(output.commit("new artifact\n", controller.signal)).rejects.toThrow(CancelledError);
+  await expect(output.commit("new artifact\n")).rejects.toThrow(CancelledError);
   await output.discard();
   expect(readFileSync(target, "utf8")).toBe("previous artifact\n");
   expect(readdirSync(join(tmp, "out"))).toEqual(["artifact"]);
+});
+
+test("a cancelled signal stops the --output safety scan during preparation", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  await expect(prepareOutput(repo, join(tmp, "out", "artifact"), controller.signal)).rejects.toThrow(CancelledError);
+  expect(readdirSync(join(tmp, "out"))).toEqual([]);
 });
