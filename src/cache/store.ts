@@ -62,6 +62,12 @@ export interface DocumentStoreOptions {
   lockWaitMs?: number;
   /** Test seam: runs after a breaker has re-checked a stale lock and before it moves it away. */
   beforeBreakRename?: () => Promise<void> | void;
+  /**
+   * Throws if the store directory is no longer the one the caller chose (for example, replaced by a symlink). A commit
+   * runs it before every attempt to take or break the lock, after taking it and before any cleanup or update, and
+   * before writing; a failure means nothing more is touched and the commit is not cached.
+   */
+  verifyDirectory?: () => Promise<void> | void;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -176,12 +182,14 @@ export class DocumentStore {
   readonly #staleMs: number;
   readonly #waitMs: number;
   readonly #beforeBreakRename: (() => Promise<void> | void) | undefined;
+  readonly #verifyDirectory: () => Promise<void> | void;
 
   /** `directory` is absolute and is created on the first commit. Choosing it is the caller's concern. */
   constructor(directory: string, options: DocumentStoreOptions = {}) {
     this.directory = directory;
     this.#staleMs = options.lockStaleMs ?? LOCK_STALE_MS;
     this.#beforeBreakRename = options.beforeBreakRename;
+    this.#verifyDirectory = options.verifyDirectory ?? (() => undefined);
     this.#waitMs = options.lockWaitMs ?? LOCK_WAIT_MS;
   }
 
@@ -252,6 +260,11 @@ export class DocumentStore {
       return { committed: false, warning: `cache not written: ${reason(error)}` };
     }
     try {
+      try {
+        await this.#verifyDirectory();
+      } catch (error) {
+        return { committed: false, warning: `cache not written: ${reason(error)}` };
+      }
       await this.#sweepTemps().catch(() => undefined);
       // An error from `update` (including a bad staged write) propagates, whatever its type; nothing is written.
       await update(tx);
@@ -260,6 +273,7 @@ export class DocumentStore {
         return { committed: false, warning: "cache lock lost; this run was not cached" };
       }
       try {
+        await this.#verifyDirectory();
         for (const [name, { text }] of staged) {
           if (text === undefined) await rm(join(this.directory, `${name}.json`), { force: true });
           else await writeAtomic(this.directory, name, text);
@@ -278,6 +292,7 @@ export class DocumentStore {
     const lockPath = join(this.directory, LOCK_FILE);
     const deadline = Date.now() + waitMs;
     for (;;) {
+      await this.#verifyDirectory();
       const token = randomHex();
       try {
         const handle = await open(lockPath, "wx");

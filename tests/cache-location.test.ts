@@ -10,6 +10,7 @@ import {
   rename,
   rm,
   symlink,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -197,6 +198,9 @@ describe("openRepositoryCache and commitRepositoryCache", () => {
     const outside = join(base, "outside");
     await mkdir(outside);
     await writeFile(join(outside, "settings.json"), "{}");
+    await writeFile(join(outside, "old.tmp"), "x");
+    const old = new Date(Date.now() - 10 * 60_000);
+    await utimes(join(outside, "old.tmp"), old, old);
     const { cache } = await openRepositoryCache(repo, { keys });
     await mkdir(cache!.directory, { recursive: true });
     await writeFile(join(cache!.directory, "lock"), JSON.stringify({ token: "other", createdAt: Date.now() }));
@@ -207,7 +211,7 @@ describe("openRepositoryCache and commitRepositoryCache", () => {
     const outcome = await pending;
     expect(outcome.committed).toBe(false);
     expect(outcome.committed === false && outcome.warning).toContain("symlinks are not followed");
-    expect((await readdir(outside)).sort()).toEqual(["settings.json"]);
+    expect((await readdir(outside)).sort()).toEqual(["old.tmp", "settings.json"]);
   });
 
   test("a store directory of another major survives a commit", async () => {

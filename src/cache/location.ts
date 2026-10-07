@@ -70,7 +70,16 @@ export async function openRepositoryCache(
     const directory = join(root, CACHE_DIR, `store-v${STORE_MAJOR}`);
     await assertNotLinked(join(root, CACHE_DIR));
     await assertNotLinked(directory);
-    const store = new DocumentStore(directory);
+    // The store re-checks this throughout a commit, since `.scope` or the store directory may be replaced meanwhile.
+    // (Node has no openat/unlinkat, so a process rewriting the repository between a check and the next system call
+    // is out of reach; such a process can already write the repository directly.)
+    const store = new DocumentStore(directory, {
+      verifyDirectory: async () => {
+        if ((await realpath(directory)) !== directory) {
+          throw new Error(`${directory} is not a directory (symlinks are not followed)`);
+        }
+      },
+    });
     const { value, warning } = await store.read(metaType);
     const fresh = isStale(value, { root, keys });
     return { cache: { store, directory, root, keys, fresh }, warnings: warning ? [warning] : [] };
@@ -115,11 +124,6 @@ export async function commitRepositoryCache(
   }
   try {
     return await cache.store.commit(async (tx) => {
-      // Re-check under the lock: `.scope` or the store directory may have been replaced while the lock was awaited.
-      // (Node has no openat/unlinkat, so a process rewriting the repository during the commit itself is out of reach.)
-      if ((await realpath(cache.directory)) !== cache.directory) {
-        throw new Error(`${cache.directory} is not a directory (symlinks are not followed)`);
-      }
       // Decide under the lock, from the meta on disk: another run may have committed other keys since open.
       if (isStale(await tx.read(metaType), cache)) {
         for (const name of await tx.list()) if (name !== metaType.name) tx.removeName(name);

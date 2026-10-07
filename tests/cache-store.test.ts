@@ -207,6 +207,36 @@ describe("commit", () => {
     expect(seen).toEqual([{ items: ["staged"] }, undefined]);
   });
 
+  for (const [failOn, stage] of [
+    [1, "before taking the lock"],
+    [2, "after taking the lock, before cleanup and update"],
+    [3, "before writing"],
+  ] as const) {
+    test(`verifyDirectory failing ${stage} touches nothing and does not commit`, async () => {
+      await put({ items: ["old"] });
+      const old = new Date(Date.now() - 10 * 60_000);
+      await writeFile(join(dir, "old.tmp"), "x");
+      await utimes(join(dir, "old.tmp"), old, old);
+      let calls = 0;
+      let updated = false;
+      const guarded = new DocumentStore(dir, {
+        verifyDirectory: () => {
+          calls += 1;
+          if (calls === failOn) throw new Error("directory replaced");
+        },
+      });
+      const outcome = await guarded.commit((tx) => {
+        updated = true;
+        tx.write(files, { items: ["new"] });
+      });
+      expect(outcome).toEqual({ committed: false, warning: "cache not written: directory replaced" });
+      expect(updated).toBe(failOn === 3);
+      // The sweep runs once the directory has been verified under the lock, so only a late failure sees it done.
+      expect((await readdir(dir)).sort()).toEqual(failOn === 3 ? ["files.json"] : ["files.json", "old.tmp"]);
+      expect((await store.read(files)).value).toEqual({ items: ["old"] });
+    });
+  }
+
   test("staged writes are not visible if update throws, and the lock is released", async () => {
     await put({ items: ["old"] });
     await expect(
