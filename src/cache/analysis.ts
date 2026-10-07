@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
+import { makeChunkId } from "../chunk-id.ts";
 import type { ChunkKind, CodeChunk, Language, Reference, ReferenceEvidence, SourceLocation } from "../types.ts";
 import { commitRepositoryCache, type RepositoryCache } from "./location.ts";
 import type { CommitOutcome, DocumentType } from "./store.ts";
@@ -184,6 +185,23 @@ const shardType = (name: string): DocumentType<Shard> => ({
 });
 
 /**
+ * Whether every chunk is what analysis of this source would hold: its range lies in the source, its content is the
+ * exact text of those lines (split on `\n` only, see docs/chunk-model.md), its id is derived from its fields, and a
+ * parent is a chunk of the same entry. Reference lines are not checked: file-level references sit outside chunks.
+ */
+function matchesSource(entry: Entry, redactedSource: string): boolean {
+  const lines = redactedSource.split("\n");
+  const ids = new Set(entry.chunks.map((chunk) => chunk.id));
+  return entry.chunks.every(
+    (chunk) =>
+      chunk.endLine <= lines.length &&
+      chunk.content === lines.slice(chunk.startLine - 1, chunk.endLine).join("\n") &&
+      chunk.id === makeChunkId(chunk) &&
+      (chunk.parentId === undefined || ids.has(chunk.parentId)),
+  );
+}
+
+/**
  * Per-file analysis results stored in the repository cache, reused when the same path has the same bytes.
  * Only files that reached `analyzeFile` are stored (binary and language-less files are cheap to skip; excluded files
  * are never read). A commit keeps exactly the entries this run used, so deleted and changed files are pruned and the
@@ -195,7 +213,8 @@ export class AnalysisCache {
   readonly #shards = new Map<string, Promise<Shard | undefined>>();
   /** Every entry this run used, whether it was a hit or newly recorded. */
   readonly #used = new Map<string, Entry>();
-  #recorded = 0;
+  /** Keys recorded this run. A record only happens on a miss, so a stored entry under such a key is stale or absent. */
+  readonly #recorded = new Set<string>();
 
   constructor(cache: RepositoryCache, warnings: readonly string[] = []) {
     this.#cache = cache;
@@ -223,11 +242,14 @@ export class AnalysisCache {
     return shard;
   }
 
-  /** The stored analysis for this path and key, or undefined. A fresh cache never reads: every lookup misses. */
-  async lookup(path: string, key: string): Promise<CachedAnalysis | undefined> {
+  /**
+   * The stored analysis for this path and key, or undefined. A fresh cache never reads: every lookup misses. A hit is
+   * checked against `redactedSource` (the current redacted text of the file), so shape-valid but wrong content is a miss.
+   */
+  async lookup(path: string, key: string, redactedSource: string): Promise<CachedAnalysis | undefined> {
     if (this.#cache.fresh) return undefined;
     const entry = (await this.#shard(shardName(key)))?.entries[key];
-    if (!entry || entry.path !== path) return undefined;
+    if (!entry || entry.path !== path || !matchesSource(entry, redactedSource)) return undefined;
     this.#used.set(key, entry);
     return { chunks: entry.chunks, warnings: entry.warnings, textOnly: entry.textOnly };
   }
@@ -235,12 +257,12 @@ export class AnalysisCache {
   /** Notes a result to store at commit. */
   record(path: string, key: string, analysis: CachedAnalysis): void {
     this.#used.set(key, { path, chunks: analysis.chunks, warnings: analysis.warnings, textOnly: analysis.textOnly });
-    this.#recorded++;
+    this.#recorded.add(key);
   }
 
   /** Whether the store would change: new results, a stale entry or unusable shard that was read, or an unread shard. */
   async #needsCommit(): Promise<boolean> {
-    if (this.#cache.fresh || this.#recorded > 0) return true;
+    if (this.#cache.fresh || this.#recorded.size > 0) return true;
     for (const pending of this.#shards.values()) {
       const shard = await pending;
       if (!shard) return true;
@@ -283,7 +305,8 @@ export class AnalysisCache {
           existing !== undefined &&
           Object.keys(existing.entries).length === desired.size &&
           [...desired.keys()].every((key) => key in existing.entries);
-        if (!same) tx.write(type, { entries: Object.fromEntries(desired) });
+        if (!same || [...desired.keys()].some((key) => this.#recorded.has(key)))
+          tx.write(type, { entries: Object.fromEntries(desired) });
       }
     });
     if (!outcome.committed) this.#warn(outcome.warning);

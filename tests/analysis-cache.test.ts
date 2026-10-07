@@ -209,6 +209,56 @@ describe("unusable shards", () => {
     const run = await loadChunks(repo, { cache: {} });
     expect(run.analysis!.analyzed).toBe(Object.keys(doc.entries).length);
     expect(run.chunks).toEqual((await loadChunks(repo)).chunks);
+    // The replaced entry was written, so the next run reuses it.
+    expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
+  });
+
+  const plant = async (repo: string, change: (chunk: Record<string, unknown>) => void) => {
+    const shards = await readShards(repo);
+    const { name, doc } = shards.find(({ doc }) => Object.values(doc.entries).some((e) => e.chunks.length > 0))!;
+    const entry = Object.values(doc.entries).find((e) => e.chunks.length > 0)!;
+    change(entry.chunks[0] as unknown as Record<string, unknown>);
+    await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
+    return entry.path;
+  };
+
+  for (const [label, change] of [
+    ["edited content", (chunk: Record<string, unknown>) => (chunk.content = "INJECTED_CONTENT_4d2a")],
+    ["a wrong id", (chunk: Record<string, unknown>) => (chunk.id = "badbadbadbad")],
+    ["an endLine past the source", (chunk: Record<string, unknown>) => (chunk.endLine = 99999)],
+    ["a parentId outside the entry", (chunk: Record<string, unknown>) => (chunk.parentId = "nosuchparent")],
+  ] as const) {
+    test(`a shape-valid entry with ${label} is a miss, replaced and then reused`, async () => {
+      const repo = await copyFixture("webhook-service");
+      const plain = await loadChunks(repo);
+      await loadChunks(repo, { cache: {} });
+      await plant(repo, change);
+      const run = await loadChunks(repo, { cache: {} });
+      expect(run.analysis!.analyzed).toBe(1);
+      expect(run.chunks).toEqual(plain.chunks);
+      expect(run.warnings).toEqual(plain.warnings);
+      expect(JSON.stringify(await readShards(repo))).not.toContain("INJECTED_CONTENT_4d2a");
+      expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
+    });
+  }
+
+  test("cached content holding a redacted literal is not reused; the output has the redacted form", async () => {
+    const repo = await copyFixture("webhook-service");
+    const literal = "sk-proj-abcdefghijklmnopqrstuv";
+    await writeFile(join(repo, "src/k.ts"), `export const key = "${literal}";\n`);
+    const plain = await loadChunks(repo);
+    expect(JSON.stringify(plain.chunks)).not.toContain(literal);
+    await loadChunks(repo, { cache: {} });
+    const key = analysisKey("src/k.ts", await readFile(join(repo, "src/k.ts")));
+    const shardPath = join(storeDir(repo), `analysis-${key.slice(0, 2)}.json`);
+    const doc = JSON.parse(await readFile(shardPath, "utf8"));
+    doc.entries[key].chunks[0].content = `export const key = "${literal}";`;
+    await writeFile(shardPath, JSON.stringify(doc));
+    const run = await loadChunks(repo, { cache: {} });
+    expect(run.analysis!.analyzed).toBe(1);
+    expect(JSON.stringify(run.chunks)).not.toContain(literal);
+    expect(run.chunks).toEqual(plain.chunks);
+    expect(JSON.stringify(await readShards(repo))).not.toContain(literal);
   });
 });
 

@@ -128,7 +128,10 @@ one of their commits or a merge of both, never a mix of half-written documents.
 - **Untrusted content.** A strict validator checks every field of every chunk, reference and location, that each
   chunk's `file` equals its entry's `path`, and that each key belongs to its shard. One bad entry makes the whole
   shard unusable: the store warns once and the shard is treated as empty, so those files are reanalyzed. A lookup also
-  requires the entry's `path` to equal the path being loaded; a mismatch is a miss.
+  requires the entry's `path` to equal the path being loaded, and checks the entry against the current redacted source:
+  every chunk's `endLine` is within the line count, its `content` is exactly the text of its lines, its `id` is
+  `makeChunkId` of its fields, and any `parentId` names a chunk of the same entry. Any mismatch is a miss: the file is
+  analyzed again and the commit replaces the entry.
 - **Pruning.** A commit keeps exactly the entries this run used (hits and newly analyzed), rewrites a shard only when
   its key set changed, and removes shards that end up empty. Deleted and changed files drop out, so the cache holds the
   latest scan only. When the version keys changed (a fresh cache), nothing is read and the old shards are removed.

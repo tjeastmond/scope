@@ -92,10 +92,11 @@ export async function loadChunks(
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
     const key = analysisKey(file, bytes);
-    let analysis = await analysisCache?.lookup(file, key);
+    const redacted = redactSecrets(text);
+    let analysis = await analysisCache?.lookup(file, key, redacted);
     if (analysis) reused++;
     else {
-      const result = await analyzeFile({ path: file, source: redactSecrets(text) }, language);
+      const result = await analyzeFile({ path: file, source: redacted }, language);
       analysis = { chunks: result.chunks, warnings: result.warnings, textOnly: result.textOnly === true };
       analysisCache?.record(file, key, analysis);
       analyzed++;
