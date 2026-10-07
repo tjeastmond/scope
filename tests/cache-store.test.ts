@@ -12,6 +12,7 @@ import {
   utimes,
   writeFile,
 } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DocumentStore, type DocumentType } from "../src/cache/store.ts";
@@ -217,26 +218,48 @@ describe("commit", () => {
     expect(JSON.parse(await readFile(join(dir, "lock"), "utf8")).token).toBe("someone-else");
   });
 
-  test("a fresh break guard keeps a stale lock in place and the commit busy", async () => {
+  const claimPath = (token: string, level: number) =>
+    join(dir, `.lock.break.${createHash("sha256").update(token).digest("hex").slice(0, 16)}.${level}.tmp`);
+
+  test("a fresh break claim keeps a stale lock in place and the commit busy", async () => {
     const lock = join(dir, "lock");
     await writeFile(lock, JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
-    await writeFile(join(dir, "lock.break"), "");
+    await writeFile(claimPath("dead", 0), "");
     const outcome = await store.commit((tx) => tx.write(files, { items: ["new"] }), { lockWaitMs: 100 });
     expect(outcome).toEqual({ committed: false, warning: "cache busy; this run was not cached" });
     expect(JSON.parse(await readFile(lock, "utf8")).token).toBe("dead");
   });
 
-  test("a stale break guard is cleared and the stale lock is broken", async () => {
+  test("a stale break claim is skipped: the next level is claimed and the lock broken", async () => {
     await writeFile(join(dir, "lock"), JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
-    const guard = join(dir, "lock.break");
-    await writeFile(guard, "");
     const past = new Date(Date.now() - 120_000);
-    await utimes(guard, past, past);
+    await writeFile(claimPath("dead", 0), "");
+    await utimes(claimPath("dead", 0), past, past);
     expect(await put()).toEqual({ committed: true });
-    const names = await readdir(dir);
-    expect(names).not.toContain("lock.break");
-    expect(names).not.toContain("lock");
+    expect(await readdir(dir)).not.toContain("lock");
+    expect(await readdir(dir)).toContain(claimPath("dead", 1).slice(dir.length + 1));
   });
+
+  test("a FIFO as the lock does not hang the wait", async () => {
+    expect(Bun.spawnSync(["mkfifo", join(dir, "lock")]).exitCode).toBe(0);
+    const outcome = await store.commit((tx) => tx.write(files, { items: ["x"] }), { lockWaitMs: 100 });
+    expect(outcome).toEqual({ committed: false, warning: "cache busy; this run was not cached" });
+  }, 5000);
+
+  test("a FIFO as the document reads as unusable without hanging", async () => {
+    expect(Bun.spawnSync(["mkfifo", docPath()]).exitCode).toBe(0);
+    const outcome = await store.read(files);
+    expect(outcome.value).toBeUndefined();
+    expect(outcome.warning).toContain("files.json");
+  }, 5000);
+
+  test("a symlink to a FIFO as the document reads as unusable without hanging", async () => {
+    expect(Bun.spawnSync(["mkfifo", join(dir, "pipe")]).exitCode).toBe(0);
+    await symlink(join(dir, "pipe"), docPath());
+    const outcome = await store.read(files);
+    expect(outcome.value).toBeUndefined();
+    expect(outcome.warning).toContain("files.json");
+  }, 5000);
 
   test("a dangling lock symlink does not hang the wait", async () => {
     await symlink(join(dir, "nowhere"), join(dir, "lock"));
@@ -302,7 +325,27 @@ describe("concurrency", () => {
     expect(codes).toEqual(children.map(() => 0));
     expect((await store.read(counter)).value).toEqual({ value: processes * times });
     expect(
-      (await readdir(dir)).filter((name) => name.endsWith(".tmp") || name === "lock" || name === "lock.break"),
+      (await readdir(dir)).filter(
+        (name) => (name.endsWith(".tmp") && !name.startsWith(".lock.break.")) || name === "lock",
+      ),
     ).toEqual([]);
+  }, 15_000);
+
+  test("several processes breaking the same stale lock all finish", async () => {
+    await writeFile(join(dir, "lock"), JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
+    const processes = 4;
+    const times = 5;
+    const counter: DocumentType<{ value: number }> = {
+      name: "counter",
+      schemaVersion: 1,
+      validate: (payload): payload is { value: number } => typeof (payload as { value?: unknown }).value === "number",
+    };
+    const helper = join(import.meta.dir, "helpers", "store-increment.ts");
+    const children = Array.from({ length: processes }, () =>
+      Bun.spawn([process.execPath, helper, dir, String(times)], { stdout: "ignore", stderr: "pipe" }),
+    );
+    expect(await Promise.all(children.map((child) => child.exited))).toEqual(children.map(() => 0));
+    expect((await store.read(counter)).value).toEqual({ value: processes * times });
+    expect(await readdir(dir)).not.toContain("lock");
   }, 15_000);
 });

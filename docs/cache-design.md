@@ -64,6 +64,18 @@ spike passed
 Reads take no lock. A run gathers what it wants to persist and commits it in one short critical section at the end:
 take the store lock, re-read the documents it updates, merge, write each one atomically, release. The lock is a file
 created with exclusive create (`O_EXCL`) holding a random token and the time. A lock older than 30 seconds is stale and
+may be broken (a commit takes milliseconds). Breaking is claimed per lock: a breaker
+exclusively creates `.lock.break.<id>.<level>.tmp`, where `id` identifies the stale lock it saw, and only the claimant
+re-checks that lock and removes it, so a live lock taken in the meantime is never removed. A fresh claim means another
+breaker is working; a claim older than 30 seconds belongs to a crashed breaker and the next level is claimed. Claims
+are never deleted by breakers; the temp sweep removes them. The store reads only regular files and never follows
+symlinks, so a FIFO or a link to one reads as unusable rather than hanging. Scope never reads a newer layout.
+
+### Concurrency
+
+Reads take no lock. A run gathers what it wants to persist and commits it in one short critical section at the end:
+take the store lock, re-read the documents it updates, merge, write each one atomically, release. The lock is a file
+created with exclusive create (`O_EXCL`) holding a random token and the time. A lock older than 30 seconds is stale and
 may be broken (a commit takes milliseconds). Breaking is serialized by a guard file (`lock.break`, also `O_EXCL`):
 only its holder may remove a stale lock, and only after re-reading it and finding it unchanged, so a live lock taken
 in the meantime is never removed. A guard older than 30 seconds is itself stale. Scope never signals or inspects other processes. A run that cannot get

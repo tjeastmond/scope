@@ -107,7 +107,7 @@ type Parsed<T> = { value: T } | { value?: undefined; problem?: string };
 async function parseDocument<T>(path: string, type: DocumentType<T>): Promise<Parsed<T>> {
   let text: string;
   try {
-    text = await readRegularFile(path);
+    text = await readRegularFile(path, "utf8");
   } catch (error) {
     return codeOf(error) === "ENOENT" ? {} : { problem: `unreadable (${reason(error)})` };
   }
@@ -325,7 +325,7 @@ export class DocumentStore {
     let created = info.mtimeMs;
     let token: string | undefined;
     try {
-      const doc: unknown = JSON.parse(await readRegularFile(path));
+      const doc: unknown = JSON.parse(await readRegularFile(path, "utf8"));
       if (isPlainObject(doc)) {
         if (typeof doc.createdAt === "number" && Number.isFinite(doc.createdAt)) created = doc.createdAt;
         if (typeof doc.token === "string") token = doc.token;
@@ -339,7 +339,7 @@ export class DocumentStore {
   /** The token recorded in the lock file, or `undefined` if it is missing or unreadable. */
   async #readLockToken(path: string): Promise<string | undefined> {
     try {
-      const doc: unknown = JSON.parse(await readRegularFile(path));
+      const doc: unknown = JSON.parse(await readRegularFile(path, "utf8"));
       return isPlainObject(doc) && typeof doc.token === "string" ? doc.token : undefined;
     } catch {
       return undefined;
@@ -350,7 +350,7 @@ export class DocumentStore {
   async #release(token: string): Promise<void> {
     const lockPath = join(this.directory, LOCK_FILE);
     try {
-      const doc: unknown = JSON.parse(await readRegularFile(lockPath));
+      const doc: unknown = JSON.parse(await readRegularFile(lockPath, "utf8"));
       if (isPlainObject(doc) && doc.token === token) await rm(lockPath, { force: true });
     } catch {
       // Already gone or unreadable: nothing of ours to release.
