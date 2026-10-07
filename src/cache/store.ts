@@ -64,8 +64,8 @@ export interface DocumentStoreOptions {
   beforeBreakRename?: () => Promise<void> | void;
   /**
    * Throws if the store directory is no longer the one the caller chose (for example, replaced by a symlink). A commit
-   * runs it before every attempt to take or break the lock, after taking it and before any cleanup or update, and
-   * before writing; a failure means nothing more is touched and the commit is not cached.
+   * runs it before every attempt to take the lock, before claiming and before moving a stale lock, after taking the
+   * lock and before any cleanup or update, and before writing; a failure means nothing more is touched and the commit is not cached.
    */
   verifyDirectory?: () => Promise<void> | void;
 }
@@ -326,6 +326,7 @@ export class DocumentStore {
     let claimed = false;
     for (let level = 0; level <= MAX_BREAK_LEVEL && !claimed; level++) {
       const claim = join(this.directory, `${BREAK_CLAIM_PREFIX}${id}.${level}.tmp`);
+      await this.#verifyDirectory();
       try {
         await (await open(claim, "wx")).close();
         claimed = true;
@@ -341,6 +342,7 @@ export class DocumentStore {
     if (current === undefined) return true;
     if (lockIdentity(current) !== id || current.age <= this.#staleMs) return true; // replaced by another lock
     await this.#beforeBreakRename?.();
+    await this.#verifyDirectory();
     const moved = join(this.directory, `.${LOCK_FILE}.${randomHex()}.tmp`);
     try {
       await rename(lockPath, moved);

@@ -209,8 +209,10 @@ describe("openRepositoryCache and commitRepositoryCache", () => {
     await rename(cache!.directory, `${cache!.directory}.held`);
     await symlink(outside, cache!.directory);
     const outcome = await pending;
+    // The swap takes two steps, so a lock attempt landing between them fails with ENOENT instead; either way the
+    // commit is refused and the outside directory is untouched.
     expect(outcome.committed).toBe(false);
-    expect(outcome.committed === false && outcome.warning).toContain("symlinks are not followed");
+    expect(outcome.committed === false && outcome.warning).toMatch(/symlinks are not followed|ENOENT/);
     expect((await readdir(outside)).sort()).toEqual(["old.tmp", "settings.json"]);
   });
 
