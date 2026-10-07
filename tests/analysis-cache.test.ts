@@ -276,6 +276,19 @@ describe("unusable shards", () => {
       (chunk) => (chunk.references[0]!.name = "injectedmarkerzq"),
     ],
     [
+      "a reference specifier absent from the source",
+      (chunk) => chunk.references.some((reference) => typeof reference.specifier === "string"),
+      (chunk) =>
+        (chunk.references.find((reference) => typeof reference.specifier === "string")!.specifier =
+          "./injectedmarkerzq"),
+    ],
+    [
+      "a reference local absent from the source",
+      (chunk) => chunk.references.some((reference) => typeof reference.local === "string"),
+      (chunk) =>
+        (chunk.references.find((reference) => typeof reference.local === "string")!.local = "injectedmarkerzq"),
+    ],
+    [
       "a containerName absent from the source",
       (chunk) => typeof chunk.containerName === "string",
       (chunk) => (chunk.containerName = "injectedmarkerzq"),
