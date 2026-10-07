@@ -92,9 +92,7 @@ export const jevModel = (): string => process.env.TYPESAFE_DEFAULT_MODEL?.trim()
 /** Builds the real client. Reads TYPESAFE_API_KEY from the environment only and never enables SDK logging. */
 export function createJevClient(options: JevClientOptions = {}): JevClient {
   if (!process.env.TYPESAFE_API_KEY?.trim()) {
-    throw new JevAuthError(
-      "TYPESAFE_API_KEY is not set. Set it to run Scope with Jev, or pass --no-jev for the offline baseline.",
-    );
+    throw new JevAuthError("TYPESAFE_API_KEY is not set.");
   }
   // logLevel "off": debug logging would print request bodies (source code) and part of the key.
   return new TypeSafeClient({
@@ -234,8 +232,8 @@ function failure(error: unknown, caller: AbortSignal | undefined, deadline: Abor
     if (status === 429) return new JevRateLimitError("Jev rate limit reached (HTTP 429); try again later.");
     if (error instanceof BadRequestError && isTooLarge(error))
       return new JevRequestError("The request exceeds Jev's token limit; narrow the task or the repository.");
-    const id = error.requestId?.match(/^[\w-]{1,64}$/) ? `, request ${error.requestId}` : "";
-    return new JevServiceError(`Jev request failed (HTTP ${status}${id}).`);
+    // No request id: it is server-supplied with no documented format, so it could carry a credential.
+    return new JevServiceError(`Jev request failed (HTTP ${status}).`);
   }
   if (error instanceof APIConnectionError) return new JevServiceError("Could not reach Jev (connection error).");
   return new JevServiceError("Jev request failed unexpectedly.");

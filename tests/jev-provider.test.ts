@@ -126,7 +126,7 @@ afterEach(() => {
 
 test("fails clearly when the API key is missing and never names the variable's value", () => {
   delete process.env.TYPESAFE_API_KEY;
-  expect(() => createJevClient()).toThrow(/TYPESAFE_API_KEY is not set.*--no-jev/);
+  expect(() => createJevClient()).toThrow(/TYPESAFE_API_KEY is not set/);
   process.env.TYPESAFE_API_KEY = "   ";
   expect(() => createJevClient()).toThrow(JevUnavailableError);
   expect(() => new JevDecisionProvider()).toThrow(JevUnavailableError);
@@ -231,6 +231,7 @@ function leakyErrors(): unknown[] {
   const headers = { "x-api-key": FAKE_KEY, "x-typesafe-request-id": "req-123" };
   const withCause = (error: Error) => Object.assign(error, { cause: new Error(leak) });
   return [
+    http(500, body, { "x-typesafe-request-id": FAKE_KEY }),
     ...[400, 401, 403, 422, 429, 500, 529].map((status) => withCause(http(status, body, headers))),
     http(400, { detail: { error_type: "max_tokens_exceeded", echoed: leak } }, headers),
     withCause(new APIConnectionError(leak)),
@@ -267,7 +268,7 @@ test("the CLI never prints the key or echoed content, and prints nothing to stdo
       stderr: (t) => err.push(t),
       provider: new JevDecisionProvider({ client }),
     });
-    expect(code).toBe(1);
+    expect(code).toBeGreaterThanOrEqual(3); // each Jev failure class has its own code, none is 0, 1 or 2
     expect(out.join("")).toBe("");
     expect(err.join("")).not.toContain(FAKE_KEY);
     expect(err.join("")).not.toContain("SECRET_SOURCE");
@@ -307,15 +308,19 @@ test("a cancelled signal stops a --no-jev run after the scan, with nothing on st
     { stdout: (t) => out.push(t), stderr: (t) => err.push(t), signal: controller.signal },
   );
 
-  expect(code).toBe(1);
+  expect(code).toBe(130);
   expect(out.join("")).toBe("");
   expect(err.join("")).toBe("scope: Cancelled: the run was interrupted before it finished\n");
 });
 
-test("a service error names a well-formed request id and drops a malformed one", async () => {
-  const header = "x-typesafe-request-id";
-  const good = await decideWith(() => http(500, {}, { [header]: "req_abc-123" }));
-  expect((good.error as Error).message).toBe("Jev request failed (HTTP 500, request req_abc-123).");
-  const bad = await decideWith(() => http(500, {}, { [header]: "req 1; Authorization: Bearer x" }));
-  expect((bad.error as Error).message).toBe("Jev request failed (HTTP 500).");
+test.each([
+  ["a plain id", "req_abc-123"],
+  ["the API key echoed back", FAKE_KEY],
+  ["the API key inside a longer id", `req_${FAKE_KEY}_1`],
+  ["an embedded credential shape", "req_ghp_abcdefghijklmnopqrstuvwxyz0123456789_1"],
+  ["header injection", "req 1; Authorization: Bearer x"],
+])("a service error never echoes the server's request id (%s)", async (_name, requestId) => {
+  process.env.TYPESAFE_API_KEY = FAKE_KEY;
+  const { error } = await decideWith(() => http(500, {}, { "x-typesafe-request-id": requestId }));
+  expect((error as Error).message).toBe("Jev request failed (HTTP 500).");
 });

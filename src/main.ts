@@ -1,4 +1,13 @@
-import { JevCancelledError, JevRequestError, JevResponseError, JevUnavailableError } from "./jev/errors.ts";
+import {
+  JevAuthError,
+  JevCancelledError,
+  JevRateLimitError,
+  JevRequestError,
+  JevResponseError,
+  JevTimeoutError,
+  JevUnavailableError,
+} from "./jev/errors.ts";
+import { exitCodeFor } from "./exit-codes.ts";
 import { parseArgs } from "node:util";
 import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
@@ -105,6 +114,22 @@ const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
   [JevRequestError, "Jev request not sent"],
 ];
 
+const NO_JEV = "or rerun with --no-jev for the offline baseline (no Jev judgment).";
+
+/** Setup or retry guidance per Jev failure (most specific class first); it always names --no-jev as the user's choice. */
+const GUIDANCE: [new (...args: never[]) => Error, string][] = [
+  [JevCancelledError, ""],
+  [JevAuthError, `Set TYPESAFE_API_KEY to a valid TypeSafe key, ${NO_JEV}`],
+  [JevRateLimitError, `Wait a moment and retry, ${NO_JEV}`],
+  [JevTimeoutError, `Retry; if it keeps timing out, narrow the task or point --repo at a smaller directory, ${NO_JEV}`],
+  [JevUnavailableError, `Check your network connection and retry later, ${NO_JEV}`],
+  [JevResponseError, `Retry; if it persists, report it with the message above, ${NO_JEV}`],
+  [JevRequestError, `Narrow the task or point --repo at a smaller directory, ${NO_JEV}`],
+];
+
+const guidanceFor = (error: unknown): string | undefined =>
+  GUIDANCE.find(([type]) => error instanceof type)?.[1] || undefined;
+
 /** One line naming the kind of failure first, so a Jev failure is never mistaken for a Scope or usage problem. */
 function describeError(error: unknown): string {
   if (!(error instanceof Error)) return String(error);
@@ -159,7 +184,9 @@ export async function main(argv: string[], io: Io): Promise<number> {
     }
   } catch (error) {
     io.stderr(`scope: ${describeError(error)}\n`);
-    return error instanceof UsageError ? 2 : 1;
+    const guidance = guidanceFor(error);
+    if (guidance) io.stderr(`scope: ${guidance}\n`);
+    return exitCodeFor(error);
   }
 }
 
