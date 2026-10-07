@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { lstat, mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
+import { link, lstat, mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 /** A lock older than this is stale and may be broken. A commit takes milliseconds. */
@@ -53,6 +53,8 @@ export interface DocumentStoreOptions {
   lockStaleMs?: number;
   /** Default wait for the lock. Defaults to {@link LOCK_WAIT_MS}. */
   lockWaitMs?: number;
+  /** Test seam: runs after a breaker has re-checked a stale lock and before it moves it away. */
+  beforeBreakRename?: () => Promise<void> | void;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -166,11 +168,13 @@ export class DocumentStore {
   readonly directory: string;
   readonly #staleMs: number;
   readonly #waitMs: number;
+  readonly #beforeBreakRename: (() => Promise<void> | void) | undefined;
 
   /** `directory` is absolute and is created on the first commit. Choosing it is the caller's concern. */
   constructor(directory: string, options: DocumentStoreOptions = {}) {
     this.directory = directory;
     this.#staleMs = options.lockStaleMs ?? LOCK_STALE_MS;
+    this.#beforeBreakRename = options.beforeBreakRename;
     this.#waitMs = options.lockWaitMs ?? LOCK_WAIT_MS;
   }
 
@@ -296,6 +300,7 @@ export class DocumentStore {
     const current = await this.#inspectLock(lockPath);
     if (current === undefined) return true;
     if (lockIdentity(current) !== id || current.age <= this.#staleMs) return true; // replaced by another lock
+    await this.#beforeBreakRename?.();
     const moved = join(this.directory, `.${LOCK_FILE}.${randomHex()}.tmp`);
     try {
       await rename(lockPath, moved);
@@ -303,6 +308,11 @@ export class DocumentStore {
       if (codeOf(error) !== "ENOENT") throw error;
       return true;
     }
+    // A breaker stalled for longer than the stale threshold between its re-check and the rename may have moved a live
+    // lock that replaced the stale one. Put that lock back; if the slot was taken in the meantime, the moved lock's
+    // owner finds a foreign token before writing and skips its commit ("cache lock lost").
+    const movedLock = await this.#inspectLock(moved).catch(() => undefined);
+    if (movedLock !== undefined && lockIdentity(movedLock) !== id) await link(moved, lockPath).catch(() => undefined);
     await rm(moved, { force: true }).catch(() => undefined);
     return true;
   }

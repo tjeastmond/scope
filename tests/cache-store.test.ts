@@ -186,6 +186,19 @@ describe("commit", () => {
     expect(JSON.parse(await readFile(join(dir, "lock"), "utf8")).token).toBe("other");
   });
 
+  test("a breaker that stalls after its re-check puts back a live lock it moved", async () => {
+    const lock = join(dir, "lock");
+    await writeFile(lock, JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
+    const stalled = new DocumentStore(dir, {
+      // Meanwhile another breaker removed the stale lock and a writer took a fresh one.
+      beforeBreakRename: () => writeFile(lock, JSON.stringify({ token: "live", createdAt: Date.now() })),
+    });
+    const outcome = await stalled.commit((tx) => tx.write(files, { items: ["x"] }), { lockWaitMs: 150 });
+    expect(outcome).toEqual({ committed: false, warning: "cache busy; this run was not cached" });
+    expect(JSON.parse(await readFile(lock, "utf8")).token).toBe("live");
+    expect((await store.read(files)).value).toBeUndefined();
+  });
+
   test("breaks a stale lock", async () => {
     const lock = join(dir, "lock");
     await writeFile(lock, JSON.stringify({ token: "dead", createdAt: Date.now() - 120_000 }));
