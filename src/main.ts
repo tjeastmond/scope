@@ -2,7 +2,7 @@ import { JevCancelledError, JevRequestError, JevResponseError, JevUnavailableErr
 import { parseArgs } from "node:util";
 import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
-import { UsageError } from "./errors.ts";
+import { CancelledError, UsageError } from "./errors.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
@@ -31,7 +31,7 @@ export interface Io {
   stderr: (text: string) => void;
   /** Test seam: replaces the real Jev provider. */
   provider?: DecisionProvider;
-  /** Aborted when the user cancels (Ctrl-C); forwarded to the Jev request. Tests abort it without real signals. */
+  /** Aborted when the user cancels (Ctrl-C); stops the scan and the Jev request. Tests abort it without real signals. */
   signal?: AbortSignal;
 }
 
@@ -97,6 +97,7 @@ export function parseCli(argv: string[]): CliOptions {
 }
 
 const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
+  [CancelledError, "Cancelled"],
   [JevCancelledError, "Cancelled"],
   [JevUnavailableError, "Jev unavailable"],
   [JevResponseError, "Jev returned an unusable response"],

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
-import { UsageError } from "./errors.ts";
+import { CancelledError, UsageError } from "./errors.ts";
 import { selectByRelevance } from "./context/select.ts";
 import { JevDecisionProvider } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
@@ -23,6 +23,7 @@ export interface ScopeOptions {
   provider?: DecisionProvider;
   /** Include selection evidence in the artifact. */
   explain?: boolean;
+  /** Aborted when the user cancels: stops the scan and the Jev request with a CancelledError or JevCancelledError. */
   signal?: AbortSignal;
 }
 
@@ -45,13 +46,14 @@ const HEAD_CHARS = 1024;
  */
 export async function loadChunks(
   repo: string,
-  { detailed = false }: { detailed?: boolean } = {},
+  { detailed = false, signal }: { detailed?: boolean; signal?: AbortSignal } = {},
 ): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
   const { files, warnings } = await scanRepository(root);
   for (const file of files) {
+    if (signal?.aborted) throw new CancelledError();
     const bytes = await readFile(join(root, file));
     // The scanner only sniffs the start of a file; a NUL anywhere means binary content. Check the raw bytes, because
     // redaction could remove a NUL inside a credential-like literal. Files that do not look like text have no language.
@@ -78,7 +80,9 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const { task, repo = ".", noJev = false, explain = false, signal } = options;
   if (!task.trim()) throw new UsageError("A task description is required.");
 
-  const { chunks, warnings: scanWarnings } = await loadChunks(repo, { detailed: explain });
+  const { chunks, warnings: scanWarnings } = await loadChunks(repo, { detailed: explain, signal });
+  // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
+  if (signal?.aborted) throw new CancelledError();
   const { candidates, ranking, warning: retrievalWarning } = selectCandidates(task, chunks);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.

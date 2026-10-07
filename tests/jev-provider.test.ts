@@ -296,3 +296,18 @@ test("cancelling through the CLI signal exits non-zero with one stderr line and 
   expect(err.join("").trimEnd().split("\n")).toHaveLength(1);
   expect(err.join("")).toMatch(/^scope: Cancelled: /);
 });
+
+test("a cancelled signal stops a --no-jev run after the scan, with nothing on stdout", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await main(
+    ["Add retry handling", "--no-jev", "--repo", join(import.meta.dir, "../fixtures/webhook-service")],
+    { stdout: (t) => out.push(t), stderr: (t) => err.push(t), signal: controller.signal },
+  );
+
+  expect(code).toBe(1);
+  expect(out.join("")).toBe("");
+  expect(err.join("")).toBe("scope: Cancelled: the run was interrupted before it finished\n");
+});
