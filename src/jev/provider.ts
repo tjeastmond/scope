@@ -227,6 +227,15 @@ function failure(error: unknown, caller: AbortSignal | undefined, deadline: Abor
   return new JevServiceError("Jev request failed unexpectedly.");
 }
 
+const isCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
+
+/** Token counts from an untrusted response: non-negative integers, or a JevResponseError. */
+function validateUsage(usage: unknown): { input: number; output: number } {
+  const { input_tokens: input, output_tokens: output } = (usage ?? {}) as Record<string, unknown>;
+  if (!isCount(input) || !isCount(output)) throw new JevResponseError("Jev returned invalid token usage.");
+  return { input, output };
+}
+
 /**
  * Runs `run` over every item with at most `concurrency` in flight. Items start in order; once `stopped()` is true no
  * further item starts. `run` must not reject (callers record failures themselves), so no rejection can go unhandled.
@@ -302,19 +311,21 @@ export class JevDecisionProvider implements DecisionProvider {
           return;
         }
         if (firstFailure !== undefined) return;
+        // Every check on the untrusted response sits inside this block, so any failure stops the siblings too.
         try {
           const judgments = validateRelevance(refs, response.answers);
+          const tokens = validateUsage(response.usage);
           judgments.forEach((judgment, i) => {
             const chunkId = chunks[i]!.id;
             if (relevanceById.has(chunkId)) throw new JevResponseError(`Candidate ${chunkId} was judged twice.`);
             relevanceById.set(chunkId, { ...judgment, chunkId });
           });
+          inputTokens += tokens.input;
+          outputTokens += tokens.output;
         } catch (error) {
           fail(error instanceof JevError ? error : new JevResponseError("Jev returned an unusable answer."));
           return;
         }
-        inputTokens += response.usage.input_tokens;
-        outputTokens += response.usage.output_tokens;
       },
     );
     if (firstFailure) throw firstFailure;

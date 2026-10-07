@@ -215,3 +215,26 @@ test("cancelling the caller during concurrent batches reports a cancellation", a
   controller.abort();
   expect(await pending).toBeInstanceOf(JevCancelledError);
 });
+
+test.each([
+  ["missing", undefined],
+  ["null", null],
+  ["non-numeric", { input_tokens: "5", output_tokens: 1 }],
+  ["negative", { input_tokens: -1, output_tokens: 1 }],
+])("a response with %s usage fails the run, aborts siblings and starts nothing more", async (_name, bad) => {
+  let calls = 0;
+  const aborted: boolean[] = [];
+  const client: JevClient = {
+    async systemOne(request, { signal }) {
+      calls += 1;
+      if (calls === 1) return { answers: answersFor(request), usage: bad } as never;
+      await new Promise((resolve) => signal?.addEventListener("abort", resolve, { once: true }));
+      aborted.push(signal!.aborted);
+      throw new Error("aborted");
+    },
+  };
+  const provider = new JevDecisionProvider({ client, batchMaxQuestions: 1, concurrency: 2 });
+  await expect(provider.decide({ task: "t", candidates: many(8) })).rejects.toBeInstanceOf(JevResponseError);
+  expect(calls).toBe(2);
+  expect(aborted).toEqual([true]);
+});
