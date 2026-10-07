@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
 import { selectByRelevance } from "./context/select.ts";
-import { JevDecisionProvider } from "./jev/provider.ts";
+import { JevDecisionProvider, planJevRequests, type JevRequest } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
 import { classifyFile } from "./repository/language.ts";
@@ -75,15 +75,39 @@ export async function loadChunks(
   return { chunks, warnings };
 }
 
+/** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */
+async function prepareCandidates(task: string, repo: string, detailed: boolean, signal: AbortSignal | undefined) {
+  if (!task.trim()) throw new UsageError("A task description is required.");
+  const { chunks, warnings } = await loadChunks(repo, { detailed, signal });
+  // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
+  if (signal?.aborted) throw new CancelledError();
+  return { chunks, scanWarnings: warnings, ...selectCandidates(task, chunks) };
+}
+
+/**
+ * Scans and shortlists exactly like `runScope`, then returns the request bodies the Jev path would send, without
+ * constructing a client or sending anything.
+ */
+export async function previewJevPayload(options: {
+  task: string;
+  repo?: string;
+  signal?: AbortSignal;
+}): Promise<{ requests: JevRequest[]; candidateCount: number }> {
+  const { task, repo = ".", signal } = options;
+  const { candidates } = await prepareCandidates(task, repo, false, signal);
+  return { requests: planJevRequests(task, candidates), candidateCount: candidates.length };
+}
+
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const { task, repo = ".", noJev = false, explain = false, signal } = options;
-  if (!task.trim()) throw new UsageError("A task description is required.");
-
-  const { chunks, warnings: scanWarnings } = await loadChunks(repo, { detailed: explain, signal });
-  // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
-  if (signal?.aborted) throw new CancelledError();
-  const { candidates, ranking, warning: retrievalWarning } = selectCandidates(task, chunks);
+  const {
+    chunks,
+    scanWarnings,
+    candidates,
+    ranking,
+    warning: retrievalWarning,
+  } = await prepareCandidates(task, repo, explain, signal);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   // With nothing to judge Jev is skipped; selection then returns an empty artifact carrying retrieval's guidance.

@@ -10,6 +10,12 @@ export const MAX_CANDIDATES = DEFAULT_RETRIEVAL_CONFIG.shortlistSize;
  */
 export const JEV_BATCH_MAX_CHARS = 24_000;
 
+/**
+ * Characters of one candidate's code sent to Jev for judging: a quarter of the batch cap, so one candidate plus a
+ * normal task always fits. Judging only; the selected artifact still carries the full chunk.
+ */
+export const JEV_CANDIDATE_MAX_CHARS = 6_000;
+
 /** Overall deadline for judging all candidates; the SDK only bounds each attempt. */
 export const JEV_DEADLINE_MS = 90_000;
 
