@@ -324,3 +324,108 @@ test.each([
   const { error } = await decideWith(() => http(500, {}, { "x-typesafe-request-id": requestId }));
   expect((error as Error).message).toBe("Jev request failed (HTTP 500).");
 });
+
+// Failure class -> CLI exit code and stderr, end to end through main() with the real provider over a fake client.
+const FIXTURE = join(import.meta.dir, "../fixtures/webhook-service");
+async function runMain(provider: JevDecisionProvider) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await main(["Add retry handling to Stripe webhook processing", "--repo", FIXTURE], {
+    stdout: (t) => out.push(t),
+    stderr: (t) => err.push(t),
+    provider,
+  });
+  return {
+    code,
+    stdout: out.join(""),
+    lines: err
+      .join("")
+      .split("\n")
+      .filter((line) => line !== ""),
+  };
+}
+
+test.each([
+  ["HTTP 401", () => http(401), 3, /^scope: Jev unavailable: .*401/],
+  ["HTTP 403", () => http(403), 3, /^scope: Jev unavailable: .*403/],
+  ["HTTP 429", () => http(429), 4, /^scope: Jev unavailable: .*rate limit/],
+  ["a per-attempt timeout", () => new APITimeoutError(30_000), 5, /^scope: Jev unavailable: .*timed out/],
+  ["HTTP 500", () => http(500), 6, /^scope: Jev unavailable: .*500/],
+  ["another HTTP error (418)", () => http(418), 6, /^scope: Jev unavailable: .*418/],
+  ["a network error", () => new APIConnectionError("reset"), 6, /^scope: Jev unavailable: Could not reach Jev/],
+  [
+    "a token-limit refusal",
+    () => http(400, { detail: { error_type: "max_tokens_exceeded" } }),
+    8,
+    /^scope: Jev request not sent:/,
+  ],
+] as const)(
+  "%s through main: exit %d, empty stdout, a label and a --no-jev guidance line",
+  async (_l, thrower, code, label) => {
+    const client: JevClient = {
+      async systemOne() {
+        throw thrower();
+      },
+    };
+    const result = await runMain(new JevDecisionProvider({ client }));
+    expect(result.code).toBe(code);
+    expect(result.stdout).toBe("");
+    expect(result.lines).toHaveLength(2);
+    expect(result.lines[0]).toMatch(label);
+    expect(result.lines[1]).toMatch(/^scope: .*--no-jev/);
+  },
+);
+
+test("Scope's overall deadline through main: exit 5 and a deadline message", async () => {
+  const client: JevClient = { systemOne: () => new Promise(() => {}) }; // never answers and ignores its signal
+  const result = await runMain(new JevDecisionProvider({ client, deadlineMs: 20 }));
+  expect(result.code).toBe(5);
+  expect(result.stdout).toBe("");
+  expect(result.lines[0]).toMatch(/^scope: Jev unavailable: .*deadline/);
+});
+
+test.each([
+  ["a missing answer", () => ({}), /no answer for candidate/],
+  [
+    "an answer for an unknown candidate",
+    (ref: string) => ({ [ref]: noulAnswer(0.5), zzz: noulAnswer(0.5) }),
+    /unknown/,
+  ],
+  ["a non-finite relevance", (ref: string) => ({ [ref]: noulAnswer(Number.NaN) }), /invalid relevance/],
+  ["an infinite relevance", (ref: string) => ({ [ref]: noulAnswer(Number.POSITIVE_INFINITY) }), /invalid relevance/],
+  ["an out-of-range relevance", (ref: string) => ({ [ref]: noulAnswer(-0.5) }), /invalid relevance/],
+  ["a wrong-typed relevance", (ref: string) => ({ [ref]: noulAnswer("0.9") }), /invalid relevance/],
+  ["an answer that is not an object", (ref: string) => ({ [ref]: 0.9 }), /invalid relevance/],
+] as const)("a response with %s through main: exit 7, empty stdout", async (_l, answers, message) => {
+  const client: JevClient = {
+    async systemOne(request) {
+      // One candidate per question; the first ref gets the malformed answer and the rest are left to the validator.
+      return { answers: answers(Object.keys(request.questions)[0]!), usage: { input_tokens: 1, output_tokens: 1 } };
+    },
+  };
+  const result = await runMain(new JevDecisionProvider({ client, batchMaxQuestions: 1, concurrency: 1 }));
+  expect(result.code).toBe(7);
+  expect(result.stdout).toBe("");
+  expect(result.lines[0]).toMatch(/^scope: Jev returned an unusable response:/);
+  expect(result.lines[0]).toMatch(message);
+});
+
+test("a candidate too large for any request through main: exit 8 and nothing is sent", async () => {
+  const { client, calls } = fakeClient();
+  const result = await runMain(new JevDecisionProvider({ client, batchMaxChars: 300 }));
+  expect(result.code).toBe(8);
+  expect(result.stdout).toBe("");
+  expect(result.lines[0]).toMatch(/^scope: Jev request not sent: .*too large to send/);
+  expect(calls).toHaveLength(0);
+});
+
+test("a success through main: exit 0 with the artifact on stdout", async () => {
+  const { client } = fakeClient();
+  const result = await runMain(new JevDecisionProvider({ client }));
+  expect(result.code).toBe(0);
+  expect(result.stdout.startsWith("Scope context for:")).toBe(true);
+});
+
+function noulAnswer(noul: unknown) {
+  return { type: "noul", noul };
+}
