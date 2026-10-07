@@ -1,13 +1,14 @@
 # Jev SDK integration notes
 
-Facts the Scope Jev adapter depends on (issue #2, milestone M1).
+Facts the Scope Jev adapter depends on (issue #2, milestone M1; re-verified and measured live for issue #58, milestone M5).
 
 ## Basis and verification status
 
 - **SDK:** `@typesafe-ai/sdk` **0.6.0** (`VERSION = "0.6.0"`), read from `node_modules/@typesafe-ai/sdk/dist/index.d.mts`. Quoted types below are copied from that file.
 - **Docs read (2026-10-05):** [llms.txt index](https://docs.typesafe.ai/llms.txt), [JavaScript SDK](https://docs.typesafe.ai/sdk/javascript.md), [JS SDK changelog](https://docs.typesafe.ai/sdk/javascript/changelog.md), [Noul](https://docs.typesafe.ai/primitives/noul.md), [Primitives](https://docs.typesafe.ai/primitives.md), [State](https://docs.typesafe.ai/concepts/state.md), [Confidence](https://docs.typesafe.ai/confidence.md), [HTTP API](https://docs.typesafe.ai/api.md), [Models](https://docs.typesafe.ai/models.md), [Re-ranking cookbook](https://docs.typesafe.ai/cookbooks/rerank_typesafe.md), [Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13.md).
-- **Live verification is BLOCKED.** `TYPESAFE_API_KEY` was not available in this environment, so no request was sent to Jev. Every statement about runtime behavior is marked **unverified** below. What _is_ verified is: names and types (compiled against the installed SDK by `bun run typecheck`, which includes `scripts/spike-jev.ts`) and what the docs state.
-- `scripts/spike-jev.ts` is a throwaway Bun script that sends 3 Noul questions and prints the raw response. Without the key it prints a message and exits 0. Run it with a key to close the unverified items.
+- **Re-verified 2026-10-07 (M5, issue #58):** 0.6.0 is still the latest published version (`npm view @typesafe-ai/sdk`; the changelog lists only 0.5.7 and 0.6.0, and 0.6.0's only breaking change concerns `Score.criteria`, which Scope does not use). The docs pages above were re-read and state the same limits, pricing and retry behavior. No SDK bump.
+- **Live measurements (2026-10-07):** taken with TJ's key by `bun scripts/measure-jev.ts` against `jev-1.13.0`; see [Measured behavior](#measured-behavior-2026-10-07). Names and types are checked against the installed SDK by `bun run typecheck`, which includes the scripts. Items still marked **unverified** below could not be measured safely.
+- `scripts/spike-jev.ts` is the original M1 throwaway that sends 3 Noul questions and prints the raw response. Without the key it prints a message and exits 0.
 
 ## Client construction and authentication
 
@@ -77,7 +78,7 @@ interface Usage {
 - Usage fields are snake_case: `usage.input_tokens`, `usage.output_tokens`. Pricing (Models doc): charged per input token; output tokens are free.
 - `systemOne` throws `TypeSafeError` (before any request) when `questions` is empty.
 - `APIPromise` also offers `.withResponse()` (`{ data, response, requestId }`, request id from header `x-typesafe-request-id`), `.asResponse()` and `.map()`.
-- **Unverified at runtime:** that the `noul` value is always finite and within [0, 1], and that every question id is present in `answers`. The types promise both, but Scope must validate (finite, in range, one per candidate) and treat violations as a Jev failure.
+- **Observed at runtime:** every submitted id came back with a `noul` in [0, 1] in every measured request (up to 1000 questions), and the model was `jev-1.13.0`. That is evidence, not a guarantee; Scope still validates (finite, in range, one per candidate) and treats violations as a Jev failure.
 
 ## Request limits
 
@@ -91,9 +92,9 @@ Documented (Models page, `jev-1.13.0`):
 | Input type                               | Text only (string, JSON object, array of text values)                                                                |
 | Choice options / Score levels            | 255 options max per Choice; Score API accepts up to 10 levels (not relevant to Noul)                                 |
 
-- **Maximum questions per request: not documented**, and the SDK enforces no client-side maximum (only non-empty). Treat as unknown. The request limits above are the only documented bound, so the adapter must batch candidates to stay under them.
-- **Maximum payload size in bytes: not documented.** Jev's limits are expressed in its own tokens, which Scope does not compute. The adapter bounds each request by serialized characters (`JEV_BATCH_MAX_CHARS`, conservative for source code) instead; the true server behavior on an oversize request (status code, error body) is unverified. A 422 `UnprocessableEntityError` is the documented class for validation failures.
-- Because the `state` is ingested once and all questions are evaluated against it, a per-candidate state is not required: one shared state (task plus candidates) with one Noul per candidate fits the batching model. The re-ranking cookbook instead sends one request per query-candidate pair; both are valid shapes, with quality differences **unverified** for Scope.
+- **Maximum questions per request: not documented**, and the SDK enforces no client-side maximum (only non-empty). Measured: 1000 short Nouls in one request were all answered (19,165 input tokens, about 0.4 s). No count limit was found below the token limits, so the token limits are the binding bound.
+- **Maximum payload size in bytes: not documented.** Jev's limits are expressed in its own tokens, which Scope does not compute. The adapter bounds each request by serialized characters (`JEV_BATCH_MAX_CHARS`) instead. Measured: an oversize request fails with **HTTP 400** (`BadRequestError`, body `{"detail":{"error_type":"max_tokens_exceeded"}}`), not 422, both for a large `state` and for many long questions. 400 is not in the SDK's retried statuses, so it fails on the first attempt.
+- Because the `state` is ingested once and all questions are evaluated against it, a per-candidate state is not required: one shared state (task plus candidates) with one Noul per candidate fits the batching model. The re-ranking cookbook instead sends one request per query-candidate pair; both are valid shapes. Quality differences for Scope remain **unverified** (measuring them needs labeled tasks; see issue #63).
 - Jaggedness doc: accuracy degrades with large states full of irrelevant detail ("Filter first; send only what the question needs"), and the model reads questions literally.
 
 ## Timeouts, retries and cancellation
@@ -120,7 +121,7 @@ interface RetryPolicy {
 ```
 
 - Client-level `timeout` default is **10000 ms per attempt** (constructor option `timeout`; overridable per call). With the default 2 retries the worst case is roughly 3 attempts plus backoff; there is no overall deadline, so Scope must apply its own total deadline through an `AbortSignal` (for example `AbortSignal.timeout(ms)`).
-- The timeout covers the full response including body delivery. A larger batch may need a timeout above 10 s; the needed value is **unverified**.
+- The timeout covers the full response including body delivery. Measured attempts took 0.12 to 0.35 s, including a 62k-character, 25-question request, so Scope's 30 s per-attempt timeout (`JEV_ATTEMPT_TIMEOUT_MS`) leaves about 100x headroom.
 - Cancellation: pass `signal` in the second argument. Abort rejects with `APIUserAbortError` (also during backoff waits).
 - Retries and timeouts can be set at construction (`retry`, `timeout`) and overridden per call.
 
@@ -143,7 +144,7 @@ All extend `TypeSafeError extends Error`.
 | `APITimeoutError`          | Extends `APIConnectionError`; field `timeoutMs`                                  |
 | `APIUserAbortError`        | Caller aborted through `AbortSignal` (extends `TypeSafeError`)                   |
 
-Mapping of HTTP status to class is from the installed type doc comments; the runtime mapping itself is unverified.
+Mapping of HTTP status to class is from the installed type doc comments. Observed at runtime: 400 → `BadRequestError` (token limit), a 1 ms per-attempt timeout → `APITimeoutError`, an aborted signal → `APIUserAbortError`. 401, 403, 429 and 5xx were not provoked.
 
 ## Facts Scope's adapter will rely on
 
@@ -184,11 +185,46 @@ Adapter obligations that follow from the above:
 5. Do not log request bodies; never print or persist the API key.
 6. Record `usage` and latency per request for the M1 prototype evidence.
 
-## Unverified items (need a live key)
+## Measured behavior (2026-10-07)
 
-- Real response shape for a batch of Noul questions (field presence, ordering, extra fields).
-- Whether `noul` can fall outside [0, 1] or be non-finite.
-- Behavior and error class when a request exceeds the documented limits or contains very many questions.
-- Latency and the right `timeout` for batches of roughly 20 to 50 candidates.
-- Quality difference between a shared-state batch and one request per candidate.
-- Effective rate limits (documented as changing without notice).
+`bun scripts/measure-jev.ts`, SDK 0.6.0 under Bun 1.3.14, model `jev-1.13.0`, retries disabled so every number is one attempt. Candidates are chunks of this repository's `src/` (redacted by the normal pipeline), judged with Scope's own question shape (`JevDecisionProvider`). Each scenario ran three times; token counts were identical across repeats.
+
+| Scenario (25 candidates)                    | Requests | Serialized chars     | Input tokens        | Output tokens | End-to-end latency |
+| ------------------------------------------- | -------- | -------------------- | ------------------- | ------------- | ------------------ |
+| Retrieval shortlist, one request            | 1        | 24,306               | 7,407               | 444           | 185–265 ms         |
+| Retrieval shortlist, default batching (24k) | 2        | 23,733 + 715         | 7,229 + 470 = 7,699 | 448           | 289–533 ms         |
+| 25 largest `src/` chunks, one request       | 1        | 62,253               | 17,545              | 444           | 268–293 ms         |
+| 25 largest `src/` chunks, default batching  | 3        | 23,410+23,360+15,767 | 18,129              | 452           | 605–642 ms         |
+
+State size sweep (one short question, code-only state):
+
+| State chars | Result                                     |
+| ----------- | ------------------------------------------ |
+| 60,000      | accepted, 16,832 tokens (3.56 chars/token) |
+| 90,000      | accepted, 25,214 tokens                    |
+| 110,000     | accepted, 30,662 tokens (3.59 chars/token) |
+| 130,000     | HTTP 400 `max_tokens_exceeded`             |
+
+Other observations:
+
+- **Tokens per character:** serialized requests (JSON, metadata, questions and TypeScript source) measured 3.28 to 3.59 characters per token. A request with almost no code is denser (715 chars → 470 tokens) because each request carries a fixed overhead of roughly 250 tokens.
+- **Output tokens:** about 18 per Noul (444 for 25), and output is not billed.
+- **Cost:** at the documented $0.042 per million input tokens, the 25-candidate shortlist request costs about $0.0003. Pricing is from the Models page on 2026-10-07 and can change; Scope does not report money.
+- **Latency:** dominated by the per-request round trip, not by payload size or question count (1000 questions took about 0.4 s). Batches run sequentially today, so each extra batch adds about 0.15 to 0.35 s.
+- **Determinism:** identical requests returned identical token counts, but relevance near the 0.5 threshold varied slightly between runs, so the count of candidates kept varied by one or two (7–9 for the shortlist). This matches the M1 and M2 live runs.
+- **Cancellation and retries:** a 1 ms per-attempt timeout with `maxRetries: 0` fails with `APITimeoutError`; aborting the signal after 5 ms fails with `APIUserAbortError`. With the default 2 retries and 1 ms timeouts, the call failed after 1.4 s, consistent with the documented backoff (500 ms then 1000 ms, ±25% jitter).
+- **Not provoked:** 401/403 (would need a bad key), 429 (would need deliberately exceeding the rate limit) and 5xx. Their mapping is taken from the SDK types.
+
+## Discrepancies from M1 assumptions
+
+1. **Characters per token.** M1 assumed "about one token per character at most for ordinary text". Measured code and JSON payloads run about 3.3 to 3.6 characters per token, so the 24,000-character batch cap (`JEV_BATCH_MAX_CHARS`) is about 7,000 to 7,500 tokens, roughly a quarter of the 32k state-plus-longest-question limit. A typical 25-candidate shortlist (about 24k characters) lands just over the cap and is split into two requests, paying extra latency and about 250 overhead tokens per extra request. The one-token-per-character bound still holds as a worst case for unusual Unicode, so any change to the cap belongs to the batching work in issue #62, with that trade-off stated.
+2. **Oversize status.** M1 expected 422 `UnprocessableEntityError` for limit violations; Jev returns **400** `BadRequestError` with `error_type: "max_tokens_exceeded"`. Scope's failure message currently reports only "HTTP 400"; issue #64 should give it an actionable message.
+3. **Timeout needs.** M1 left open whether large batches need more than 10 s per attempt. Measured attempts are under 0.4 s; the 30 s attempt timeout and 90 s overall deadline (`JEV_DEADLINE_MS`) are generous rather than tight. Issue #65 owns the worst-case bound.
+4. **Question count.** No limit was found up to 1000 questions per request, so batching by question count is not needed for Scope's 20 to 30 candidate shortlists.
+
+## Unverified items
+
+- Quality difference between a shared-state batch and one request per candidate (needs labeled tasks; issue #63).
+- Error classes for 401, 403, 429 and 5xx at runtime (taken from the SDK types; provoking them needs a bad key or deliberate rate-limit abuse).
+- Effective rate limits (documented as changing without notice; not exercised).
+- Exactly where the 64k combined limit begins (a request with many long questions, estimated well above 64k tokens, was rejected with `max_tokens_exceeded`; the boundary was not swept).
