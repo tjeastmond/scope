@@ -174,6 +174,7 @@ describe("JSON contract", () => {
     const result = hostileResult({
       skipped: [{ chunkId: "s", file: "a.ts", startLine: 1, endLine: 2, score: 0.2 }],
       retrievalConfigVersion: "v1",
+      jevQuestionVersion: "q1",
     });
     result.chunks[0]!.supportFor = ["id-1"];
     const payload = JSON.parse(renderJson(result));
@@ -219,6 +220,7 @@ describe("JSON contract", () => {
       "warnings",
       "skipped",
       ...(result.retrievalConfigVersion === undefined ? [] : ["retrievalConfigVersion"]),
+      ...(result.jevQuestionVersion === undefined ? [] : ["jevQuestionVersion"]),
     ]);
     expect(Object.keys(payload.regions[0])).toEqual(["file", "language", "startLine", "endLine", "content", "chunks"]);
     expect(Object.keys(payload.regions[0].chunks[0])).toEqual(

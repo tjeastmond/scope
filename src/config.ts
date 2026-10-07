@@ -16,6 +16,12 @@ export const JEV_BATCH_MAX_CHARS = 24_000;
  */
 export const JEV_CANDIDATE_MAX_CHARS = 6_000;
 
+/**
+ * Identifies the exact question text and criteria sent to Jev. Change it whenever either changes, because cached
+ * decisions (M6) are only reusable under the same version.
+ */
+export const JEV_QUESTION_VERSION = "relevance-v1";
+
 /** Overall deadline for judging all candidates; the SDK only bounds each attempt. */
 export const JEV_DEADLINE_MS = 90_000;
 

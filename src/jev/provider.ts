@@ -46,8 +46,15 @@ export interface JevRequestLimits {
 
 export type JevRequest = Parameters<JevClient["systemOne"]>[0];
 
+/**
+ * The question design (version JEV_QUESTION_VERSION): one judgment per question, one question per candidate. Question
+ * ids are not sent to the model, so each question names its candidate by its state path and says how the candidate is
+ * identified. Repository text (paths, symbol names) is never interpolated into instructions; it lives only in `state`,
+ * which keeps untrusted repository text out of the instructions. Any change to this text or to CRITERIA requires
+ * bumping JEV_QUESTION_VERSION.
+ */
 const question = (ref: string) =>
-  `Is the code in \`candidates.${ref}\` needed to complete the task described in \`task\`?`;
+  `Is the code in \`candidates.${ref}\` (identified by its \`path\`, \`symbol\` and \`lines\`) needed to complete the task described in \`task\`?`;
 
 const CRITERIA = {
   true: "The code must be read or changed to complete the task, or defines something that code doing so depends on.",
@@ -108,8 +115,7 @@ interface Batch {
   request: JevRequest;
 }
 
-/** One request for a group of candidates. Question IDs are not sent to the model, so each question names its
- * candidate by its state path; `first` keeps refs unique across batches. */
+/** One request for a group of candidates (see `question` for the design); `first` keeps refs unique across batches. */
 function buildBatch(task: string, chunks: CodeChunk[], first: number, cap: number, model: string): Batch {
   const refs = chunks.map((_chunk, i) => `c${first + i}`);
   const state = { task, candidates: Object.fromEntries(chunks.map((chunk, i) => [refs[i], describe(chunk, cap)])) };

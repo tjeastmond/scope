@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
+import { JEV_QUESTION_VERSION } from "./config.ts";
 import { selectByRelevance } from "./context/select.ts";
 import { JevDecisionProvider, planJevRequests, type JevRequest } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
@@ -141,6 +142,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       ...(retrievalWarning ? [retrievalWarning] : candidates.length === 0 ? [NO_CHUNKS_WARNING] : []),
     ],
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
+    ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
   return { result, decision };
 }

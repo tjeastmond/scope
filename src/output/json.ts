@@ -39,6 +39,8 @@ export interface JsonPayload {
   warnings: string[];
   skipped: SkippedChunk[];
   retrievalConfigVersion?: string;
+  /** Version of the Jev question text and criteria; absent in `no-jev` mode. */
+  jevQuestionVersion?: string;
   /** Present (true) only under `--explain`. */
   explain?: true;
 }
@@ -96,6 +98,7 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
     warnings: result.warnings,
     skipped: result.skipped.map(toJsonSkipped),
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
+    ...(result.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: result.jevQuestionVersion }),
     ...(result.explain ? { explain: true as const } : {}),
   };
 }

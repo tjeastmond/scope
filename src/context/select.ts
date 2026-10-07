@@ -14,6 +14,8 @@ export interface SelectionOptions {
   leadingWarnings?: readonly string[];
   /** Reported in the JSON artifact. */
   retrievalConfigVersion?: string;
+  /** Reported in the JSON artifact; set only on the Jev path. */
+  jevQuestionVersion?: string;
   /** `--explain`: the artifact carries selection evidence. */
   explain?: boolean;
 }
@@ -101,6 +103,7 @@ export function selectByRelevance(candidates: readonly SelectedChunk[], options:
     warnings,
     skipped,
     ...(options.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: options.retrievalConfigVersion }),
+    ...(options.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: options.jevQuestionVersion }),
     ...(options.explain ? { explain: true as const } : {}),
   };
 }
