@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
+import { requiredSupports } from "../src/context/coherence.ts";
 import { JevResponseError } from "../src/jev/errors.ts";
-import { runScope } from "../src/scope.ts";
+import { loadChunks, runScope } from "../src/scope.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
 
@@ -33,16 +34,23 @@ test("an all-1.0 response selects only judged candidates and their supports, not
   expect(supports.length).toBeGreaterThan(0); // the fixture does pull supports in, so the support branch is exercised
   const direct = result.chunks.filter((selected) => !selected.supportFor);
   for (const selected of direct) expect(judgedIds.has(selected.chunk.id)).toBe(true);
-  // A support is pulled in by a selected chunk, is never a duplicate of a judged selection, and is not itself judged.
-  const selectedIds = new Set(result.chunks.map((selected) => selected.chunk.id));
-  expect(selectedIds.size).toBe(result.chunks.length);
-  for (const support of supports) {
-    expect(judgedIds.has(support.chunk.id)).toBe(false);
-    for (const requirer of support.supportFor!) expect(selectedIds.has(requirer)).toBe(true);
+  // The supports are exactly the unjudged declarations the judged chunks require, computed from the fixture itself,
+  // each attributed to exactly the judged chunks that require it.
+  const lookup = new Map((await loadChunks(ROOT)).chunks.map((chunk) => [chunk.id, chunk]));
+  const expectedSupports = new Map<string, Set<string>>();
+  for (const chunk of judged) {
+    for (const support of requiredSupports(chunk, lookup)) {
+      if (judgedIds.has(support.id)) continue;
+      expectedSupports.set(support.id, (expectedSupports.get(support.id) ?? new Set()).add(chunk.id));
+    }
   }
-  // Every judged candidate is accounted for, none is invented, and the artifact is no larger than their union.
-  expect(direct.length).toBe(judged.length);
-  expect(result.chunks.length).toBe(direct.length + supports.length);
+  expect(new Set(result.chunks.map((selected) => selected.chunk.id))).toEqual(
+    new Set([...judgedIds, ...expectedSupports.keys()]),
+  );
+  expect(result.chunks.length).toBe(judgedIds.size + expectedSupports.size);
+  for (const support of supports) {
+    expect(new Set(support.supportFor)).toEqual(expectedSupports.get(support.chunk.id)!);
+  }
 });
 
 test("a judgment for a chunk outside the shortlist is rejected, even when every candidate is judged", async () => {
