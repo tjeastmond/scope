@@ -260,6 +260,77 @@ describe("unusable shards", () => {
     });
   }
 
+  type Loose = Record<string, unknown> & { references: Record<string, unknown>[] };
+  const metadataCases: [string, (chunk: Loose) => boolean, (chunk: Loose, entry: { warnings: string[] }) => void][] = [
+    [
+      "a name absent from the source (id recomputed)",
+      (chunk) => typeof chunk.name === "string",
+      (chunk) => {
+        chunk.name = "injectedmarkerzq";
+        chunk.id = makeChunkId(chunk as unknown as CodeChunk);
+      },
+    ],
+    [
+      "a reference name absent from the source",
+      (chunk) => chunk.references.length > 0,
+      (chunk) => (chunk.references[0]!.name = "injectedmarkerzq"),
+    ],
+    [
+      "a containerName absent from the source",
+      (chunk) => typeof chunk.containerName === "string",
+      (chunk) => (chunk.containerName = "injectedmarkerzq"),
+    ],
+    [
+      "a targetChunkId on a reference",
+      (chunk) => chunk.references.length > 0,
+      (chunk) => (chunk.references[0]!.targetChunkId = chunk.id),
+    ],
+    [
+      "a warning without the path prefix",
+      () => true,
+      (_chunk, entry) => entry.warnings.push("injectedmarkerzq: not from this file"),
+    ],
+  ];
+  for (const [label, wanted, change] of metadataCases) {
+    test(`a shape-valid entry with ${label} is a miss, replaced and then reused`, async () => {
+      const repo = await copyFixture("mixed-app");
+      const plain = await loadChunks(repo);
+      await loadChunks(repo, { cache: {} });
+      let planted = false;
+      for (const { name, doc } of await readShards(repo)) {
+        const entry = Object.values(doc.entries).find((e) => e.chunks.some((c) => wanted(c as unknown as Loose)));
+        if (!entry) continue;
+        const chunk = entry.chunks.find((c) => wanted(c as unknown as Loose)) as unknown as Loose;
+        change(chunk, entry as unknown as { warnings: string[] });
+        await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
+        planted = true;
+        break;
+      }
+      expect(planted).toBe(true);
+      const run = await loadChunks(repo, { cache: {} });
+      expect(run.analysis!.analyzed).toBe(1);
+      expect(run.chunks).toEqual(plain.chunks);
+      expect(run.warnings).toEqual(plain.warnings);
+      expect(JSON.stringify(await readShards(repo))).not.toContain("injectedmarkerzq");
+      expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
+    });
+  }
+
+  test("synthetic default and preamble names are still reused", async () => {
+    const repo = await copyFixture("mixed-app");
+    await writeFile(
+      join(repo, "web/src/dflt.ts"),
+      "import thing from './thing.ts';\nexport default function () { return thing; }\n",
+    );
+    await writeFile(join(repo, "docs/pre.md"), "Intro text before any heading.\n\n# Title\n\nBody.\n");
+    const cold = await loadChunks(repo, { cache: {} });
+    const names = cold.chunks.flatMap((c) => [c.name, ...c.references.map((r) => r.name)]);
+    expect(names).toContain("default");
+    expect(names).toContain("preamble");
+    const warm = await loadChunks(repo, { cache: {} });
+    expect(warm.analysis).toEqual({ reused: cold.analysis!.analyzed, analyzed: 0 });
+  });
+
   test("cached content holding a redacted literal is not reused; the output has the redacted form", async () => {
     const repo = await copyFixture("webhook-service");
     const literal = "sk-proj-abcdefghijklmnopqrstuv";

@@ -185,19 +185,48 @@ const shardType = (name: string): DocumentType<Shard> => ({
 });
 
 /**
+ * Tokens the analyzers emit that need not occur in the source: `default` names a default import or export
+ * (src/analyzers/ecmascript.ts) and `preamble` names the text before a markdown file's first heading
+ * (src/analyzers/markdown.ts). A false rejection here would only cost a reparse, never wrong output.
+ */
+const SYNTHETIC_TOKENS: ReadonlySet<string> = new Set(["default", "preamble"]);
+
+const tokensOf = (text: string) => text.split(/[^\p{L}\p{N}_$]+/u).filter((token) => token !== "");
+
+/**
  * Whether every chunk is what analysis of this source would hold: its range lies in the source, its content is the
  * exact text of those lines (split on `\n` only, see docs/chunk-model.md), its id is derived from its fields, and a
- * parent is a chunk of the same entry. Reference lines are not checked: file-level references sit outside chunks.
+ * parent is a chunk of the same entry. Names, container names and reference names, specifiers and locals must be made
+ * of words that occur in the source (case-insensitively; SQL keywords are emitted lowercase), because they reach Jev.
+ * References are never resolved by analysis, so `targetChunkId` must be absent, and every warning starts with the
+ * file's path. Reference lines are not checked: file-level references sit outside chunks. A false rejection only costs
+ * a reparse, never wrong output.
  */
 function matchesSource(entry: Entry, redactedSource: string): boolean {
   const lines = redactedSource.split("\n");
+  const haystack = redactedSource.toLowerCase();
   const ids = new Set(entry.chunks.map((chunk) => chunk.id));
-  return entry.chunks.every(
-    (chunk) =>
-      chunk.endLine <= lines.length &&
-      chunk.content === lines.slice(chunk.startLine - 1, chunk.endLine).join("\n") &&
-      chunk.id === makeChunkId(chunk) &&
-      (chunk.parentId === undefined || ids.has(chunk.parentId)),
+  const fromSource = (text: string | undefined) =>
+    text === undefined ||
+    tokensOf(text.toLowerCase()).every((token) => SYNTHETIC_TOKENS.has(token) || haystack.includes(token));
+  return (
+    entry.warnings.every((warning) => warning.startsWith(`${entry.path}: `)) &&
+    entry.chunks.every(
+      (chunk) =>
+        chunk.endLine <= lines.length &&
+        chunk.content === lines.slice(chunk.startLine - 1, chunk.endLine).join("\n") &&
+        chunk.id === makeChunkId(chunk) &&
+        (chunk.parentId === undefined || ids.has(chunk.parentId)) &&
+        fromSource(chunk.name) &&
+        fromSource(chunk.containerName) &&
+        chunk.references.every(
+          (reference) =>
+            reference.targetChunkId === undefined &&
+            fromSource(reference.name) &&
+            fromSource(reference.specifier) &&
+            fromSource(reference.local),
+        ),
+    )
   );
 }
 

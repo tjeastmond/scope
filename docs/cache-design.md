@@ -130,7 +130,10 @@ one of their commits or a merge of both, never a mix of half-written documents.
   shard unusable: the store warns once and the shard is treated as empty, so those files are reanalyzed. A lookup also
   requires the entry's `path` to equal the path being loaded, and checks the entry against the current redacted source:
   every chunk's `endLine` is within the line count, its `content` is exactly the text of its lines, its `id` is
-  `makeChunkId` of its fields, and any `parentId` names a chunk of the same entry. Any mismatch is a miss: the file is
+  `makeChunkId` of its fields, any `parentId` names a chunk of the same entry, every word of a chunk's `name` and
+  `containerName` and of a reference's `name`, `specifier` and `local` occurs in the source (case-insensitively, apart
+  from the analyzers' synthetic `default` and `preamble`), no reference has a `targetChunkId` (analysis never resolves
+  references), and every warning starts with the file's path. Any mismatch is a miss: the file is
   analyzed again and the commit replaces the entry.
 - **Pruning.** A commit keeps exactly the entries this run used (hits and newly analyzed), rewrites a shard only when
   its key set changed, and removes shards that end up empty. Deleted and changed files drop out, so the cache holds the
