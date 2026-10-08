@@ -17,8 +17,8 @@ Scope returns **everything relevant to the task**:
    (`src/context/regions.ts`). Output order is by file, start line, then chunk id, independent of input order, so
    repeated runs are byte-identical.
 
-The retrieval shortlist cap (30 candidates sent to Jev) is the only bound, and it applies before judgment, not to the
-result. A chunk is never cut mid-statement: a parser-free truncation could mislead the reader, and a caller that wants
+The retrieval shortlist cap (30 candidates sent to Jev, plus at most 5 memory candidates from similar earlier tasks)
+is the only bound, and it applies before judgment, not to the result. A chunk is never cut mid-statement: a parser-free truncation could mislead the reader, and a caller that wants
 less can filter the structured JSON output.
 
 ## Why there is no budget

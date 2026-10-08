@@ -2,7 +2,7 @@ Scope context for: Show each invoice's due date in the invoice list: render it i
 
 Mode: jev
 Regions: 12
-Retrieval config: retrieval-v3
+Retrieval config: retrieval-v4
 Jev questions: relevance-v1
 
 == api/src/models/invoice.ts:1-1 Billing (supporting declaration) ==

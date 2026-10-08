@@ -227,7 +227,7 @@ under another key, or by hand) verifies as nothing.
 - **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
 - It is the only file Scope writes outside the project.
 
-## Retrieval memory (#73, #75, #76 and #77 implemented; #74 and #78 _planned_)
+## Retrieval memory (#73, #74, #75, #76 and #77 implemented; #78 _planned_)
 
 - **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
   finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
@@ -305,10 +305,33 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
     and Jev scores never confirm usefulness and must not be amplified into it: repeated selection or a high Jev
     score alone is not proof.
   - **Scope.** The summary is deterministic regardless of input order and adds no storage; `loadEvidence` reads and
-    validates it against the current chunks. Nothing in selection uses it until #74.
-- **Memory signals** (#74) only add candidates or add a bounded score; they never remove a fresh match, reserved slots
-  keep fresh-only candidates discoverable, every remembered chunk is validated against current content fingerprints,
-  and memory-found candidates carry an explicit reason.
+    validates it against the current chunks. Retrieval memory (#74) builds on the same rules.
+- **Memory signals** (#74, `src/cache/memory.ts`) add a few labeled candidates from similar prior tasks. They only
+  add: the fresh shortlist is computed exactly as without history and stays whole and in order, so unfamiliar tasks and
+  new files remain as discoverable as before, and memory candidates are appended after it.
+  - **Similar tasks.** The task's terms (`extractTaskTerms` after the same credential redaction history applies, the
+    `exact` and `words` terms lowercased as one set) are compared with each history record's stored terms by Jaccard
+    similarity (shared terms over all terms). A record is similar at `memory.similarityMin` (0.3) or more; an identical
+    task scores 1. Only the newest `memory.maxRuns` (20) similar records count.
+  - **Sources, strongest first.** (a) chunks named by `--missing` feedback on a similar run (a symbol, or the current
+    chunks of a file or range); (b) chunks confirmed useful by external feedback; (c) chunks Jev selected in a similar
+    run. Within a source: higher similarity first, then file, start line and id. Confirmed-irrelevant chunks (#77) are
+    never added, and neither is a chunk already in the fresh shortlist. At most `memory.maxCandidates` (5) are added.
+  - **Validation.** A remembered chunk must exist in the current scan with the content fingerprint it was recorded
+    with, so deleted or edited code never returns from memory. Predictions and Jev judgments are not confirmation
+    (#77): only (a) and (b) earn the full memory signal 1; (c) earns 0.5.
+  - **Score and labels.** Memory never changes a fresh candidate's signals, score or origin. A memory candidate gets a
+    `memory` signal (the six retrieval signals as they were, or 0) and a score of its fresh score (else 0) plus
+    `memory.weight` (0.1) times the signal. Its origin is `memory: missing in similar task <runId>` for (a) and
+    `memory: similar task <runId>` for (b) and (c); the report shows it as the chunk's source.
+  - **Controls.** `SCOPE_MEMORY=off` (any other value or none leaves memory on) turns it off for benchmarks;
+    `memory.maxCandidates` 0 does too (`src/retrieval/config.ts`). Memory is also off with the cache off, with
+    `--no-jev` (a pure deterministic baseline) and for a store that was just reset. In every case the shortlist is
+    exactly the memory-free one. Memory reads existing history and feedback and stores nothing;
+    `SCOPE_JEV_PAYLOAD=print` shows the same shortlist a run would send, without writing.
+  - **Decision reuse.** The decision key covers the final candidate list, so a memory-assisted shortlist has its own
+    key. History records of the identical task text do not offer (c) candidates, since that run already judged this
+    exact shortlist; this keeps an identical repeat with unchanged code on the same key and a reuse hit.
 - **Decision reuse** (#75, `src/cache/decisions.ts`) is separate from analysis reuse: a similar task always gets a
   fresh Jev review, and a Jev decision is reused only on an exact key match within its expiry.
   - **Key.** `keyId` is HMAC-SHA256, under the integrity key and bound to the repository's real root, of: the exact task
@@ -343,7 +366,7 @@ candidates and versions; run with --fresh to ask Jev again)`. A hit has no `jev`
   - **`--fresh`** asks Jev again even when a match is stored and caches the new decision, which replaces the older
     one for the same key.
   - **History.** A hit records no run history: the original Jev run is already in history, and recording reused
-    decisions would count one Jev judgment twice when #74 learns from history. A `--fresh` run records history as usual.
+    decisions would count one Jev judgment twice when memory (#74) learns from history. A `--fresh` run records history as usual.
   - **Failure.** A decision is stored after the selection is built, in its own commit. If that fails the run still
     succeeds and gains one warning, `decision not cached: <reason>`, after the other cache warnings. `--no-jev` runs,
     runs with no candidates, cancelled runs and `previewJevPayload` neither read nor write decisions.
@@ -364,8 +387,9 @@ The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_
 `SCOPE_DECISIONS_MAX`, `SCOPE_DECISIONS_MAX_DAYS`, `SCOPE_FEEDBACK_MAX` and `SCOPE_FEEDBACK_MAX_DAYS` (`src/cache/retention.ts`,
 `resolveRetention`). A value must be a non-negative decimal integer, at most 10 times its default; 0 keeps none (the data
 type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
-bounds in effect. History (#73) is recorded under its bounds today and #74 will consume it; decisions (#75) are
-stored and reused under theirs; feedback (#76) is recorded under its bounds and read as evidence by #77 (and #74 next).
+bounds in effect. History (#73) is recorded under its bounds and read by memory (#74); decisions (#75) are stored
+and reused under theirs; feedback (#76) is recorded under its bounds and read as evidence by #77 and by memory.
+`SCOPE_MEMORY=off` turns retrieval memory off (see Memory signals).
 
 ## What is never stored
 
