@@ -55,7 +55,7 @@ followed by the source, then the report sections below.
 
 Text and Markdown share one set of facts (`src/output/report.ts`):
 
-- **Summary:** mode, number of regions, `retrievalConfigVersion` when present, and `jevQuestionVersion` (the version of the Jev question text and criteria; absent in `no-jev` mode). The artifact reports no size. With `--explain` the summary also shows Jev's request count, wall-clock latency and token usage (`Jev requests`, `Jev latency`, `Jev tokens`), kept out of the default output.
+- **Summary:** mode, number of regions, a `Decisions reused from <time>` line when a stored Jev decision was reused (always shown), `retrievalConfigVersion` when present, and `jevQuestionVersion` (the version of the Jev question text and criteria; absent in `no-jev` mode). The artifact reports no size. With `--explain` the summary also shows Jev's request count, wall-clock latency and token usage (`Jev requests`, `Jev latency`, `Jev tokens`), kept out of the default output.
 - **Left out (below relevance minimum):** with `--explain`, every candidate that scored below the minimum, most
   relevant first, with location and `relevance` or `score`. Without it they are only counted, never listed.
 - Empty sections are omitted. `relevance` is Jev's judgment; `score` is a ranking signal. Neither is a probability or
@@ -89,7 +89,7 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
               chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
                          signals?, origin? }] }],
   warnings, skipped: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
-  retrievalConfigVersion?, jevQuestionVersion?,
+  retrievalConfigVersion?, jevQuestionVersion?, decisionsReusedFrom?,
   jev?: { requestCount?, latencyMs, usage: { inputTokens, outputTokens },
           requests?: [{ latencyMs, inputTokens, outputTokens }] },
   explain? }
@@ -98,6 +98,10 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
 Source content appears once, on the region; chunk entries carry provenance only. `relevance` is absent in `no-jev`
 mode, and so is `jevQuestionVersion` (an additive field; `schemaVersion` stays 2). `signals` and `origin` on a chunk,
 and the top-level `explain`, appear only with `--explain`.
+
+`decisionsReusedFrom` (ISO 8601 UTC, additive; `schemaVersion` stays 2) is present only when the run reused a stored Jev
+decision instead of asking Jev (identical task, candidates and versions; see docs/cache-design.md). Such a run has no
+`jev` block, since no request was made.
 
 `jev` reports Jev's external-service overhead, separately from the selected context. It is present only when Jev was
 called and reported usage (absent with `--no-jev` and when there were no candidates to judge). `latencyMs` is the wall

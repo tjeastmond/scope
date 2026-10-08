@@ -163,6 +163,7 @@ describe("status", () => {
       analysisShards: shards.length,
       analysisEntries: entries,
       historyRuns: 0,
+      decisions: 0,
       statRecords: records,
     });
     expect(entries).toBe(run.analysis!.analyzed);

@@ -18,10 +18,16 @@ export const scoreLabel = (relevance: number | undefined, score: number): string
 
 /** Mode, region count and retrieval version; the same facts in every human-readable format. */
 export function summaryLines(result: ScopeResult, quote: Quote): string[] {
-  const { mode, regions, retrievalConfigVersion, jevQuestionVersion, jev } = result;
+  const { mode, regions, retrievalConfigVersion, jevQuestionVersion, jev, decisionsReusedFrom } = result;
   return [
     `Mode: ${mode}`,
     `Regions: ${regions.length}`,
+    // Always shown: a reused decision is never silent.
+    ...(decisionsReusedFrom === undefined
+      ? []
+      : [
+          `Decisions reused from ${decisionsReusedFrom} (identical task, candidates and versions; run with --fresh to ask Jev again)`,
+        ]),
     ...(retrievalConfigVersion === undefined ? [] : [`Retrieval config: ${quote(retrievalConfigVersion)}`]),
     ...(jevQuestionVersion === undefined ? [] : [`Jev questions: ${quote(jevQuestionVersion)}`]),
     // Overhead of the external service, not part of the selected context; shown under --explain only.
