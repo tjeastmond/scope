@@ -140,23 +140,57 @@ one of their commits or a merge of both, never a mix of half-written documents.
   latest scan only. When the version keys changed (a fresh cache), nothing is read and the old shards are removed.
 - **No-op warm runs.** When the cache is not fresh, nothing was analyzed, and no shard on disk holds a key this run did
   not use, the commit is skipped: no lock and no write, not even `meta.json`.
-- **A warm run still reads and hashes every file.** The saving is parsing, not I/O.
+- **Reading.** #70 alone reads and hashes every file on a warm run; #71 skips the read when the stat matches (below).
 - Cache problems (open, read and commit warnings) never fail a run; they are added to the run's warnings, each once.
   Output is identical with the cache cold, warm or off, apart from those warnings.
 - The cache is off for library callers (`ScopeOptions.cache`, default `false`); the CLI turns it on by default.
 
-**Planned** (#71, #72):
+**Built in #71** (`src/cache/analysis.ts`, `src/cache/rename.ts`, wired into `loadChunks`):
+
+- **The `files` document** (schemaVersion 1, strict validator) maps each path to
+  `{ size, mtimeMs, ctimeMs, ino, key, hash, recordedAt, mac }`. `key` is the #70 analysis key of the bytes last read at
+  that path, `hash` is `sha256(bytes)` (content only, used for rename reuse), and `recordedAt` is the time just before
+  the file was stat'ed and read. Only files that reached `analyzeFile` or hit an analysis entry get a record; binary and
+  language-less files are still read every run. Stats use `stat` (not `lstat`) with millisecond values, which are
+  fractional on APFS and ext4.
+- **Stat MAC.** `mac` is an HMAC under the integrity key over the version keys, the tag `"files"`, the path and every
+  other field. Its shape (ten elements, the second a string) can never equal the entry MAC's shape, so neither verifies
+  as the other. A planted, edited or replayed record (another user's key, older version keys, an entry MAC) is a miss.
+- **Fast path.** A file is not read when the cache is not fresh, its record's MAC verifies, `size`, `mtimeMs`, `ctimeMs`
+  and `ino` all match, the racy guard passes, and the analysis entry for `key` exists under that path and verifies.
+  It counts as `reused` and as a `statHits`. Anything else is read and hashed, and the hash decides.
+- **Racy guard.** A record is trusted only when `recordedAt - max(mtimeMs, ctimeMs) >= RACY_MARGIN_MS` (2000 ms), as in
+  git's index: a file modified within the margin of the recording could be edited again without its times changing.
+  ctime counts too, because an edit that restores an old mtime still lands in the current ctime tick. Such a record is
+  kept as is while the file is still racy, so a no-change run writes nothing; once the file has aged, the next run
+  re-hashes it once and records it as trusted.
+- **Residual risk.** `touch -d`, `cp -p` and `rsync -t` can restore size and mtime but not ctime, which is why ctime and
+  `ino` are compared. An edit that keeps the size and happens within the same ctime tick as the recording is caught by the
+  racy margin, which is measured from the newer of mtime and ctime. A tool that sets ctime (restoring the clock, or writing the inode directly) defeats the check;
+  that needs write access to the repository, which already allows planting any source.
+- **Commit.** The `files` document keeps only paths seen in this run (so deleted files drop out and retention is
+  bounded). It is written only when its content changes, removed when no path is left, and the no-op short-circuit
+  (no lock, no write) still applies to warm runs with no change.
+- **Rename reuse.** A file whose `sha256(bytes)` matches a verified stat record under another path reuses that
+  analysis, rewritten for the new path, when both paths have the same non-empty lowercase extension and
+  `classifyFile` gives the same language and strategy for both. Extensionless files (classified by name or shebang) never
+  use it. The rewrite sets `file` on every chunk and `from.file` on every reference, recomputes every chunk `id` with
+  `makeChunkId`, remaps `parentId` and `targetChunkId` to the new ids, and replaces the `<old path>: ` prefix of every
+  warning. `tests/rename-equivalence.test.ts` proves the result equals a cold analysis at the new path for every
+  analyzable fixture, all of `src/` and synthetic sources of each language; no file type is excluded. A `.ts` to `.tsx`
+  rename is never reused because the grammar depends on `.tsx`. The result is recorded under its new key and counts as
+  `reused` and `renamed`.
+- **Bulk changes** (a branch switch: edits, adds, deletes, renames and swaps) converge in one run to the uncached
+  result, because every file is decided independently by its own hash and the commit keeps only what this run used. The
+  next run is all stat hits (once the files are past the racy margin).
+
+**Planned** (#72):
 
 - There are no token estimates: the token budget and all estimation were removed in #164, so nothing size-related is
   cached.
 - Relationships are not cached separately: references are part of each chunk, and the repository graph is rebuilt
   from the current chunks on every run (it is cheap and depends on every file, so caching it would only add
   invalidation risk). The warm index is always derived from current source, never from prior task selections.
-- Stat fast path (#71): an index of size and modification time per file, so a file whose size and modification time
-  match, and whose modification time is older than the index entry by a safety margin, keeps its hash without being
-  read; anything else is read and hashed, and the hash decides. A file whose hash matches an entry recorded under
-  another path (a rename) reuses that analysis with the path rewritten and IDs recomputed, when the extension is the
-  same.
 - Version reuse and invalidation tests (#72).
 - Every reuse must equal a cold analysis of the same bytes. The cold-versus-warm equivalence tests prove it.
 
@@ -197,6 +231,7 @@ under another key, or by hand) verifies as nothing.
 | Data               | Bound                                                     |
 | ------------------ | --------------------------------------------------------- |
 | Analysis shards    | Files of the latest scan only (so the scan limits apply)  |
+| Stat records       | Files of the latest scan only (one `files` document)      |
 | Run history        | Newest 200 runs, none older than 90 days (#73)            |
 | Reusable decisions | Newest 500, none older than 7 days (#75)                  |
 | Feedback           | Newest 2,000 observations, none older than 365 days (#76) |

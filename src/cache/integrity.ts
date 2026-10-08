@@ -104,6 +104,32 @@ export function entryMac(key: Buffer, versionKeys: object, entryKey: string, ent
     .digest("hex");
 }
 
+/** What a stat record asserts about one file. All of it is signed. */
+export interface StatFields {
+  size: number;
+  mtimeMs: number;
+  ctimeMs: number;
+  ino: number;
+  /** Analysis key of the bytes last read at the path. */
+  key: string;
+  /** Content-only SHA-256 of those bytes, for rename detection. */
+  hash: string;
+  /** Clock time (ms) when the file was last statted before being read; the racy-file guard compares against it. */
+  recordedAt: number;
+}
+
+/**
+ * HMAC-SHA256 (hex) of the version keys, the `"files"` domain tag, the path and the stat fields. The array has a
+ * different shape from the one `entryMac` signs (ten members against three, a string where that one has an object
+ * second), so a stat MAC can never verify as an entry MAC or the reverse.
+ */
+export function statMac(key: Buffer, versionKeys: object, path: string, fields: StatFields): string {
+  const { size, mtimeMs, ctimeMs, ino, key: entryKey, hash, recordedAt } = fields;
+  return createHmac("sha256", key)
+    .update(canonical([versionKeys, "files", path, size, mtimeMs, ctimeMs, ino, entryKey, hash, recordedAt]))
+    .digest("hex");
+}
+
 /** Constant-time comparison of two hex MACs; false when the lengths differ. */
 export function macEquals(a: string, b: string): boolean {
   const left = Buffer.from(a, "utf8");

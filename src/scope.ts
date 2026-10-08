@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { AnalysisCache, analysisKey } from "./cache/analysis.ts";
+import { AnalysisCache, analysisKey, contentHash, type StatInfo } from "./cache/analysis.ts";
 import { openRepositoryCache } from "./cache/location.ts";
 import type { VersionKeys } from "./cache/versions.ts";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
@@ -63,9 +63,23 @@ export async function loadChunks(
     detailed?: boolean;
     signal?: AbortSignal;
     /** Turns the analysis cache on; undefined means off. `keys` is a test seam for the version keys. */
-    cache?: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv };
+    cache?: {
+      keys?: VersionKeys;
+      integrityEnv?: NodeJS.ProcessEnv;
+      /** Test seams for the stat records: the clock and the racy-file margin. */
+      now?: () => number;
+      racyMarginMs?: number;
+    };
   } = {},
-): Promise<{ chunks: CodeChunk[]; warnings: string[]; analysis?: { reused: number; analyzed: number } }> {
+): Promise<{
+  chunks: CodeChunk[];
+  warnings: string[];
+  /**
+   * `reused` counts every file served from the cache: `statHits` were not even read, `renamed` came from another path.
+   * `analyzed` files were parsed.
+   */
+  analysis?: { reused: number; analyzed: number; statHits: number; renamed: number };
+}> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
@@ -75,12 +89,39 @@ export async function loadChunks(
   if (cache) {
     const opened = await openRepositoryCache(root, { keys: cache.keys, integrityEnv: cache.integrityEnv });
     openWarnings.push(...opened.warnings);
-    if (opened.cache) analysisCache = new AnalysisCache(opened.cache, opened.warnings);
+    if (opened.cache) {
+      analysisCache = new AnalysisCache(opened.cache, opened.warnings, {
+        now: cache.now,
+        racyMarginMs: cache.racyMarginMs,
+      });
+    }
   }
   let reused = 0;
   let analyzed = 0;
+  let statHits = 0;
+  let renamed = 0;
+  const take = (file: string, analysis: { chunks: CodeChunk[]; warnings: string[]; textOnly: boolean }) => {
+    chunks.push(...analysis.chunks);
+    if (analysis.textOnly) textOnly.push(file);
+    else warnings.push(...analysis.warnings);
+  };
   for (const file of files) {
     if (signal?.aborted) throw new CancelledError();
+    // The stat is taken before the file is read, so a write in between leaves a record that no longer matches.
+    const statAt = analysisCache?.now() ?? 0;
+    const info: StatInfo | undefined = analysisCache
+      ? await stat(join(root, file)).then(
+          ({ size, mtimeMs, ctimeMs, ino }) => ({ size, mtimeMs, ctimeMs, ino }),
+          () => undefined,
+        )
+      : undefined;
+    const fast = info ? await analysisCache?.fast(file, info) : undefined;
+    if (fast) {
+      reused++;
+      statHits++;
+      take(file, fast);
+      continue;
+    }
     const bytes = await readFile(join(root, file));
     // The scanner only sniffs the start of a file; a NUL anywhere means binary content. Check the raw bytes, because
     // redaction could remove a NUL inside a credential-like literal. Files that do not look like text have no language.
@@ -92,17 +133,20 @@ export async function loadChunks(
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
     const key = analysisKey(file, bytes);
+    const hash = analysisCache ? contentHash(bytes) : "";
     let analysis = await analysisCache?.lookup(file, key);
     if (analysis) reused++;
-    else {
+    else if ((analysis = await analysisCache?.renamed(file, key, hash, text.slice(0, HEAD_CHARS)))) {
+      reused++;
+      renamed++;
+    } else {
       const result = await analyzeFile({ path: file, source: redactSecrets(text) }, language);
       analysis = { chunks: result.chunks, warnings: result.warnings, textOnly: result.textOnly === true };
       analysisCache?.record(file, key, analysis);
       analyzed++;
     }
-    chunks.push(...analysis.chunks);
-    if (analysis.textOnly) textOnly.push(file);
-    else warnings.push(...analysis.warnings);
+    if (info) await analysisCache?.note(file, info, key, hash, statAt);
+    take(file, analysis);
   }
   const summary = textOnlySummary(textOnly, detailed);
   if (summary) warnings.push(summary);
@@ -111,7 +155,7 @@ export async function loadChunks(
   await analysisCache?.commit();
   // Cache problems (open, read, commit) come last and once each, so the rest of the warnings match an uncached run.
   const cacheWarnings = analysisCache ? analysisCache.warnings : openWarnings;
-  return { chunks, warnings: [...warnings, ...cacheWarnings], analysis: { reused, analyzed } };
+  return { chunks, warnings: [...warnings, ...cacheWarnings], analysis: { reused, analyzed, statHits, renamed } };
 }
 
 /** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */
