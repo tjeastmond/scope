@@ -53,7 +53,7 @@ Suggested source modules: `repository/`, `analyzers/`, `graph/`, `retrieval/`, `
 
 ```bash
 scope "<task>" [--repo <path>]
-      [--format text|markdown|json] [--output <path>] [--no-jev] [--explain]
+      [--format text|markdown|json] [--output <path>] [--no-jev] [--explain] [--no-cache]
 ```
 
 - Default repository: current working directory.
@@ -64,6 +64,7 @@ scope "<task>" [--repo <path>]
 - `--output` writes the selected context artifact; it does not edit repository source.
 - The ordinary command sends shortlisted source context to TypeSafe/Jev. Document this default behavior and credential setup.
 - `--no-jev` is an explicit diagnostic/benchmark baseline, running deterministic-only selection without credentials or network access. It is not the primary product path.
+- `--no-cache` (or `SCOPE_CACHE=off`) runs without reading or writing the local analysis cache in `.scope/`; the CLI uses the cache by default.
 - Default execution fails clearly if Jev cannot complete; it does not silently substitute deterministic results. A user can explicitly rerun with `--no-jev`.
 - Reject empty tasks, invalid formats, and inaccessible repositories with actionable errors.
 
@@ -211,6 +212,7 @@ Later task → validate cached source fingerprints → refresh changed files
 
 - [ ] Add a repository-scoped, versioned local store for file fingerprints, normalized chunks, relationships, lexical indexes, and retrieval history. SQLite is a candidate implementation; choose a Node 24-compatible storage approach after a small compatibility check.
 - [ ] Put generated data in a documented ignored local directory, proposed `.scope/`; partition by repository identity and store schema, parser, and grammar versions.
+- [ ] Authenticate cached analysis entries with an HMAC under a random per-user key stored outside the project at `$XDG_STATE_HOME/scope/cache-key` (default `~/.local/state/scope/cache-key`, mode 0600), so a planted or cloned `.scope/` is a miss. It is the one file Scope writes outside the repository; it is never printed, and deleting it only costs a cold run.
 - [ ] Cache source-derived chunks after analysis, including IDs, content fingerprints, names, ranges, and references. Derive the initial warm index from real source rather than prior task selections alone.
 - [ ] On each run, detect new, changed, renamed, and deleted files, including uncommitted changes. Reparse affected files and refresh impacted relationships; remove stale entries and recompute line ranges from current source.
 - [ ] Reuse parsing and indexing for unchanged files. Invalidate affected cache data when parser, grammar, or ignore rules change.

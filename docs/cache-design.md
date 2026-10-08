@@ -105,27 +105,76 @@ one of their commits or a merge of both, never a mix of half-written documents.
   untrusted), the cache is disabled rather than reading, writing or removing through the link.
 - Any failure (unresolvable root, unreadable analyzer module, unwritable repository) disables the cache with one
   warning and never fails the run.
-- The CLI will use the store by default. `--no-cache` (or `SCOPE_CACHE=off`) will run without reading or writing it.
-  `runScope` will take the store as an option and use none by default, so library callers and tests never write into
+- The CLI uses the store by default. `--no-cache` (or `SCOPE_CACHE=off`) runs without reading or writing it.
+  `runScope` takes `cache: true` and uses none by default, so library callers and tests never write into
   a repository by accident.
 
-## Source analysis cache (#70, #71, #72, _planned_)
+## Source analysis cache (#70, #71, #72)
 
-- Per scanned file the index records the content hash (SHA-256 of the raw bytes), size and modification time; the
-  analysis result (chunks with IDs, names, ranges, references, the language and the analyzer's warnings) is stored in
-  a content-addressed blob. Chunks are stored after secret redaction, exactly as analysis produced them; excluded files
-  (ignored, secret, binary, too large) are never read, so they are never stored.
+**Built in #70** (`src/cache/analysis.ts`, wired into `loadChunks`):
+
+- **Key.** `analysisKey(path, bytes)` is the hex SHA-256 of the path, a NUL byte, and the raw file bytes. The path is
+  covered because chunk IDs, `file` fields and the language depend on it. The raw bytes are covered because redaction
+  and classification are deterministic functions of the bytes and the path; the analyzer fingerprint in the version
+  keys covers the code that does them.
+- **Shards.** Results live in up to 256 documents named `analysis-<xx>`, where `xx` is the first two hex characters of
+  the key. One document per file would mean up to 10,000 fsync'd writes on a cold run; one document for everything
+  would rewrite the whole cache when a single file changes. Each shard is
+  `{ schemaVersion: 2, entries: { [key]: { path, chunks, warnings, textOnly, mac } } }`.
+- **What is stored.** Only files that reached `analyzeFile` (files with a language): the chunks exactly as analysis
+  returned them from the redacted source, the analyzer's warnings, and the text-only flag. Binary files and files with
+  no language are not stored (their check is cheap and they have no analysis). Excluded files (ignored, secret, too
+  large) are never read, so they never get here.
+- **Untrusted content.** `.scope/` lives in the project, which is untrusted: a planted or cloned cache must be a miss.
+  A strict validator checks every field of every chunk, reference and location, that each chunk's `file` equals its
+  entry's `path`, that each key belongs to its shard, and that each entry has a `mac`. One bad entry makes the whole
+  shard unusable: the store warns once and the shard is treated as empty, so those files are reanalyzed. A lookup then
+  requires the entry's `path` to equal the path being loaded and its `mac` to verify (HMAC-SHA256, constant-time
+  comparison) under this user's integrity key over the current version keys, the entry key and the whole entry. Content,
+  names, references, warnings or chunks changed after signing, an entry moved to another key, and an entry signed under
+  older version keys (replayed after `meta.json`, which is not signed, is rewritten) fail the check. Checking content against
+  the source cannot be made complete, so Scope does not try. Any mismatch is a miss: the file is analyzed again and the
+  commit replaces the entry.
+- **Pruning.** A commit keeps exactly the entries this run used (hits and newly analyzed), rewrites a shard only when
+  its key set changed, and removes shards that end up empty. Deleted and changed files drop out, so the cache holds the
+  latest scan only. When the version keys changed (a fresh cache), nothing is read and the old shards are removed.
+- **No-op warm runs.** When the cache is not fresh, nothing was analyzed, and no shard on disk holds a key this run did
+  not use, the commit is skipped: no lock and no write, not even `meta.json`.
+- **A warm run still reads and hashes every file.** The saving is parsing, not I/O.
+- Cache problems (open, read and commit warnings) never fail a run; they are added to the run's warnings, each once.
+  Output is identical with the cache cold, warm or off, apart from those warnings.
+- The cache is off for library callers (`ScopeOptions.cache`, default `false`); the CLI turns it on by default.
+
+**Planned** (#71, #72):
+
 - There are no token estimates: the token budget and all estimation were removed in #164, so nothing size-related is
   cached.
 - Relationships are not cached separately: references are part of each chunk, and the repository graph is rebuilt
   from the current chunks on every run (it is cheap and depends on every file, so caching it would only add
   invalidation risk). The warm index is always derived from current source, never from prior task selections.
-- Change detection runs on every scan and does not depend on git: a file whose size and modification time match the
-  index, and whose modification time is older than the index entry by a safety margin, keeps its hash without being
-  read; anything else is read and hashed, and the hash decides. New and changed files are analyzed, deleted files are
-  dropped, and a file whose hash matches a blob recorded under another path (a rename) reuses that analysis with the
-  path rewritten and IDs recomputed, when the extension is the same.
-- Every reuse must equal a cold analysis of the same bytes. The cold-versus-warm equivalence tests (#81) are the proof.
+- Stat fast path (#71): an index of size and modification time per file, so a file whose size and modification time
+  match, and whose modification time is older than the index entry by a safety margin, keeps its hash without being
+  read; anything else is read and hashed, and the hash decides. A file whose hash matches an entry recorded under
+  another path (a rename) reuses that analysis with the path rewritten and IDs recomputed, when the extension is the
+  same.
+- Version reuse and invalidation tests (#72).
+- Every reuse must equal a cold analysis of the same bytes. The cold-versus-warm equivalence tests prove it.
+
+### Integrity key
+
+Entries are signed with a random per-user key kept outside every project, so a cloned or planted `.scope/` (built
+under another key, or by hand) verifies as nothing.
+
+- **Location.** `$XDG_STATE_HOME/scope/cache-key` when `XDG_STATE_HOME` is set to an absolute path (relative values are
+  ignored); otherwise `$HOME/.local/state/scope/cache-key`. With neither usable the cache is disabled with a warning.
+- **Creation.** On first use Scope creates the directory (mode 0700) and the file (mode 0600, exclusive create) holding
+  32 random bytes as 64 lowercase hex characters, then fsyncs it. If the file already exists it is read, never replaced.
+- **Checks on every load.** It must be a regular file (not a symlink), owned by the current user, with no group or
+  other permission bits, and its trimmed contents must be exactly 64 hex characters. A failing file disables the cache
+  with a `cache disabled:` warning that names the path and the reason; it is never overwritten or deleted.
+- **Never printed.** The key is not logged or put in any warning, output or stored document.
+- **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
+- It is the only file Scope writes outside the project.
 
 ## Retrieval memory (#73 to #78, _planned_)
 
@@ -145,12 +194,12 @@ one of their commits or a merge of both, never a mix of half-written documents.
 
 ## Retention bounds
 
-| Data                  | Bound                                                     |
-| --------------------- | --------------------------------------------------------- |
-| Analysis index, blobs | Files of the latest scan only (so the scan limits apply)  |
-| Run history           | Newest 200 runs, none older than 90 days (#73)            |
-| Reusable decisions    | Newest 500, none older than 7 days (#75)                  |
-| Feedback              | Newest 2,000 observations, none older than 365 days (#76) |
+| Data               | Bound                                                     |
+| ------------------ | --------------------------------------------------------- |
+| Analysis shards    | Files of the latest scan only (so the scan limits apply)  |
+| Run history        | Newest 200 runs, none older than 90 days (#73)            |
+| Reusable decisions | Newest 500, none older than 7 days (#75)                  |
+| Feedback           | Newest 2,000 observations, none older than 365 days (#76) |
 
 ## What is never stored
 

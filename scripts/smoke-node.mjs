@@ -5,7 +5,7 @@
 // npm is found next to that Node, or in the distro location; override with SCOPE_NPM=/path/to/npm-cli.js.
 // Needs network once: `npm install` fetches the package's runtime dependencies from the registry.
 import { spawnSync } from "node:child_process";
-import { accessSync, constants, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { accessSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -28,7 +28,7 @@ const NPM_CANDIDATES = [
 const NPM = NPM_CANDIDATES.find((path) => existsSync(path));
 // Node's own directory supplies node (for the `#!/usr/bin/env node` shebang); the system dirs supply env and sh.
 const SAFE_PATH = [dirname(NODE), "/usr/bin", "/bin"].join(delimiter);
-const SAFE_ENV = { ...process.env, PATH: SAFE_PATH, TYPESAFE_API_KEY: "" };
+const SAFE_ENV = { ...process.env, PATH: SAFE_PATH, TYPESAFE_API_KEY: "", SCOPE_CACHE: "off" };
 
 class SmokeFailure extends Error {}
 const fail = (message) => {
@@ -103,6 +103,22 @@ try {
       fail(`scope mixed-app --no-jev: output has no chunk from a ${extension} file\n${mixed}`);
     }
   }
+
+  // The packaged CLI's cache on real Node: a cold and a warm run on a scratch copy print the same artifact.
+  const cached = join(scratch, "cached-mixed-app");
+  cpSync(MIXED_FIXTURE, cached, { recursive: true });
+  // The integrity key goes to a scratch state directory, never the real ~/.local/state.
+  const stateHome = join(scratch, "state");
+  const cacheEnv = { ...SAFE_ENV, XDG_STATE_HOME: stateHome };
+  delete cacheEnv.SCOPE_CACHE;
+  const cacheArgs = [MIXED_TASK, "--repo", cached, "--no-jev"];
+  const cold = run("scope --no-jev (cache cold)", scope, cacheArgs, { cwd: projectDir, env: cacheEnv });
+  const warm = run("scope --no-jev (cache warm)", scope, cacheArgs, { cwd: projectDir, env: cacheEnv });
+  if (cold !== warm) fail("cached cold and warm runs printed different artifacts");
+  if (!existsSync(join(cached, ".scope/store-v1/meta.json"))) fail("the cached run wrote no .scope/store-v1/meta.json");
+  if (!existsSync(join(stateHome, "scope/cache-key"))) fail("the cached run wrote no integrity key");
+  rmSync(cached, { recursive: true, force: true });
+  rmSync(stateHome, { recursive: true, force: true });
 
   const version = run("node --version", NODE, ["--version"]).trim();
   process.stdout.write(`node ${version}: packaged CLI smoke passed\n`);

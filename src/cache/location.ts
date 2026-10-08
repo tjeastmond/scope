@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { lstat, mkdir, open, realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { loadIntegrityKey } from "./integrity.ts";
 import { DocumentStore, type CommitOutcome, type DocumentType, type Transaction } from "./store.ts";
 import { STORE_MAJOR, currentVersionKeys, type VersionKeys } from "./versions.ts";
 
@@ -33,6 +34,8 @@ export interface RepositoryCache {
   /** Real path of the repository root. */
   root: string;
   keys: VersionKeys;
+  /** Per-user key that authenticates entries (see integrity.ts). Never printed. */
+  integrityKey: Buffer;
   /** True when the store has no usable meta or its root or keys differ: source-analysis data must be rebuilt. */
   fresh: boolean;
 }
@@ -62,9 +65,11 @@ const oneLine = (error: unknown) =>
  */
 export async function openRepositoryCache(
   repoRoot: string,
-  options: { keys?: VersionKeys } = {},
+  options: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv } = {},
 ): Promise<{ cache?: RepositoryCache; warnings: string[] }> {
   try {
+    const integrity = await loadIntegrityKey(options.integrityEnv);
+    if ("warning" in integrity) return { warnings: [integrity.warning] };
     const root = await realpath(repoRoot);
     const keys = options.keys ?? (await currentVersionKeys());
     const directory = join(root, CACHE_DIR, `store-v${STORE_MAJOR}`);
@@ -82,7 +87,10 @@ export async function openRepositoryCache(
     });
     const { value, warning } = await store.read(metaType);
     const fresh = isStale(value, { root, keys });
-    return { cache: { store, directory, root, keys, fresh }, warnings: warning ? [warning] : [] };
+    return {
+      cache: { store, directory, root, keys, integrityKey: integrity.key, fresh },
+      warnings: warning ? [warning] : [],
+    };
   } catch (error) {
     return { warnings: [`cache disabled: ${oneLine(error)}`] };
   }
