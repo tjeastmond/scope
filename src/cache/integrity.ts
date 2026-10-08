@@ -62,6 +62,12 @@ async function createKey(path: string): Promise<void> {
 async function load(path: string): Promise<IntegrityKey> {
   try {
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    try {
+      return await readKey(path);
+    } catch (error) {
+      // Only a missing key is created; an existing one is read as is, even when the directory is not writable.
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
     await createKey(path);
     return await readKey(path);
   } catch (error) {

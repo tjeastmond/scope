@@ -291,17 +291,6 @@ async function runChild(repo: string, task: string, ...extra: string[]) {
   }
 }
 
-/** Polls the store directory until `predicate` holds for its entries, capped at POLL_CAP_MS. */
-async function waitForStoreEntry(repo: string, predicate: (names: string[]) => boolean): Promise<boolean> {
-  const deadline = Date.now() + POLL_CAP_MS;
-  while (Date.now() < deadline) {
-    const names = await readdir(storeDir(repo)).catch(() => [] as string[]);
-    if (predicate(names)) return true;
-    await new Promise((resolve) => setTimeout(resolve, 1));
-  }
-  return false;
-}
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ------------------------------------------------------------------------------------------ the Node under test
@@ -529,39 +518,43 @@ describe("a run killed mid-write", () => {
     return lock;
   }
 
-  type KillPoint = { label: string; trigger: (repo: string) => Promise<unknown> };
-  const KILL_POINTS: KillPoint[] = [
-    { label: "when the store lock appears", trigger: (repo) => waitForStoreEntry(repo, (n) => n.includes("lock")) },
-    {
-      label: "when a temporary file appears",
-      trigger: (repo) => waitForStoreEntry(repo, (n) => n.some((name) => name.endsWith(".tmp"))),
-    },
-    {
-      label: "when the first document is written",
-      trigger: (repo) => waitForStoreEntry(repo, (n) => n.some((name) => name.endsWith(".json"))),
-    },
-    { label: "after 0 ms", trigger: () => Promise.resolve() },
-    { label: "after 150 ms", trigger: () => sleep(150) },
-    { label: "after 400 ms", trigger: () => sleep(400) },
-    { label: "after 800 ms", trigger: () => sleep(800) },
+  // Each point freezes the child at a known step of a cache write (tests/helpers/kill-point-hook.mjs), so the kill
+  // provably lands mid-write: the test waits for the hook's marker file, never for a lucky poll.
+  const HOOK = join(ROOT, "tests/helpers/kill-point-hook.mjs");
+  const KILL_POINTS = [
+    { label: "right after the store lock is created", point: "lock" },
+    { label: "with a document flushed under its temporary name", point: "tmp" },
+    { label: "after the first document is renamed into place", point: "json:1" },
+    { label: "after the third document is renamed into place", point: "json:3" },
   ];
 
-  for (const point of KILL_POINTS) {
-    test(`SIGKILL ${point.label}: the next run succeeds, equals a cold run, and the cache heals`, async () => {
+  for (const { label, point } of KILL_POINTS) {
+    test(`SIGKILL ${label}: the next run succeeds, equals a cold run, and the cache heals`, async () => {
       const repo = await copyFixture("webhook-service");
       const cold = await runChild(repo, WEBHOOK_TASK, "--no-cache");
       expect(cold.code).toBe(0);
 
-      const victim = spawnCli(taskArgv(repo, WEBHOOK_TASK));
+      const marker = join(tmp, `frozen-${point.replace(":", "-")}`);
+      const victim = spawnNode(["--import", HOOK, CLI, ...taskArgv(repo, WEBHOOK_TASK)], {
+        KILL_POINT: point,
+        KILL_MARKER: marker,
+      });
       try {
-        await point.trigger(repo);
+        // The child freezes itself at the point; the marker proves it got there before anything else happened.
+        const deadline = Date.now() + POLL_CAP_MS;
+        while (!existsSync(marker) && Date.now() < deadline && victim.child.exitCode === null) await sleep(5);
+        expect(existsSync(marker)).toBe(true);
+        expect(victim.child.exitCode).toBeNull();
         victim.child.kill("SIGKILL"); // only the child this test spawned, through its own handle
         const killed = await victim.done;
-        // Either the kill landed first (signal) or the run had already finished (a clean exit); never a failure.
-        expect(killed.signal === "SIGKILL" || killed.code === 0).toBe(true);
+        expect(killed.signal).toBe("SIGKILL");
       } finally {
         await reap(victim);
       }
+      const left = await readdir(storeDir(repo));
+      if (point === "lock") expect(left).toContain("lock");
+      if (point === "tmp") expect(left.some((name) => name.endsWith(".tmp"))).toBe(true);
+      if (point.startsWith("json:")) expect(left.some((name) => name.endsWith(".json"))).toBe(true);
       const lockLeft = existsSync(join(storeDir(repo), "lock"));
 
       // The next run: no error, correct output, and no longer than the documented lock wait (2 s) plus a run.
