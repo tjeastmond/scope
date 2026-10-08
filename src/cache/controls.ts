@@ -7,7 +7,7 @@ import { loadChunks } from "../scope.ts";
 import { SHARD_NAME, filesType, shardType } from "./analysis.ts";
 import { CACHE_DIR, metaType } from "./location.ts";
 import { resolveRetention, type RetentionBounds } from "./retention.ts";
-import { BREAK_CLAIM_PREFIX, DocumentStore, LOCK_FILE } from "./store.ts";
+import { BREAK_CLAIM_PREFIX, DATA_TEMP, DocumentStore, LOCK_FILE } from "./store.ts";
 import { STORE_MAJOR, currentVersionKeys, type VersionKeys } from "./versions.ts";
 
 /** A cache control command could not do its job (exit 1). Usage mistakes are {@link UsageError}s instead. */
@@ -20,8 +20,6 @@ export class CacheControlError extends Error {
 
 const STORE_DIRECTORY = /^store-v[0-9]+$/;
 const DOCUMENT_FILE = /^[a-z][a-z0-9-]*\.json$/;
-/** `.<document>.<16 hex>.tmp`: a data file the store writes (under the lock) before renaming it into place. */
-const DATA_TEMP = /^\.[a-z][a-z0-9-]*\.[0-9a-f]{16}\.tmp$/;
 
 const codeOf = (error: unknown): string | undefined => (error as NodeJS.ErrnoException | undefined)?.code;
 /** Human-readable byte count: `812 B`, `12.3 KiB`, `4.0 MiB`. */

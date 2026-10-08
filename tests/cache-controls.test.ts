@@ -354,12 +354,17 @@ describe("clear", () => {
     await writeFile(join(storeDir(repo), "notes.txt"), "mine");
     await writeFile(join(storeDir(repo), "Weird.json"), "{}");
     await mkdir(join(storeDir(repo), "subdir"));
+    // An old foreign .tmp file: the commit's sweep must not take it either.
+    await writeFile(join(storeDir(repo), "notes.tmp"), "mine too");
+    const past = new Date(Date.now() - 10 * 60_000);
+    await utimes(join(storeDir(repo), "notes.tmp"), past, past);
     await writeFile(join(repo, ".scope/extra.txt"), "elsewhere");
     await writeFile(join(repo, "README.local"), "repo file");
     const result = await cli("cache", "clear", "--repo", repo, "--yes");
     expect(result.code).toBe(0);
-    expect(await storeNames(repo)).toEqual(["Weird.json", "notes.txt", "subdir"]);
-    for (const name of ["notes.txt", "Weird.json", "subdir"]) expect(result.stderr).toContain(`store-v1/${name}`);
+    expect(await storeNames(repo)).toEqual(["Weird.json", "notes.tmp", "notes.txt", "subdir"]);
+    for (const name of ["notes.txt", "notes.tmp", "Weird.json", "subdir"])
+      expect(result.stderr).toContain(`store-v1/${name}`);
     expect(await readFile(join(repo, ".scope/extra.txt"), "utf8")).toBe("elsewhere");
     expect(await readFile(join(repo, "README.local"), "utf8")).toBe("repo file");
     expect(await readFile(join(repo, ".scope/.gitignore"), "utf8")).toBe("*\n");
