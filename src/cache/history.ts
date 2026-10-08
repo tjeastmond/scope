@@ -184,6 +184,17 @@ export const historyType = (name: string): DocumentType<HistoryDocument> => ({
   validate: isHistoryDocument,
 });
 
+/**
+ * The task with credential shapes redacted, and the configured Jev key removed by value too: its shape is not one the
+ * pattern redactor knows, and a task pasted with it must not persist it. Short values are skipped so a stray variable
+ * cannot blank ordinary words.
+ */
+function redactTask(task: string): string {
+  const redacted = redactSecrets(task);
+  const key = process.env.TYPESAFE_API_KEY?.trim();
+  return key && key.length >= 8 ? redacted.split(key).join("[REDACTED]") : redacted;
+}
+
 const withRelevance = (relevance: number | undefined) => (relevance === undefined ? {} : { relevance });
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
@@ -198,6 +209,12 @@ export function newRunId(time: number): string {
  */
 export const historyMac = (cache: RepositoryCache, record: HistoryRecord) =>
   recordMac(cache.integrityKey, MAC_DOMAIN, { root: cache.root, record });
+
+/** Whether a read document is a record this user signed for this repository, under the name it was written with. */
+const isVerified = (cache: RepositoryCache, name: string, document: HistoryDocument | undefined) =>
+  document !== undefined &&
+  `${HISTORY_PREFIX}${document.record.runId}` === name &&
+  macEquals(document.mac, historyMac(cache, document.record));
 
 /** The time encoded in a document name, or undefined when the name is not one Scope wrote. */
 function nameTime(name: string): number | undefined {
@@ -220,7 +237,7 @@ export interface RecordInput {
 /** Builds the record of a run. Pure apart from the random part of the run id and reading the installed versions. */
 export async function buildHistoryRecord(input: RecordInput, versions: { scope: string }): Promise<HistoryRecord> {
   const { result, chunks, jev, time } = input;
-  const redacted = redactSecrets(input.task);
+  const redacted = redactTask(input.task);
   const terms = extractTaskTerms(redacted);
   const cap = (list: string[]) => list.slice(0, MAX_TERMS).map((term) => term.slice(0, MAX_TERM_CHARS));
   const candidates: HistoryCandidate[] = [];
@@ -304,7 +321,14 @@ export async function recordHistory(
         const recent: string[] = [];
         for (const candidate of all) {
           const time = nameTime(candidate);
-          if (enabled && time !== undefined && time >= now - maxDays * DAY_MS) recent.push(candidate);
+          // A document takes a retention slot only once verified, so a planted name (a far-future time, say) can never
+          // evict real history or keep new runs out.
+          const kept =
+            enabled &&
+            time !== undefined &&
+            time >= now - maxDays * DAY_MS &&
+            (candidate === name || isVerified(cache, candidate, await tx.read(historyType(candidate))));
+          if (kept) recent.push(candidate);
           else if (candidate !== name) tx.removeName(candidate);
         }
         // Names sort by time, so the newest come first once reversed.
@@ -353,10 +377,7 @@ export async function readHistory(cache: RepositoryCache): Promise<{ records: Hi
     const { value, warning } = await cache.store.read(historyType(name));
     if (warning) warnings.push(warning);
     else if (!value) continue;
-    else if (
-      `${HISTORY_PREFIX}${value.record.runId}` !== name ||
-      !macEquals(value.mac, historyMac(cache, value.record))
-    ) {
+    else if (!isVerified(cache, name, value)) {
       warnings.push(`${name}.json: not signed by this user; ignoring it`);
     } else records.push(value.record);
   }

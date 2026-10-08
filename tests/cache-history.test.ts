@@ -173,7 +173,10 @@ describe("what a Jev run records", () => {
         return { ...decision, judgments: decision.judgments.map((j) => ({ ...j, raw: "RAW-JEV-ANSWER-9f3a" })) };
       },
     };
-    const { result } = await run(repo, { provider, task: `${TASK} using AKIAIOSFODNN7EXAMPLE` });
+    const { result } = await run(repo, {
+      provider,
+      task: `${TASK} using AKIAIOSFODNN7EXAMPLE and tsk-DISTINCTIVE-FAKE-KEY-0123456789`,
+    });
     const stored = await allText(join(repo, ".scope"));
     expect(stored).toContain(HISTORY_PREFIX);
     expect(stored).not.toContain("tsk-DISTINCTIVE-FAKE-KEY-0123456789");
@@ -325,6 +328,17 @@ describe("retention", () => {
     const { result } = await run(repo, { env: { SCOPE_HISTORY_MAX_RUNS: "lots" } });
     expect(result.warnings.filter((w) => w.startsWith("SCOPE_HISTORY_MAX_RUNS must be"))).toHaveLength(1);
     expect(await historyNames(repo)).toHaveLength(1);
+  });
+
+  test("a planted far-future document never takes a retention slot", async () => {
+    const repo = await copyFixture();
+    await run(repo);
+    await writeFile(join(storeDir(repo), "history-9999999999999-00000000.json"), "{}");
+    await run(repo, { env: { SCOPE_HISTORY_MAX_RUNS: "1" } });
+    const names = await historyNames(repo);
+    expect(names).toHaveLength(1);
+    expect(names[0]).not.toContain("9999999999999");
+    expect(await history(repo)).toHaveLength(1);
   });
 
   test("a history-* document Scope did not write is removed by the next run", async () => {
