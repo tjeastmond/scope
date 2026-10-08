@@ -194,7 +194,7 @@ export async function withAdaptiveWeights(
   env?: NodeJS.ProcessEnv,
 ): Promise<{ config: RetrievalConfig; active?: WeightsRecord; warnings: string[] }> {
   if (!adaptiveEnabled(env) || cache.fresh) return { config, warnings: [] };
-  const { record, warnings } = await readActiveWeights(cache);
+  const { record, warnings } = await readActiveWeights(cache, config.version);
   return record ? { config: applyMultipliers(config, record), active: record, warnings } : { config, warnings };
 }
 

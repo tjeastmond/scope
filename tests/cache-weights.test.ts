@@ -269,6 +269,25 @@ describe("runtime effect and rollback", () => {
     );
   });
 
+  test("a set promoted for another baseline version is not applied to a run with a different config", async () => {
+    const repo = await mixedCopy();
+    const first = await run(repo, TASK, { fresh: true });
+    await promote(repo);
+    const rec = recording();
+    const { result } = await runScope({
+      task: TASK,
+      repo,
+      provider: rec.provider,
+      cache: true,
+      reuseDecisions: false,
+      retrieval: { version: "other-baseline" },
+      cacheOptions: { now, env: {} },
+    });
+    const json = JSON.parse(renderFormat("json", result)) as Record<string, unknown>;
+    expect(json.retrievalConfigVersion).toBe("other-baseline");
+    expect(rec.calls[0]!.map((chunk) => chunk.id)).toEqual(first.shortlist);
+  });
+
   test("reset-weights leaves analysis, history, feedback and decisions alone", async () => {
     const repo = await mixedCopy();
     const { result } = await run(repo, TASK);
@@ -560,6 +579,20 @@ describe("the evaluation harness", () => {
       expect(stored).not.toContain(task.task);
       for (const label of task.required) expect(stored).not.toContain(label);
     }
+  });
+
+  test("runs of a held-out task and their feedback are left out of the proposal", async () => {
+    const repo = await mixedCopy();
+    const heldout = (await loadLabeledTasks("mixed-app")).find((task) => task.split === "heldout")!;
+    const { result } = await run(repo, `  ${heldout.task.toUpperCase()}  `);
+    await submitFeedback(
+      { runId: result.runId!, useful: [result.chunks[0]!.chunk.id], irrelevant: [], missing: [] },
+      { repo, env: {}, cacheOptions: { now } },
+    );
+    const report = await runAdaptation({ repo, fixture: "mixed-app" });
+    expect(report.excludedHeldoutRuns).toBe(1);
+    expect(report.identity).toBe(true);
+    expect(report.samples.runs).toBe(0);
   });
 
   test("the script prints both recall numbers and the multipliers, and refuses an identity", async () => {

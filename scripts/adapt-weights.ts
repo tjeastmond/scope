@@ -7,12 +7,15 @@
 // Label isolation. The evaluation calls `selectCandidates` (retrieval only) through scripts/recall-lib.ts and never
 // `runScope`, so a held-out task's text and labels are never written to history, feedback, decisions or memory, and
 // can never influence a later proposal. The proposal comes only from the repository's existing external feedback.
+// That history may already hold a held-out task (someone ran it through `scope`); those runs and their feedback are
+// left out of the proposal, and the report counts them. Only the stored task text identifies a run, so a reworded
+// held-out task cannot be recognized; keep held-out tasks out of the repository's real use.
 // `<repo>` is the repository whose cache is read and whose chunks are scored; it should hold the fixture's source.
 
 import { resolve } from "node:path";
 import { openRepositoryCache } from "../src/cache/location.ts";
 import { readFeedback } from "../src/cache/feedback.ts";
-import { readHistory } from "../src/cache/history.ts";
+import { MAX_TASK_CHARS, readHistory, redactCredentials } from "../src/cache/history.ts";
 import {
   SIGNAL_NAMES,
   evaluateProposal,
@@ -24,12 +27,15 @@ import {
   type PromotionOutcome,
 } from "../src/cache/weights.ts";
 import { loadChunks } from "../src/scope.ts";
+import { loadLabeledTasks } from "../tests/helpers/labels.ts";
 import { measureRecall, pct } from "./recall-lib.ts";
 
 export interface AdaptationReport {
   multipliers: Multipliers;
   identity: boolean;
   samples: { runs: number; useful: number; reference: number };
+  /** Runs of a held-out task found in history and left out of the proposal, with their feedback. */
+  excludedHeldoutRuns: number;
   evaluation: Evaluation;
   outcome: PromotionOutcome | { promoted: false; reason: string };
   /** Cache warnings (unreadable key, skipped documents). */
@@ -52,7 +58,20 @@ export async function runAdaptation(options: {
   const history = opened.cache ? await readHistory(opened.cache) : { records: [], warnings: [] };
   const feedback = opened.cache ? await readFeedback(opened.cache) : { records: [], warnings: [] };
   warnings.push(...history.warnings, ...feedback.warnings);
-  const proposal = proposeWeights({ history: history.records, feedback: feedback.records, chunks });
+  const normalize = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
+  const heldout = new Set(
+    (await loadLabeledTasks(options.fixture))
+      .filter((task) => task.split === "heldout")
+      .map((task) => normalize(redactCredentials(task.task).slice(0, MAX_TASK_CHARS))),
+  );
+  const excluded = new Set(
+    history.records.filter((record) => heldout.has(normalize(record.task.text))).map((record) => record.runId),
+  );
+  const proposal = proposeWeights({
+    history: history.records.filter((record) => !excluded.has(record.runId)),
+    feedback: feedback.records.filter((record) => !excluded.has(record.runId)),
+    chunks,
+  });
   const evaluation = await evaluateProposal(proposal.multipliers, async (config) => {
     const rows = await measureRecall(options.fixture, chunks, { config, split: "heldout" });
     return {
@@ -74,6 +93,7 @@ export async function runAdaptation(options: {
     multipliers: proposal.multipliers,
     identity: proposal.identity,
     samples: proposal.samples,
+    excludedHeldoutRuns: excluded.size,
     evaluation,
     outcome,
     warnings,
@@ -86,6 +106,9 @@ export function formatReport(report: AdaptationReport): string {
     report.identity
       ? "proposal: identity (no confirmed feedback to learn from, or no signal difference)"
       : `proposal learned from ${report.samples.runs} runs (${report.samples.useful} useful, ${report.samples.reference} reference chunks)`,
+    ...(report.excludedHeldoutRuns > 0
+      ? [`left out ${report.excludedHeldoutRuns} history runs of held-out tasks (and their feedback)`]
+      : []),
     `multipliers: ${SIGNAL_NAMES.map((name) => `${name} ${report.multipliers[name]}`).join(", ")}`,
     `held-out tasks: ${e.tasks}`,
     `baseline recall: ${e.baseline.found}/${e.baseline.total} ${pct(e.baseline.found, e.baseline.total)}`,
