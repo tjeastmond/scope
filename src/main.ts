@@ -8,10 +8,19 @@ import {
   JevUnavailableError,
 } from "./jev/errors.ts";
 import { exitCodeFor } from "./exit-codes.ts";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { prepareOutput, type PreparedOutput } from "./output/file.ts";
 import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
+import {
+  CacheControlError,
+  cacheStatus,
+  clearCache,
+  formatBytes,
+  formatStatus,
+  rebuildCache,
+} from "./cache/controls.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { previewJevPayload, runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
@@ -36,6 +45,41 @@ stderr. --output refuses to overwrite a source file of the repository and replac
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
 SCOPE_CACHE=off also turns the cache off.
 SCOPE_JEV_PAYLOAD=print prints the exact Jev request bodies to stdout instead of sending them (no key needed).
+
+Cache commands:
+  scope cache status  [--repo <path>] [--format text|json]   Show what the local cache holds
+  scope cache clear   [--repo <path>] --yes                  Delete everything Scope stored in .scope/
+  scope cache rebuild [--repo <path>]                        Reanalyze every file and rewrite the analysis cache
+Run scope cache --help for details. To run a task that is literally the word cache: scope -- cache
+`;
+
+const CACHE_ACTIONS = ["status", "clear", "rebuild"] as const;
+type CacheAction = (typeof CACHE_ACTIONS)[number];
+
+const CACHE_HELP = `Usage: scope cache status  [--repo <path>] [--format text|json]
+       scope cache clear   [--repo <path>] --yes
+       scope cache rebuild [--repo <path>]
+
+Inspect and control the local cache in <repo>/.scope/. None of these commands needs Jev or a task.
+
+Commands:
+  status   Read-only: store path, size, entries, version keys, last update and retention bounds.
+           Creates nothing; --format json prints a stable object for scripts.
+  clear    Delete the Scope store data in .scope/ (analysis cache and any run history, decisions or feedback).
+           Requires --yes: there is no prompt. Never follows a symlinked .scope or store directory, and never
+           touches anything outside .scope/ or the per-user integrity key. Files in the store that Scope did
+           not create are left in place and reported.
+  rebuild  Reanalyze every file and rewrite the analysis cache, ignoring cached entries. It touches only analysis
+           data; other stored data is kept. Does not work with SCOPE_CACHE=off.
+
+Options:
+  --repo <path>      Repository (default: current directory)
+  --format <format>  status only: text or json (default: text)
+  --yes              clear only: confirm the deletion
+  -h, --help         Show this help
+
+Retention bounds (shown by status; used by features that keep history) can be set with SCOPE_HISTORY_MAX_RUNS,
+SCOPE_HISTORY_MAX_DAYS, SCOPE_DECISIONS_MAX, SCOPE_DECISIONS_MAX_DAYS, SCOPE_FEEDBACK_MAX and SCOPE_FEEDBACK_MAX_DAYS.
 `;
 
 export interface Io {
@@ -47,7 +91,23 @@ export interface Io {
   signal?: AbortSignal;
 }
 
-export interface CliOptions {
+/** A cache command: `scope cache status|clear|rebuild`. */
+export interface CacheCliOptions {
+  kind: "cache";
+  help: boolean;
+  /** Undefined only with `help`. */
+  action?: CacheAction;
+  repo: string;
+  /** `status` only. */
+  format: "text" | "json";
+  /** `clear` only: the explicit confirmation. */
+  yes: boolean;
+}
+
+export type CliOptions = RunCliOptions | CacheCliOptions;
+
+export interface RunCliOptions {
+  kind: "run";
   help: boolean;
   task: string;
   repo: string;
@@ -60,23 +120,21 @@ export interface CliOptions {
   cache: boolean;
 }
 
-/** Parses and validates every flag in one place, before anything is scanned. Throws UsageError. */
-export function parseCli(argv: string[]): CliOptions {
-  let parsed;
+const OPTIONS = {
+  repo: { type: "string" },
+  format: { type: "string" },
+  output: { type: "string" },
+  explain: { type: "boolean" },
+  "no-jev": { type: "boolean" },
+  "no-cache": { type: "boolean" },
+  yes: { type: "boolean" },
+  help: { type: "boolean", short: "h" },
+} as const;
+
+/** Parses argv with the shared option table; a failure becomes a UsageError with an actionable message. */
+function parseOptions(argv: string[]) {
   try {
-    parsed = parseArgs({
-      args: argv,
-      allowPositionals: true,
-      options: {
-        repo: { type: "string" },
-        format: { type: "string" },
-        output: { type: "string" },
-        explain: { type: "boolean" },
-        "no-jev": { type: "boolean" },
-        "no-cache": { type: "boolean" },
-        help: { type: "boolean", short: "h" },
-      },
-    });
+    return parseArgs({ args: argv, allowPositionals: true, options: OPTIONS });
   } catch (error) {
     const { code, message } = error as NodeJS.ErrnoException;
     if (code !== "ERR_PARSE_ARGS_UNKNOWN_OPTION") throw new UsageError(message);
@@ -88,7 +146,49 @@ export function parseCli(argv: string[]): CliOptions {
         : `${unknown}. Run scope --help for the options.`,
     );
   }
-  const { values, positionals } = parsed;
+}
+
+const CACHE_TASK_FLAGS = ["format", "output", "explain", "no-jev", "no-cache"] as const;
+
+/** `scope cache <action> ...`: the arguments after `cache`. */
+function parseCacheCli(args: string[]): CacheCliOptions {
+  const { values, positionals } = parseOptions(args);
+  if (values.help) return { kind: "cache", help: true, repo: ".", format: "text", yes: false };
+  const list = CACHE_ACTIONS.join(", ");
+  if (positionals.length === 0) throw new UsageError(`Expected a cache subcommand: ${list}. Run scope cache --help.`);
+  const action = positionals[0]!;
+  if (!(CACHE_ACTIONS as readonly string[]).includes(action))
+    throw new UsageError(`Unknown cache subcommand "${action}". Use one of: ${list}.`);
+  if (positionals.length > 1)
+    throw new UsageError(`scope cache ${action} takes no arguments besides its options: got "${positionals[1]}".`);
+  for (const flag of CACHE_TASK_FLAGS) {
+    if (flag === "format" && action === "status") continue;
+    if (values[flag] !== undefined)
+      throw new UsageError(
+        flag === "format"
+          ? "--format only applies to scope cache status (text or json)."
+          : `--${flag} applies to a task run, not to scope cache ${action}.`,
+      );
+  }
+  if (values.yes && action !== "clear") throw new UsageError("--yes only applies to scope cache clear.");
+  const format = values.format ?? "text";
+  if (format !== "text" && format !== "json")
+    throw new UsageError(`--format for scope cache status must be text or json: got "${format}"`);
+  const repo = values.repo ?? ".";
+  if (!repo.trim()) throw new UsageError("--repo requires a path");
+  resolveRepository(repo);
+  if (action === "clear" && !values.yes) {
+    const { root } = resolveRepository(repo);
+    throw new UsageError(`scope cache clear deletes ${join(root, ".scope")}; rerun with --yes to confirm.`);
+  }
+  return { kind: "cache", help: false, action: action as CacheAction, repo, format, yes: values.yes ?? false };
+}
+
+/** Parses and validates every flag in one place, before anything is scanned. Throws UsageError. */
+export function parseCli(argv: string[]): CliOptions {
+  if (argv[0] === "cache") return parseCacheCli(argv.slice(1));
+  const { values, positionals } = parseOptions(argv);
+  if (values.yes) throw new UsageError("--yes only applies to scope cache clear.");
   const base = {
     noJev: values["no-jev"] ?? false,
     explain: values.explain ?? false,
@@ -96,7 +196,7 @@ export function parseCli(argv: string[]): CliOptions {
     cache: !(values["no-cache"] ?? false) && process.env.SCOPE_CACHE !== "off",
   };
   if (values.help || argv.length === 0) {
-    return { ...base, help: true, task: "", repo: ".", format: "text" };
+    return { ...base, kind: "run", help: true, task: "", repo: ".", format: "text" };
   }
   if (positionals.length !== 1)
     throw new UsageError('Expected exactly one task description, in quotes: scope "<task>"');
@@ -113,7 +213,7 @@ export function parseCli(argv: string[]): CliOptions {
 
   if (values.output !== undefined && !values.output.trim()) throw new UsageError("--output requires a path");
 
-  return { ...base, help: false, task, repo, format: format as OutputFormat, output: values.output };
+  return { ...base, kind: "run", help: false, task, repo, format: format as OutputFormat, output: values.output };
 }
 
 const FAILURE_LABELS: [new (...args: never[]) => Error, string][] = [
@@ -148,7 +248,7 @@ function describeError(error: unknown): string {
 }
 
 /** Whether SCOPE_JEV_PAYLOAD=print asks for the payload audit; rejects every unusable combination. */
-function payloadMode(options: CliOptions): boolean {
+function payloadMode(options: RunCliOptions): boolean {
   const value = process.env.SCOPE_JEV_PAYLOAD;
   if (value === undefined || value === "") return false;
   if (value !== "print") throw new UsageError(`SCOPE_JEV_PAYLOAD must be "print" (or unset): got "${value}"`);
@@ -163,6 +263,11 @@ function payloadMode(options: CliOptions): boolean {
 export async function main(argv: string[], io: Io): Promise<number> {
   try {
     const options = parseCli(argv);
+    if (options.kind === "cache") {
+      if (options.help) io.stdout(CACHE_HELP);
+      else await runCache(options, io);
+      return 0;
+    }
     if (options.help) {
       io.stdout(HELP);
       return 0;
@@ -200,7 +305,34 @@ export async function main(argv: string[], io: Io): Promise<number> {
   }
 }
 
-async function run(options: CliOptions, io: Io, output: PreparedOutput | undefined): Promise<void> {
+async function runCache(options: CacheCliOptions, io: Io): Promise<void> {
+  if (options.action === "status") {
+    const status = await cacheStatus(options.repo);
+    io.stdout(options.format === "json" ? `${JSON.stringify(status, null, 2)}\n` : formatStatus(status));
+    for (const warning of status.retention.warnings) io.stderr(`scope: warning: ${warning}\n`);
+  } else if (options.action === "clear") {
+    const result = await clearCache(options.repo);
+    for (const item of result.left) io.stderr(`scope: warning: left ${item.path} in place (${item.reason})\n`);
+    if (result.nothingToClear) {
+      io.stdout("Nothing to clear: no Scope store found.\n");
+      return;
+    }
+    const documents = result.stores.reduce((sum, store) => sum + store.documents, 0);
+    const bytes = result.stores.reduce((sum, store) => sum + store.bytes, 0);
+    io.stdout(
+      `Cleared ${result.stores.length} store${result.stores.length === 1 ? "" : "s"}: removed ${documents} documents (${formatBytes(bytes)}).\n`,
+    );
+  } else if (options.action === "rebuild") {
+    const result = await rebuildCache(options.repo, { signal: io.signal });
+    for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
+    if (!result.committed) throw new CacheControlError("the rebuilt analysis could not be written to the cache.");
+    io.stdout(
+      `Rebuilt the analysis cache: ${result.filesAnalyzed} files analyzed, ${result.chunks} chunks, ${(result.elapsedMs / 1000).toFixed(1)}s.\n`,
+    );
+  }
+}
+
+async function run(options: RunCliOptions, io: Io, output: PreparedOutput | undefined): Promise<void> {
   const { result, decision } = await runScope({
     task: options.task,
     repo: options.repo,

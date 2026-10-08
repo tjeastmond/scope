@@ -11,8 +11,10 @@ export const LOCK_WAIT_MS = 2_000;
 export const TMP_MAX_AGE_MS = 60_000;
 
 const LOCK_POLL_MS = 25;
-const LOCK_FILE = "lock";
-const BREAK_CLAIM_PREFIX = ".lock.break.";
+/** Name of the lock file inside a store directory. */
+export const LOCK_FILE = "lock";
+/** Prefix of the claim files a lock breaker creates (`.lock.break.<id>.<level>.tmp`). */
+export const BREAK_CLAIM_PREFIX = ".lock.break.";
 const MAX_BREAK_LEVEL = 8;
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const MAX_WARNING_LENGTH = 200;

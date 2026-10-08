@@ -8,7 +8,7 @@ import { STORE_MAJOR, currentVersionKeys, type VersionKeys } from "./versions.ts
 /** Name of the cache directory inside the repository root. */
 export const CACHE_DIR = ".scope";
 
-interface Meta {
+export interface Meta {
   root: string;
   keys: VersionKeys;
   lastUsed: number;
@@ -25,7 +25,7 @@ const isMeta = (payload: unknown): payload is Meta => {
     typeof meta.lastUsed === "number"
   );
 };
-const metaType: DocumentType<Meta> = { name: "meta", schemaVersion: 1, validate: isMeta };
+export const metaType: DocumentType<Meta> = { name: "meta", schemaVersion: 1, validate: isMeta };
 
 export interface RepositoryCache {
   store: DocumentStore;
