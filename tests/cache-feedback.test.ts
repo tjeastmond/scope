@@ -466,6 +466,25 @@ describe("integrity", () => {
     expect(names).toEqual([s.name, `${FEEDBACK_PREFIX}${second.feedbackId}.json`].sort());
     expect((await readFeedback(await open(s.repo))).warnings).toEqual([]);
   });
+
+  test("planted documents newer than real feedback cannot evict it from a full store", async () => {
+    const s = await seeded();
+    const newer = (Date.now() + 3 * HOUR).toString().padStart(13, "0");
+    for (const suffix of ["00000001", "00000002"]) {
+      const id = `${newer}-${suffix}`;
+      await writeFile(
+        join(storeDir(s.repo), `${FEEDBACK_PREFIX}${id}.json`),
+        JSON.stringify({ ...s.doc, record: { ...s.doc.record, feedbackId: id } }),
+      );
+    }
+    const second = await submitFeedback(
+      { runId: s.runId, useful: [s.b], irrelevant: [], missing: [] },
+      { repo: s.repo, env: { SCOPE_FEEDBACK_MAX: "2" }, cacheOptions: { now: () => Date.now() + 2 * HOUR } },
+    );
+    const kept = (await readFeedback(await open(s.repo))).records.map((r) => r.feedbackId);
+    expect(kept).toEqual([second.feedbackId, s.doc.record.feedbackId]);
+    expect(await feedbackNames(s.repo)).toHaveLength(2);
+  });
 });
 
 describe("retention", () => {
