@@ -69,6 +69,8 @@ export async function loadChunks(
       /** Test seams for the stat records: the clock and the racy-file margin. */
       now?: () => number;
       racyMarginMs?: number;
+      /** Ignore every cached analysis and stat record and rewrite the analysis data (`scope cache rebuild`). */
+      rebuild?: boolean;
     };
   } = {},
 ): Promise<{
@@ -79,6 +81,8 @@ export async function loadChunks(
    * `analyzed` files were parsed.
    */
   analysis?: { reused: number; analyzed: number; statHits: number; renamed: number };
+  /** With the cache on: whether this run's commit reached the store (false when it was skipped or failed). */
+  cacheCommitted?: boolean;
 }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
@@ -93,6 +97,7 @@ export async function loadChunks(
       analysisCache = new AnalysisCache(opened.cache, opened.warnings, {
         now: cache.now,
         racyMarginMs: cache.racyMarginMs,
+        rebuild: cache.rebuild,
       });
     }
   }
@@ -152,10 +157,16 @@ export async function loadChunks(
   if (summary) warnings.push(summary);
   if (!cache) return { chunks, warnings };
   if (signal?.aborted) throw new CancelledError();
-  await analysisCache?.commit();
+  const outcome = await analysisCache?.commit();
   // Cache problems (open, read, commit) come last and once each, so the rest of the warnings match an uncached run.
   const cacheWarnings = analysisCache ? analysisCache.warnings : openWarnings;
-  return { chunks, warnings: [...warnings, ...cacheWarnings], analysis: { reused, analyzed, statHits, renamed } };
+  return {
+    chunks,
+    warnings: [...warnings, ...cacheWarnings],
+    analysis: { reused, analyzed, statHits, renamed },
+    // An unchanged warm run takes no lock and commits nothing (undefined), which is fine; only a failed commit is false.
+    cacheCommitted: analysisCache !== undefined && outcome?.committed !== false,
+  };
 }
 
 /** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */

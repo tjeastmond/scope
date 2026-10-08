@@ -20,12 +20,12 @@ interface Entry extends CachedAnalysis {
   mac: string;
 }
 
-interface Shard {
+export interface Shard {
   entries: Record<string, Entry>;
 }
 
-const SHARD_PREFIX = "analysis-";
-const SHARD_NAME = /^analysis-[0-9a-f]{2}$/;
+export const SHARD_PREFIX = "analysis-";
+export const SHARD_NAME = /^analysis-[0-9a-f]{2}$/;
 const KEY_PATTERN = /^[0-9a-f]{64}$/;
 
 /**
@@ -65,6 +65,12 @@ const changedAt = (info: StatInfo) => Math.max(info.mtimeMs, info.ctimeMs);
 export interface RefreshOptions {
   now?: () => number;
   racyMarginMs?: number;
+  /**
+   * Reanalyze everything: no entry lookup, no stat fast path and no rename reuse, as if nothing had been cached.
+   * The commit still rewrites the analysis data for this scan and leaves every other document alone, unless the
+   * cache is stale, which resets the whole store as on any run.
+   */
+  rebuild?: boolean;
 }
 
 interface StatRecord extends StatFields {
@@ -72,7 +78,7 @@ interface StatRecord extends StatFields {
   mac: string;
 }
 
-interface FilesDocument {
+export interface FilesDocument {
   files: Record<string, StatRecord>;
 }
 
@@ -104,7 +110,7 @@ export function isFilesDocument(payload: unknown): payload is FilesDocument {
   );
 }
 
-const filesType: DocumentType<FilesDocument> = { name: "files", schemaVersion: 1, validate: isFilesDocument };
+export const filesType: DocumentType<FilesDocument> = { name: "files", schemaVersion: 1, validate: isFilesDocument };
 
 const shardName = (key: string) => `${SHARD_PREFIX}${key.slice(0, 2)}`;
 
@@ -253,7 +259,7 @@ export function isShard(payload: unknown, name?: string): payload is Shard {
   );
 }
 
-const shardType = (name: string): DocumentType<Shard> => ({
+export const shardType = (name: string): DocumentType<Shard> => ({
   name,
   schemaVersion: 2,
   validate: (payload): payload is Shard => isShard(payload, name),
@@ -277,6 +283,7 @@ export class AnalysisCache {
   readonly #seen = new Map<string, StatRecord>();
   readonly #now: () => number;
   readonly #margin: number;
+  readonly #rebuild: boolean;
   #stored: Promise<FilesDocument | undefined> | undefined;
   #byHash: Map<string, string[]> | undefined;
 
@@ -284,6 +291,7 @@ export class AnalysisCache {
     this.#cache = cache;
     this.#now = options.now ?? Date.now;
     this.#margin = options.racyMarginMs ?? RACY_MARGIN_MS;
+    this.#rebuild = options.rebuild ?? false;
     for (const warning of warnings) this.#warn(warning);
   }
 
@@ -315,7 +323,7 @@ export class AnalysisCache {
 
   /** The entry stored under `key` when it is for `path` and its MAC verifies; undefined otherwise. */
   async #verified(path: string, key: string): Promise<Entry | undefined> {
-    if (this.#cache.fresh) return undefined;
+    if (this.#cache.fresh || this.#rebuild) return undefined;
     const shard = await this.#shard(shardName(key));
     const entry = shard !== undefined && Object.hasOwn(shard.entries, key) ? shard.entries[key] : undefined;
     if (
@@ -341,12 +349,13 @@ export class AnalysisCache {
 
   /** The stored stat records, read once; undefined when missing or unusable (the store warns) or the cache is fresh. */
   #records(): Promise<FilesDocument | undefined> {
-    this.#stored ??= this.#cache.fresh
-      ? Promise.resolve(undefined)
-      : this.#cache.store.read(filesType).then(({ value, warning }) => {
-          if (warning) this.#warn(warning);
-          return value;
-        });
+    this.#stored ??=
+      this.#cache.fresh || this.#rebuild
+        ? Promise.resolve(undefined)
+        : this.#cache.store.read(filesType).then(({ value, warning }) => {
+            if (warning) this.#warn(warning);
+            return value;
+          });
     return this.#stored;
   }
 
@@ -443,7 +452,7 @@ export class AnalysisCache {
 
   /** Whether the store would change: new results, a stale entry or unusable shard that was read, or an unread shard. */
   async #needsCommit(): Promise<boolean> {
-    if (this.#cache.fresh || this.#recorded.size > 0) return true;
+    if (this.#cache.fresh || this.#rebuild || this.#recorded.size > 0) return true;
     const stored = await this.#records();
     const desired = Object.fromEntries(this.#seen);
     if (stored === undefined ? this.#seen.size > 0 : !isDeepStrictEqual(stored.files, desired)) return true;

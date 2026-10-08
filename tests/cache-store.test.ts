@@ -217,8 +217,8 @@ describe("commit", () => {
     test(`verifyDirectory failing ${stage} touches nothing and does not commit`, async () => {
       await put({ items: ["old"] });
       const old = new Date(Date.now() - 10 * 60_000);
-      await writeFile(join(dir, "old.tmp"), "x");
-      await utimes(join(dir, "old.tmp"), old, old);
+      await writeFile(join(dir, ".files.0123456789abcdef.tmp"), "x");
+      await utimes(join(dir, ".files.0123456789abcdef.tmp"), old, old);
       let calls = 0;
       let updated = false;
       const guarded = new DocumentStore(dir, {
@@ -236,8 +236,8 @@ describe("commit", () => {
       // The sweep runs once the directory has been verified under the lock, so only a late failure sees it done. Once
       // the directory fails verification, even our own lock is left for a later run to break.
       const expected = {
-        1: ["files.json", "old.tmp"],
-        2: ["files.json", "lock", "old.tmp"],
+        1: [".files.0123456789abcdef.tmp", "files.json"],
+        2: [".files.0123456789abcdef.tmp", "files.json", "lock"],
         3: ["files.json", "lock"],
       };
       expect((await readdir(dir)).sort()).toEqual(expected[failOn]);
@@ -427,6 +427,21 @@ describe("commit", () => {
     const names = await readdir(dir);
     expect(names).not.toContain(".files.aaaaaaaaaaaaaaaa.tmp");
     expect(names).toContain(".files.bbbbbbbbbbbbbbbb.tmp");
+  });
+
+  test("the sweep removes only the temp files Scope names, never other old files", async () => {
+    await put();
+    const past = new Date(Date.now() - 120_000);
+    const claim = `.lock.break.${"a".repeat(16)}.0.tmp`;
+    const foreign = ["notes.tmp", ".notes.tmp", ".files.xyz.tmp", "old.txt"];
+    for (const name of [claim, ...foreign]) {
+      await writeFile(join(dir, name), "x");
+      await utimes(join(dir, name), past, past);
+    }
+    await put({ items: ["b"] });
+    const names = await readdir(dir);
+    expect(names).not.toContain(claim);
+    for (const name of foreign) expect(names).toContain(name);
   });
 
   test("an interrupted write leaves the previous document readable", async () => {

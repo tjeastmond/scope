@@ -54,6 +54,10 @@ Suggested source modules: `repository/`, `analyzers/`, `graph/`, `retrieval/`, `
 ```bash
 scope "<task>" [--repo <path>]
       [--format text|markdown|json] [--output <path>] [--no-jev] [--explain] [--no-cache]
+
+scope cache status  [--repo <path>] [--format text|json]
+scope cache clear   [--repo <path>] --yes
+scope cache rebuild [--repo <path>]
 ```
 
 - Default repository: current working directory.
@@ -65,6 +69,7 @@ scope "<task>" [--repo <path>]
 - The ordinary command sends shortlisted source context to TypeSafe/Jev. Document this default behavior and credential setup.
 - `--no-jev` is an explicit diagnostic/benchmark baseline, running deterministic-only selection without credentials or network access. It is not the primary product path.
 - `--no-cache` (or `SCOPE_CACHE=off`) runs without reading or writing the local analysis cache in `.scope/`; the CLI uses the cache by default.
+- `scope cache status|clear|rebuild` inspect and control the local store (#80). A subcommand is recognised only when `cache` is the first argument (`scope -- cache` runs a task named "cache"). They need no task, Jev or credentials. `status` is read-only; `clear` requires `--yes` (no interactive prompt), refuses symlinked `.scope/` or store directories and deletes only Scope's files inside `.scope/`; `rebuild` reanalyzes everything and rewrites analysis data only, except that a stale cache (another root or version keys) is reset entirely as on any run (usage error under `SCOPE_CACHE=off`).
 - Default execution fails clearly if Jev cannot complete; it does not silently substitute deterministic results. A user can explicitly rerun with `--no-jev`.
 - Reject empty tasks, invalid formats, and inaccessible repositories with actionable errors.
 

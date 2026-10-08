@@ -253,7 +253,34 @@ under another key, or by hand) verifies as nothing.
 | Reusable decisions | Newest 500, none older than 7 days (#75)                  |
 | Feedback           | Newest 2,000 observations, none older than 365 days (#76) |
 
+The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_MAX_RUNS`, `SCOPE_HISTORY_MAX_DAYS`,
+`SCOPE_DECISIONS_MAX`, `SCOPE_DECISIONS_MAX_DAYS`, `SCOPE_FEEDBACK_MAX` and `SCOPE_FEEDBACK_MAX_DAYS` (`src/cache/retention.ts`,
+`resolveRetention`). A value must be a non-negative decimal integer, at most 10 times its default; 0 keeps none (the data
+type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
+bounds in effect. Nothing consumes them yet: #73, #75 and #76 will.
+
 ## What is never stored
 
 API keys or any environment variable; excluded files; unredacted source; raw Jev responses. Task text is stored after
 the same secret redaction applied to source.
+
+## Cache commands (#80)
+
+`src/cache/controls.ts` holds the logic; `main.ts` only parses, calls it and prints.
+
+- `scope cache status` is read-only: it never creates `.scope/`, takes no lock and never loads the integrity key. It
+  reads documents through the store's own read path, so a corrupt document is reported as unreadable instead of
+  failing the command. `--format json` prints the same fields as an object.
+- `scope cache clear --yes` clears every `store-v*` directory with a store commit that removes each document, so it
+  waits for the lock like any writer and a concurrent run never sees a half-cleared store. Under that lock it also
+  removes leftover data `.tmp` files (they are written only under the lock). Afterwards the store directory is removed
+  only if it is empty (`rmdir`). `.scope/` and `.scope/.gitignore` stay. Lock-break claim files and a lock held by
+  another run are never removed (a live lock must not be); files Scope did not create are left and warned about.
+  `.scope` and each store directory are checked with `lstat` and `realpath` first; a link or non-directory aborts
+  before anything is deleted. If the lock cannot be taken the command fails and says nothing was deleted.
+- `scope cache rebuild` runs the normal scan with `rebuild: true`: no entry lookup, no stat fast path, no rename reuse,
+  then a normal commit. On a current cache it rewrites analysis shards and the `files` document and leaves every other
+  document (later: run history, decisions, feedback) alone, which is why it is not "clear then run". On a stale cache
+  (another root, or other version keys) the commit resets the whole store, as on any run: the other documents were
+  recorded under that root or those versions, and keeping them under the new `meta` would pass them off as current.
+  It is a usage error under `SCOPE_CACHE=off`.

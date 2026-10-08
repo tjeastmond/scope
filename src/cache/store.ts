@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { link, lstat, mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
+import { link, lstat, mkdir, open, readdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 /** A lock older than this is stale and may be broken. A commit takes milliseconds. */
@@ -11,8 +11,14 @@ export const LOCK_WAIT_MS = 2_000;
 export const TMP_MAX_AGE_MS = 60_000;
 
 const LOCK_POLL_MS = 25;
-const LOCK_FILE = "lock";
-const BREAK_CLAIM_PREFIX = ".lock.break.";
+/** Name of the lock file inside a store directory. */
+export const LOCK_FILE = "lock";
+/** Prefix of the claim files a lock breaker creates (`.lock.break.<id>.<level>.tmp`). */
+export const BREAK_CLAIM_PREFIX = ".lock.break.";
+/** `.<name>.<16 hex>.tmp`: a document being written, or a stale lock being moved away (`.lock.<16 hex>.tmp`). */
+export const DATA_TEMP = /^\.[a-z][a-z0-9-]*\.[0-9a-f]{16}\.tmp$/;
+/** `.lock.break.<16 hex>.<level>.tmp`: a lock breaker's claim. */
+const BREAK_CLAIM = /^\.lock\.break\.[0-9a-f]{16}\.[0-9]+\.tmp$/;
 const MAX_BREAK_LEVEL = 8;
 const NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 const MAX_WARNING_LENGTH = 200;
@@ -414,12 +420,15 @@ export class DocumentStore {
     }
   }
 
-  /** Removes `.tmp` files left by interrupted writes once they are old enough not to belong to a live one. */
+  /**
+   * Removes the `.tmp` files Scope itself names (data writes, moved locks, break claims) once they are old enough not
+   * to belong to a live writer. Any other file, `.tmp` or not, is not Scope's and is left alone.
+   */
   async #sweepTemps(): Promise<void> {
     for (const entry of await readdir(this.directory)) {
-      if (!entry.endsWith(".tmp")) continue;
+      if (!DATA_TEMP.test(entry) && !BREAK_CLAIM.test(entry)) continue;
       const path = join(this.directory, entry);
-      const info = await stat(path).catch(() => undefined);
+      const info = await lstat(path).catch(() => undefined);
       if (info?.isFile() && Date.now() - info.mtimeMs > TMP_MAX_AGE_MS) await rm(path, { force: true });
     }
   }

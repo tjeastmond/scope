@@ -89,6 +89,25 @@ needs on the next run. Cached entries are signed with a random per-user key that
 `~/.local/state/scope/cache-key` (or under `$XDG_STATE_HOME`), outside any project, so a cache planted in a repository
 is never trusted. `--no-cache` (or `SCOPE_CACHE=off`) makes a run neither read nor write it.
 
+Three commands control the store (none needs a task, Jev or credentials):
+
+```bash
+scope cache status  [--repo <path>] [--format text|json]   # size, entries, versions, last update, retention bounds
+scope cache clear   [--repo <path>] --yes                  # delete everything Scope stored in .scope/
+scope cache rebuild [--repo <path>]                        # reanalyze every file and rewrite the analysis cache
+```
+
+`status` is read-only and creates nothing. `clear` has no prompt: it needs `--yes`, never follows a symlinked `.scope/`
+or store directory, deletes only Scope's own files inside `.scope/` (files it did not create are left and reported)
+and never touches the integrity key. `rebuild` rewrites analysis data only (unless the cache is stale, from another root or Scope version, which resets
+the whole store as any run does); `clear` removes everything. To run a task
+that is literally the word `cache`, write `scope -- cache`.
+
+Retention bounds for the data later features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`
+(default 200), `SCOPE_HISTORY_MAX_DAYS` (90), `SCOPE_DECISIONS_MAX` (500), `SCOPE_DECISIONS_MAX_DAYS` (7),
+`SCOPE_FEEDBACK_MAX` (2000) and `SCOPE_FEEDBACK_MAX_DAYS` (365). Each takes a whole number from 0 (keep none) up to
+10 times its default; an invalid value is ignored with a warning.
+
 ## Status
 
 Early development. See [docs/scope-implementation-plan.md](docs/scope-implementation-plan.md).
