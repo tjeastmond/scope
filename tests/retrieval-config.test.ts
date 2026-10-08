@@ -94,9 +94,6 @@ describe("resolveRetrievalConfig", () => {
     ["NaN memory similarity", { memory: { similarityMin: Number.NaN } }, "memory.similarityMin"],
     ["zero memory runs", { memory: { maxRuns: 0 } }, "memory.maxRuns"],
     ["fractional memory runs", { memory: { maxRuns: 2.5 } }, "memory.maxRuns"],
-    ["negative memory weight", { memory: { weight: -0.1 } }, "memory.weight"],
-    ["memory weight above 1", { memory: { weight: 1.5 } }, "memory.weight"],
-    ["infinite memory weight", { memory: { weight: Number.POSITIVE_INFINITY } }, "memory.weight"],
   ];
   test.each(invalid)("rejects %s and names the field", (_name, overrides, field) => {
     let error: unknown;
@@ -110,10 +107,10 @@ describe("resolveRetrievalConfig", () => {
     expect((error as Error).message).toContain(field);
   });
 
-  test("memory defaults are bounded, and 0 candidates or a 0 weight are allowed", () => {
-    expect(DEFAULT_RETRIEVAL_CONFIG.memory).toEqual({ maxCandidates: 5, similarityMin: 0.3, maxRuns: 20, weight: 0.1 });
-    const config = resolveRetrievalConfig({ memory: { maxCandidates: 0, weight: 0, similarityMin: 1 } });
-    expect(config.memory).toEqual({ maxCandidates: 0, similarityMin: 1, maxRuns: 20, weight: 0 });
+  test("memory defaults are bounded, and 0 candidates are allowed", () => {
+    expect(DEFAULT_RETRIEVAL_CONFIG.memory).toEqual({ maxCandidates: 5, similarityMin: 0.3, maxRuns: 20 });
+    const config = resolveRetrievalConfig({ memory: { maxCandidates: 0, similarityMin: 1 } });
+    expect(config.memory).toEqual({ maxCandidates: 0, similarityMin: 1, maxRuns: 20 });
   });
 
   test("a single zero weight is allowed", () => {

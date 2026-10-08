@@ -322,8 +322,8 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
     with, so deleted or edited code never returns from memory. Predictions and Jev judgments are not confirmation
     (#77): only (a) and (b) earn the full memory signal 1; (c) earns 0.5.
   - **Score and labels.** Memory never changes a fresh candidate's signals, score or origin. A memory candidate gets a
-    `memory` signal (the six retrieval signals as they were, or 0) and a score of its fresh score (else 0) plus
-    `memory.weight` (0.1) times the signal. Its origin is `memory: missing in similar task <runId>` for (a) and
+    `memory` signal next to the six retrieval signals (as they were, or 0), and its retrieval total is left as it was:
+    memory decides only which chunks are appended and in what order, and Jev's relevance is the score. Its origin is `memory: missing in similar task <runId>` for (a) and
     `memory: similar task <runId>` for (b) and (c); the report shows it as the chunk's source.
   - **Controls.** `SCOPE_MEMORY=off` (any other value or none leaves memory on) turns it off for benchmarks;
     `memory.maxCandidates` 0 does too (`src/retrieval/config.ts`). Memory is also off with the cache off, with

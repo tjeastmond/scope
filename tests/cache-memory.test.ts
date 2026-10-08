@@ -118,6 +118,8 @@ describe("memory candidates", () => {
     const memory = find(result, "frobnicateWidgets")!;
     expect(memory.origin).toBe(`memory: similar task ${runId}`);
     expect(memory.signals.memory).toBe(0.5);
+    // Memory only appends and orders candidates; the score is Jev's relevance, as for every candidate.
+    expect(memory.score).toBe(memory.relevance!);
     const json = JSON.parse(renderFormat("json", result));
     const chunks = json.regions.flatMap((region: { chunks: { name?: string; origin?: string }[] }) => region.chunks);
     expect(chunks.find((c: { name?: string }) => c.name === "frobnicateWidgets").origin).toBe(
@@ -431,7 +433,7 @@ describe("addMemoryCandidates", () => {
       fresh: { candidates: [], ranking: new Map() },
       history: [],
       feedback: [],
-      config: { maxCandidates: 5, similarityMin: 0.3, maxRuns: 20, weight: 0.1 },
+      config: { maxCandidates: 5, similarityMin: 0.3, maxRuns: 20 },
     });
     expect(outcome.candidates).toEqual([]);
     expect(outcome.added).toEqual([]);

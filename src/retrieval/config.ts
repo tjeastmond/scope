@@ -11,8 +11,6 @@ export interface MemoryConfig {
   similarityMin: number;
   /** Newest similar prior runs considered. */
   maxRuns: number;
-  /** Weight of the memory signal in a memory candidate's score, in [0, 1]. */
-  weight: number;
 }
 
 export interface RetrievalConfig {
@@ -48,7 +46,7 @@ export const DEFAULT_RETRIEVAL_CONFIG: Readonly<RetrievalConfig> = Object.freeze
   shortlistSize: 30,
   weakShortlistTotal: 0.1,
   expansion: Object.freeze({ seedCount: 5, maxNeighborsPerSeed: 4, maxExpanded: 10 }),
-  memory: Object.freeze({ maxCandidates: 5, similarityMin: 0.3, maxRuns: 20, weight: 0.1 }),
+  memory: Object.freeze({ maxCandidates: 5, similarityMin: 0.3, maxRuns: 20 }),
 });
 
 function requirePositiveInteger(field: string, value: number): void {
@@ -60,7 +58,7 @@ function requirePositiveInteger(field: string, value: number): void {
  * Merges overrides onto the defaults and validates the result. Weights must be finite and non-negative with at least
  * one positive; sizes must be positive integers; `expansion.maxExpanded` and `expansion.seedCount` cannot exceed
  * `shortlistSize`, since expansion only adds candidates to that list. Memory: `maxCandidates` a non-negative integer
- * (0 disables), `similarityMin` in (0, 1], `maxRuns` a positive integer, `weight` in [0, 1].
+ * (0 disables), `similarityMin` in (0, 1], `maxRuns` a positive integer.
  */
 export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> = {}): RetrievalConfig {
   const base = DEFAULT_RETRIEVAL_CONFIG;
@@ -91,7 +89,7 @@ export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> =
       throw new RetrievalConfigError(`expansion.${name}`, `must not exceed shortlistSize (${config.shortlistSize})`);
     }
   }
-  const { maxCandidates, similarityMin, maxRuns, weight } = config.memory;
+  const { maxCandidates, similarityMin, maxRuns } = config.memory;
   if (!Number.isInteger(maxCandidates) || maxCandidates < 0) {
     throw new RetrievalConfigError("memory.maxCandidates", `must be a non-negative integer: ${maxCandidates}`);
   }
@@ -99,8 +97,5 @@ export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> =
     throw new RetrievalConfigError("memory.similarityMin", `must be a number in (0, 1]: ${similarityMin}`);
   }
   requirePositiveInteger("memory.maxRuns", maxRuns);
-  if (!Number.isFinite(weight) || weight < 0 || weight > 1) {
-    throw new RetrievalConfigError("memory.weight", `must be a finite number in [0, 1]: ${weight}`);
-  }
   return config;
 }

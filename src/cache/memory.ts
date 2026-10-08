@@ -194,7 +194,7 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
     ranking.set(id, {
       chunkId: id,
       signals: { ...(base?.signals ?? zeros), memory: signal },
-      total: (base?.total ?? 0) + config.weight * signal,
+      total: base?.total ?? 0,
       origin: source === "missing" ? `${LABEL} missing in similar task ${runId}` : `${LABEL} similar task ${runId}`,
     });
   }
