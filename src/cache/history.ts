@@ -200,6 +200,13 @@ export function redactCredentials(text: string): string {
 const withRelevance = (relevance: number | undefined) => (relevance === undefined ? {} : { relevance });
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
+/**
+ * The fingerprint of a chunk's content: SHA-256 hex of the analyzed (already redacted) text. History records it per
+ * candidate and feedback (#77) per observation, so both can be checked against the current source: a chunk id alone
+ * does not prove the code is unchanged.
+ */
+export const contentFingerprint = (content: string): string => sha256(content);
+
 /** A time-sortable, unique run id: the time as 13 zero-padded decimal digits, then 8 random hex characters. */
 export function newRunId(time: number): string {
   return `${String(Math.min(Math.max(Math.trunc(time), 0), 9_999_999_999_999)).padStart(13, "0")}-${randomBytes(4).toString("hex")}`;
@@ -253,7 +260,7 @@ export async function buildHistoryRecord(input: RecordInput, versions: { scope: 
       file: chunk.file,
       kind: chunk.kind,
       ...(chunk.name === undefined ? {} : { name: chunk.name }),
-      fingerprint: sha256(chunk.content),
+      fingerprint: contentFingerprint(chunk.content),
       ...(selected.origin === undefined ? {} : { origin: selected.origin }),
       ...withRelevance(selected.relevance ?? input.relevance.get(chunk.id)),
       decision: selected.supportFor === undefined ? "selected" : "support",
@@ -268,7 +275,7 @@ export async function buildHistoryRecord(input: RecordInput, versions: { scope: 
       file: chunk.file,
       kind: chunk.kind,
       ...(chunk.name === undefined ? {} : { name: chunk.name }),
-      fingerprint: sha256(chunk.content),
+      fingerprint: contentFingerprint(chunk.content),
       ...(skipped.relevance === undefined ? {} : { relevance: skipped.relevance }),
       decision: "skipped",
     });

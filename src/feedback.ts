@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix } from "node:path";
 import {
@@ -17,7 +16,7 @@ import {
   type FeedbackSource,
 } from "./cache/feedback.ts";
 import { CacheControlError } from "./cache/controls.ts";
-import { isRunId, readHistoryRecord, redactCredentials } from "./cache/history.ts";
+import { contentFingerprint, isRunId, readHistoryRecord, redactCredentials } from "./cache/history.ts";
 import { openRepositoryCache } from "./cache/location.ts";
 import { resolveRetention } from "./cache/retention.ts";
 import type { VersionKeys } from "./cache/versions.ts";
@@ -60,7 +59,6 @@ const NAMED = 10;
 const RANGE = /^(.+):([0-9]{1,9})-([0-9]{1,9})$/;
 // eslint-disable-next-line no-control-regex
 const UNPRINTABLE = /[\u0000-\u001f\u007f-\u009f\u{2028}\u{2029}]/u;
-const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
 /**
  * Parses the JSON document given with `--file`: `{ runId?, useful?, irrelevant?, missing?, agent? }`. Strict: anything
@@ -239,7 +237,12 @@ async function resolveMissing(
       `--missing ${quoted(value)}: neither a file Scope includes (repository-relative, not ignored, binary or secret-like) nor the name of a chunk in the current source.`,
     );
   }
-  return { symbol: value, chunkIds: named.slice(0, MAX_SYMBOL_CHUNKS).map((chunk) => chunk.id) };
+  return {
+    symbol: value,
+    chunks: named
+      .slice(0, MAX_SYMBOL_CHUNKS)
+      .map((chunk) => ({ chunkId: chunk.id, fingerprint: contentFingerprint(chunk.content) })),
+  };
 }
 
 export interface SubmitOptions {
@@ -321,9 +324,11 @@ export async function submitFeedback(input: FeedbackInput, options: SubmitOption
   const refs = (ids: string[]): FeedbackChunkRef[] =>
     ids.map((chunkId) => {
       const found = current.get(chunkId);
-      const isCurrent = found !== undefined && sha256(found.content) === candidates.get(chunkId)!.fingerprint;
+      // The run's fingerprint is the content the observer was shown; `current` says whether the code still matches it.
+      const fingerprint = candidates.get(chunkId)!.fingerprint;
+      const isCurrent = found !== undefined && contentFingerprint(found.content) === fingerprint;
       if (!isCurrent) warnings.push(`chunk ${chunkId} changed since run ${run.runId}`);
-      return { chunkId, current: isCurrent };
+      return { chunkId, fingerprint, current: isCurrent };
     });
   const useful = refs(submission.useful);
   const irrelevant = refs(submission.irrelevant);
