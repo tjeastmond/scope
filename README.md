@@ -118,6 +118,10 @@ With the cache on, a Jev run also adds up to five labeled candidates (`memory: .
 chunks that feedback or Jev marked as relevant and that still exist unchanged. Fresh candidates are never displaced;
 `SCOPE_MEMORY=off` turns this off.
 
+Retrieval weights may be adapted within 0.8 to 1.2 times the baseline, only after a held-out evaluation improves recall.
+`scope cache status` shows which set is active; `scope cache reset-weights` returns to the baseline, as does
+`SCOPE_ADAPTIVE=off`.
+
 Retention bounds for the data features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`
 (default 200), `SCOPE_HISTORY_MAX_DAYS` (90), `SCOPE_DECISIONS_MAX` (500), `SCOPE_DECISIONS_MAX_DAYS` (7),
 `SCOPE_FEEDBACK_MAX` (2000) and `SCOPE_FEEDBACK_MAX_DAYS` (365). Each takes a whole number from 0 (keep none) up to

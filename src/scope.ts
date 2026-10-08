@@ -9,6 +9,7 @@ import {
   type DecisionKeyOverrides,
 } from "./cache/decisions.ts";
 import { readHistoryRecord, recordHistory } from "./cache/history.ts";
+import { withAdaptiveWeights } from "./cache/weights.ts";
 import { openRepositoryCache, type RepositoryCache } from "./cache/location.ts";
 import { withMemory, type RankedChunk } from "./cache/memory.ts";
 import { resolveRetention } from "./cache/retention.ts";
@@ -24,12 +25,7 @@ import { classifyFile } from "./repository/language.ts";
 import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
-import {
-  DEFAULT_RETRIEVAL_CONFIG,
-  resolveRetrievalConfig,
-  type DeepPartial,
-  type RetrievalConfig,
-} from "./retrieval/config.ts";
+import { resolveRetrievalConfig, type DeepPartial, type RetrievalConfig } from "./retrieval/config.ts";
 import type {
   CodeChunk,
   DecisionProvider,
@@ -255,17 +251,23 @@ async function prepareCandidates(
   },
 ) {
   if (!task.trim()) throw new UsageError("A task description is required.");
-  const config = resolveRetrievalConfig(retrieval);
+  let config = resolveRetrievalConfig(retrieval);
   const { chunks, warnings, repositoryCache, files } = await loadChunks(repo, { detailed, signal, cache });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
-  const fresh = selectCandidates(task, chunks, config);
-  let candidates = fresh.candidates;
-  let ranking: ReadonlyMap<string, RankedChunk> = fresh.ranking;
   let memoryWarnings: string[] = [];
   const store = memory?.open
     ? (await openRepositoryCache(resolveRepository(repo).root, { ...memory.open, readOnly: true })).cache
     : repositoryCache;
+  // Adaptive weights (#78) apply to Jev runs with the cache on, the same runs that use memory; a baseline run ignores them.
+  if (memory && store) {
+    const adaptive = await withAdaptiveWeights(store, config, memory.env);
+    config = adaptive.config;
+    memoryWarnings = adaptive.warnings;
+  }
+  const fresh = selectCandidates(task, chunks, config);
+  let candidates = fresh.candidates;
+  let ranking: ReadonlyMap<string, RankedChunk> = fresh.ranking;
   if (memory && store) {
     const outcome = await withMemory(
       store,
@@ -275,7 +277,7 @@ async function prepareCandidates(
     );
     candidates = outcome.candidates;
     ranking = outcome.ranking;
-    memoryWarnings = outcome.warnings;
+    memoryWarnings = [...memoryWarnings, ...outcome.warnings];
   }
   // The cache and memory reads are asynchronous too, so a Ctrl-C during them still stops the run here.
   if (signal?.aborted) throw new CancelledError();
@@ -292,6 +294,7 @@ async function prepareCandidates(
     candidates,
     ranking,
     memoryWarnings,
+    config,
     ...(warning === undefined ? {} : { warning }),
   };
 }
@@ -361,6 +364,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     candidates,
     ranking,
     memoryWarnings,
+    config,
     warning: retrievalWarning,
   } = await prepareCandidates(
     task,
@@ -395,7 +399,10 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
         task,
         candidates,
         options.provider ? providerKey : defaultDecisionCacheKey(task, candidates),
-        options.cacheOptions?.decisionKeyOverrides,
+        {
+          ...options.cacheOptions?.decisionKeyOverrides,
+          retrievalConfigVersion: options.cacheOptions?.decisionKeyOverrides?.retrievalConfigVersion ?? config.version,
+        },
       );
       if (options.reuseDecisions !== false) {
         reused = await lookupDecision(decisionCache, decisionKey, candidates, { env: cacheEnv, now: clock() });
@@ -437,7 +444,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       ...scanWarnings,
       ...(retrievalWarning ? [retrievalWarning] : candidates.length === 0 ? [NO_CHUNKS_WARNING] : []),
     ],
-    retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
+    retrievalConfigVersion: config.version,
     ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
   const metrics = jevMetrics(decision, explain);
@@ -462,6 +469,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
         relevance,
         jev: jevMetrics(decision, false).jev,
         time: options.cacheOptions?.now?.() ?? Date.now(),
+        retrievalConfigVersion: config.version,
       },
       { env: options.cacheOptions?.env },
     );
