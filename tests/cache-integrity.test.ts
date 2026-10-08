@@ -119,6 +119,7 @@ describe("rejected key files", () => {
 
 describe("entryMac", () => {
   const key = Buffer.alloc(32, 7);
+  const versionKeys = { analyzer: "a", schema: 1 };
   const entry = { path: "a.ts", chunks: [{ id: "c", name: "f", startLine: 1 }], warnings: ["w"], textOnly: false };
 
   test("is independent of field order and of undefined members, and ignores an existing mac", () => {
@@ -128,14 +129,14 @@ describe("entryMac", () => {
       chunks: [{ startLine: 1, name: "f", id: "c", x: undefined }],
       path: "a.ts",
     };
-    const base = entryMac(key, "k".repeat(64), entry);
+    const base = entryMac(key, versionKeys, "k".repeat(64), entry);
     expect(base).toMatch(/^[0-9a-f]{64}$/);
-    expect(entryMac(key, "k".repeat(64), reordered)).toBe(base);
-    expect(entryMac(key, "k".repeat(64), { ...entry, mac: "anything" })).toBe(base);
+    expect(entryMac(key, versionKeys, "k".repeat(64), reordered)).toBe(base);
+    expect(entryMac(key, versionKeys, "k".repeat(64), { ...entry, mac: "anything" })).toBe(base);
   });
 
-  test("changes when any field, the entry key or the key changes", () => {
-    const base = entryMac(key, "k".repeat(64), entry);
+  test("changes when any field, the version keys, the entry key or the key changes", () => {
+    const base = entryMac(key, versionKeys, "k".repeat(64), entry);
     const variants = [
       { ...entry, path: "b.ts" },
       { ...entry, warnings: [] },
@@ -143,9 +144,10 @@ describe("entryMac", () => {
       { ...entry, chunks: [] },
       { ...entry, chunks: [{ id: "c", name: "g", startLine: 1 }] },
     ];
-    for (const variant of variants) expect(entryMac(key, "k".repeat(64), variant)).not.toBe(base);
-    expect(entryMac(key, "j".repeat(64), entry)).not.toBe(base);
-    expect(entryMac(Buffer.alloc(32, 8), "k".repeat(64), entry)).not.toBe(base);
+    for (const variant of variants) expect(entryMac(key, versionKeys, "k".repeat(64), variant)).not.toBe(base);
+    expect(entryMac(key, versionKeys, "j".repeat(64), entry)).not.toBe(base);
+    expect(entryMac(key, { ...versionKeys, analyzer: "b" }, "k".repeat(64), entry)).not.toBe(base);
+    expect(entryMac(Buffer.alloc(32, 8), versionKeys, "k".repeat(64), entry)).not.toBe(base);
   });
 });
 

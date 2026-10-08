@@ -237,7 +237,11 @@ export class AnalysisCache {
   async lookup(path: string, key: string): Promise<CachedAnalysis | undefined> {
     if (this.#cache.fresh) return undefined;
     const entry = (await this.#shard(shardName(key)))?.entries[key];
-    if (!entry || entry.path !== path || !macEquals(entry.mac, entryMac(this.#cache.integrityKey, key, entry)))
+    if (
+      !entry ||
+      entry.path !== path ||
+      !macEquals(entry.mac, entryMac(this.#cache.integrityKey, this.#cache.keys, key, entry))
+    )
       return undefined;
     this.#used.set(key, entry);
     return { chunks: entry.chunks, warnings: entry.warnings, textOnly: entry.textOnly };
@@ -246,7 +250,7 @@ export class AnalysisCache {
   /** Notes a result to store at commit. */
   record(path: string, key: string, analysis: CachedAnalysis): void {
     const entry = { path, chunks: analysis.chunks, warnings: analysis.warnings, textOnly: analysis.textOnly };
-    this.#used.set(key, { ...entry, mac: entryMac(this.#cache.integrityKey, key, entry) });
+    this.#used.set(key, { ...entry, mac: entryMac(this.#cache.integrityKey, this.#cache.keys, key, entry) });
     this.#recorded.add(key);
   }
 

@@ -91,12 +91,16 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
-/** HMAC-SHA256 (hex) of the entry key and the entry without its `mac` field. */
-export function entryMac(key: Buffer, entryKey: string, entry: object): string {
+/**
+ * HMAC-SHA256 (hex) of the version keys, the entry key and the entry without its `mac` field. The version keys are
+ * signed because `meta.json` is not: an entry signed under older analyzer or redaction code must not verify under the
+ * current keys, even if someone rewrites `meta.json` to them.
+ */
+export function entryMac(key: Buffer, versionKeys: object, entryKey: string, entry: object): string {
   const rest: Record<string, unknown> = { ...entry };
   delete rest.mac;
   return createHmac("sha256", key)
-    .update(canonical([entryKey, rest]))
+    .update(canonical([versionKeys, entryKey, rest]))
     .digest("hex");
 }
 

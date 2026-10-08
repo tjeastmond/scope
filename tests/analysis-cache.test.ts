@@ -216,7 +216,7 @@ describe("unusable shards", () => {
         for (const reference of typed.references) reference.from.file = "other.ts";
       }
       // The MAC is recomputed under the real key, so only the path check can reject the entry.
-      (entry as { mac?: string }).mac = entryMac(integrity.key, entryKey, entry);
+      (entry as { mac?: string }).mac = entryMac(integrity.key, await currentVersionKeys(), entryKey, entry);
     }
     await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 2, ...doc }));
     const run = await loadChunks(repo, { cache: {} });
@@ -355,6 +355,24 @@ test("a changed version key rebuilds everything and does not reuse old shards", 
   expect(back.analysis!.reused).toBe(0);
   const meta = JSON.parse(await readFile(join(storeDir(repo), "meta.json"), "utf8")) as { keys: VersionKeys };
   expect(meta.keys).toEqual(keys);
+});
+
+test("shards signed under old version keys are not reused when meta.json is rewritten to the current keys", async () => {
+  const repo = await copyFixture("webhook-service");
+  const keys = await currentVersionKeys();
+  const old: VersionKeys = { ...keys, analyzer: "f".repeat(64) };
+  await loadChunks(repo, { cache: { keys: old } });
+  const oldShards = await Promise.all(
+    (await shardFiles(repo)).map(async (name) => [name, await readFile(join(storeDir(repo), name), "utf8")] as const),
+  );
+  const current = await loadChunks(repo, { cache: { keys } });
+  expect(current.analysis!.reused).toBe(0);
+  // Replay: the shards signed under the old keys come back, while meta.json already names the current keys.
+  for (const [name, text] of oldShards) await writeFile(join(storeDir(repo), name), text);
+  const replayed = await loadChunks(repo, { cache: { keys } });
+  expect(replayed.analysis).toEqual({ reused: 0, analyzed: current.analysis!.analyzed });
+  expect(replayed.chunks).toEqual(current.chunks);
+  expect((await loadChunks(repo, { cache: { keys } })).analysis!.analyzed).toBe(0);
 });
 
 test("excluded, secret and binary content never reaches the cache", async () => {

@@ -130,8 +130,9 @@ one of their commits or a merge of both, never a mix of half-written documents.
   entry's `path`, that each key belongs to its shard, and that each entry has a `mac`. One bad entry makes the whole
   shard unusable: the store warns once and the shard is treated as empty, so those files are reanalyzed. A lookup then
   requires the entry's `path` to equal the path being loaded and its `mac` to verify (HMAC-SHA256, constant-time
-  comparison) under this user's integrity key over the entry key and the whole entry. Content, names, references,
-  warnings or chunks changed after signing, and an entry moved to another key, fail the check. Checking content against
+  comparison) under this user's integrity key over the current version keys, the entry key and the whole entry. Content,
+  names, references, warnings or chunks changed after signing, an entry moved to another key, and an entry signed under
+  older version keys (replayed after `meta.json`, which is not signed, is rewritten) fail the check. Checking content against
   the source cannot be made complete, so Scope does not try. Any mismatch is a miss: the file is analyzed again and the
   commit replaces the entry.
 - **Pruning.** A commit keeps exactly the entries this run used (hits and newly analyzed), rewrites a shard only when
