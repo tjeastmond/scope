@@ -234,7 +234,7 @@ under another key, or by hand) verifies as nothing.
   holds `{ record, mac }`; `mac` is an HMAC-SHA256 of the record and the repository's real root under the integrity key, and
   `readHistory` skips a record whose MAC, shape or id (it must match the document name) fails, and any `history-*`
   name Scope never writes, so a planted or cloned `.scope/`, or history copied from another repository, contributes
-  no history. A record holds: record version, run id, time, the redacted task (cut to 4,000 characters, with a
+  no history. A record holds: record version, run id, time, the redacted task (credential shapes and the configured `TYPESAFE_API_KEY` value removed; cut to 4,000 characters, with a
   `truncated` flag) and its normalized terms (each list capped at 200 terms of at most 200 characters), mode, the
   decision configuration (Scope version, installed SDK version, model, question version, retrieval config version),
   bounded request metadata (latency, request count, token totals, only valid non-negative integers) and the
@@ -248,7 +248,8 @@ under another key, or by hand) verifies as nothing.
   still succeeds and gains one warning, `history not recorded: <reason>`.
 - **Pruning** happens in the same commit, by the time in the document name: the newest `SCOPE_HISTORY_MAX_RUNS`
   survive and none older than `SCOPE_HISTORY_MAX_DAYS`. A `history-*` document whose name does not parse was not
-  written by Scope and is removed. With either bound at 0 nothing is written and all history is removed.
+  written by Scope and is removed, and so is any document that fails verification (shape, id or MAC), so a
+  planted name can never take a retention slot. With either bound at 0 nothing is written and all history is removed.
   `scope cache status` counts the documents by name only (it never loads the integrity key); `rebuild` leaves history
   alone on a current cache and `clear` removes it.
 - **Evidence classes are kept apart** (#77): Scope's predictions (selected), Jev's judgments, and external feedback.
