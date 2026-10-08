@@ -17,6 +17,7 @@
     "jev": { "$ref": "#/$defs/jev" },
     "decisionsReusedFrom": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$" },
     "runId": { "type": "string", "pattern": "^[0-9]{13}-[0-9a-f]{8}$" },
+    "cache": { "$ref": "#/$defs/cache" },
     "explain": { "const": true }
   },
   "$defs": {
@@ -48,6 +49,72 @@
               "inputTokens": { "$ref": "#/$defs/count" },
               "outputTokens": { "$ref": "#/$defs/count" }
             }
+          }
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["versions", "cold", "files"],
+      "properties": {
+        "versions": { "type": "object", "additionalProperties": { "type": "string" } },
+        "cold": { "type": "boolean" },
+        "files": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reused", "refreshed", "removed", "refreshedPaths"],
+          "properties": {
+            "reused": { "$ref": "#/$defs/count" },
+            "refreshed": { "$ref": "#/$defs/count" },
+            "removed": { "$ref": "#/$defs/count" },
+            "refreshedPaths": { "type": "array", "maxItems": 50, "items": { "type": "string" } },
+            "refreshedTruncated": { "const": true }
+          }
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reused"],
+          "properties": {
+            "reused": { "type": "boolean" },
+            "expiresAt": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$" }
+          }
+        },
+        "memory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["candidates"],
+          "properties": {
+            "candidates": { "$ref": "#/$defs/count" },
+            "disabled": { "enum": ["env", "no-history"] }
+          }
+        },
+        "weights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version"],
+          "properties": { "version": { "type": "string" } }
+        }
+      }
+    },
+    "memory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "runId", "similarity"],
+      "properties": {
+        "source": { "enum": ["missing", "useful", "selected"] },
+        "runId": { "type": "string", "pattern": "^[0-9]{13}-[0-9a-f]{8}$" },
+        "similarity": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "feedback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["useful", "irrelevant", "missing", "sources"],
+          "properties": {
+            "useful": { "$ref": "#/$defs/count" },
+            "irrelevant": { "$ref": "#/$defs/count" },
+            "missing": { "$ref": "#/$defs/count" },
+            "sources": { "type": "array", "maxItems": 10, "items": { "type": "string" } }
           }
         }
       }
@@ -118,6 +185,7 @@
         "score": { "$ref": "#/$defs/score" },
         "reason": { "type": "string" },
         "supportFor": { "type": "array", "items": { "type": "string" } },
+        "memory": { "$ref": "#/$defs/memory" },
         "signals": { "type": "object", "additionalProperties": { "type": "number" } },
         "origin": { "type": "string" }
       }

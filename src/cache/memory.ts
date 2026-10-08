@@ -1,7 +1,7 @@
 import { DEFAULT_RETRIEVAL_CONFIG, type MemoryConfig } from "../retrieval/config.ts";
 import type { CandidateSelection } from "../retrieval/candidates.ts";
 import { extractTaskTerms } from "../retrieval/terms.ts";
-import type { CodeChunk } from "../types.ts";
+import type { CodeChunk, MemoryReason } from "../types.ts";
 import { collectEvidence, isConfirmedIrrelevant, isConfirmedUseful } from "./evidence.ts";
 import { readFeedback, type FeedbackRecord } from "./feedback.ts";
 import {
@@ -41,6 +41,8 @@ export interface RankedChunk {
   signals: Record<string, number>;
   total: number;
   origin: string;
+  /** Why memory offered the chunk; set exactly when `origin` starts with `memory:`. */
+  memory?: MemoryReason;
 }
 
 /** Whether memory is on: any `SCOPE_MEMORY` value but `off` leaves it on. */
@@ -65,6 +67,10 @@ export function similarity(a: ReadonlySet<string>, b: ReadonlySet<string>): numb
   const union = a.size + b.size - shared;
   return union === 0 ? 0 : shared / union;
 }
+
+/** The most distinct feedback sources a memory reason lists. */
+export const MAX_REASON_SOURCES = 10;
+const roundSimilarity = (value: number) => Math.round(value * 10_000) / 10_000;
 
 const compareStrings = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const compareChunks = (a: CodeChunk, b: CodeChunk) =>
@@ -192,11 +198,32 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
   for (const [id, { source, runId }] of ordered) {
     const signal = source === "jev" ? JEV_SIGNAL : FEEDBACK_SIGNAL;
     const base = fresh.ranking.get(id);
+    const seen = evidence.get(id);
+    const counts = seen?.feedback;
+    // Agent names were credential-checked on entry; they pass through the same redaction as history anyway.
+    const sources = [...new Set((seen?.feedbackSources ?? []).map(redactCredentials))].sort(compareStrings);
+    const feedbackReason =
+      counts && counts.useful + counts.irrelevant + counts.missing > 0
+        ? {
+            feedback: {
+              useful: counts.useful,
+              irrelevant: counts.irrelevant,
+              missing: counts.missing,
+              sources: sources.slice(0, MAX_REASON_SOURCES),
+            },
+          }
+        : {};
     ranking.set(id, {
       chunkId: id,
       signals: { ...(base?.signals ?? zeros), memory: signal },
       total: base?.total ?? 0,
       origin: source === "missing" ? `${LABEL} missing in similar task ${runId}` : `${LABEL} similar task ${runId}`,
+      memory: {
+        source: source === "jev" ? "selected" : source,
+        runId,
+        similarity: roundSimilarity(scores.get(runId)!),
+        ...feedbackReason,
+      },
     });
   }
   return {
@@ -229,15 +256,26 @@ export async function withMemory(
   input: Omit<MemoryInput, "history" | "feedback">,
   env?: NodeJS.ProcessEnv,
   now: number = Date.now(),
-): Promise<MemoryOutcome & { warnings: string[] }> {
-  const off = !memoryEnabled(env) || input.config.maxCandidates <= 0 || cache.fresh;
-  if (off) return { ...addMemoryCandidates({ ...input, history: [], feedback: [] }), warnings: [] };
+): Promise<MemoryOutcome & { warnings: string[]; disabled?: "env" | "no-history" }> {
+  const switchedOff = !memoryEnabled(env) || input.config.maxCandidates <= 0;
+  if (switchedOff || cache.fresh) {
+    return {
+      ...addMemoryCandidates({ ...input, history: [], feedback: [] }),
+      warnings: [],
+      disabled: switchedOff ? "env" : "no-history",
+    };
+  }
   const [history, feedback] = await Promise.all([readHistory(cache), readFeedback(cache)]);
   const { bounds } = resolveRetention(env);
+  const kept = retained(history.records, bounds.history.maxRuns, bounds.history.maxDays, now);
   const outcome = addMemoryCandidates({
     ...input,
-    history: retained(history.records, bounds.history.maxRuns, bounds.history.maxDays, now),
+    history: kept,
     feedback: retained(feedback.records, bounds.feedback.max, bounds.feedback.maxDays, now),
   });
-  return { ...outcome, warnings: [...new Set([...history.warnings, ...feedback.warnings])] };
+  return {
+    ...outcome,
+    warnings: [...new Set([...history.warnings, ...feedback.warnings])],
+    ...(kept.length === 0 ? { disabled: "no-history" as const } : {}),
+  };
 }

@@ -450,6 +450,17 @@ export class AnalysisCache {
     this.#recorded.add(key);
   }
 
+  /**
+   * How many stored stat records belong to paths this run did not see: files deleted, or excluded, binary or without a
+   * language now (and the old path of a rename). Call after the scan, before `commit`. A fresh or rebuilt cache holds
+   * nothing it reads, so it reports 0.
+   */
+  async removedCount(): Promise<number> {
+    const files = (await this.#records())?.files;
+    if (!files) return 0;
+    return Object.keys(files).filter((path) => !this.#seen.has(path)).length;
+  }
+
   /** Whether the store would change: new results, a stale entry or unusable shard that was read, or an unread shard. */
   async #needsCommit(): Promise<boolean> {
     if (this.#cache.fresh || this.#rebuild || this.#recorded.size > 0) return true;

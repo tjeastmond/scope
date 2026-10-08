@@ -621,7 +621,8 @@ describe("failure", () => {
     expect(notes).toHaveLength(1);
     expect(failed.result.warnings.at(-1)).toBe(notes[0]!);
     const others = failed.result.warnings.filter((w) => w !== notes[0] && !w.startsWith("history not recorded: "));
-    expect({ ...failed.result, warnings: others }).toEqual(baseline.result);
+    // The cache block is the one thing a cached run adds (#79); everything else matches the uncached run.
+    expect({ ...failed.result, warnings: others, cache: undefined }).toEqual({ ...baseline.result, cache: undefined });
     expect(await decisionNames(repo)).toEqual([]);
   });
 });

@@ -27,6 +27,7 @@ import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import { resolveRetrievalConfig, type DeepPartial, type RetrievalConfig } from "./retrieval/config.ts";
 import type {
+  CacheReport,
   CodeChunk,
   DecisionProvider,
   DecisionResult,
@@ -87,6 +88,39 @@ export interface ScopeRun {
 
 export { UsageError };
 
+const compareText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** The most refreshed paths a result lists; the count is always exact. */
+export const MAX_REFRESHED_PATHS = 50;
+const DAY_MS = 86_400_000;
+
+/** Version keys as a flat record with sorted keys: the same keys the store is partitioned by, no paths or secrets. */
+function versionRecord(keys: VersionKeys): Record<string, string> {
+  const flat: Record<string, string> = {
+    analyzer: keys.analyzer,
+    scope: keys.scope,
+    store: String(keys.store),
+    treeSitter: keys.treeSitter,
+    ...Object.fromEntries(Object.entries(keys.grammars).map(([name, version]) => [`grammar:${name}`, version])),
+  };
+  return Object.fromEntries(Object.entries(flat).sort(([a], [b]) => compareText(a, b)));
+}
+
+/** The files part of the cache report: exact counts and the refreshed paths, sorted and capped. */
+export function fileReport(
+  analysis: { reused: number; analyzed: number },
+  report: { removed: number; refreshedPaths: readonly string[] },
+): CacheReport["files"] {
+  const paths = [...report.refreshedPaths].sort(compareText);
+  return {
+    reused: analysis.reused,
+    refreshed: analysis.analyzed,
+    removed: report.removed,
+    refreshedPaths: paths.slice(0, MAX_REFRESHED_PATHS),
+    ...(paths.length > MAX_REFRESHED_PATHS ? { refreshedTruncated: true as const } : {}),
+  };
+}
+
 const NO_CHUNKS_WARNING = "No candidate chunks were found in the repository.";
 
 /** How much of a file the classifier sees, enough for a shebang line and a text check. */
@@ -125,6 +159,8 @@ export async function loadChunks(
    * `analyzed` files were parsed.
    */
   analysis?: { reused: number; analyzed: number; statHits: number; renamed: number };
+  /** With the cache on and openable: what to report about the files (#79). `refreshedPaths` is sorted and uncapped. */
+  fileReport?: { removed: number; refreshedPaths: string[] };
   /** With the cache on: whether this run's commit reached the store (false when it was skipped or failed). */
   cacheCommitted?: boolean;
   /** With the cache on and openable: the opened repository cache, for the caller's own commits (run history). */
@@ -162,6 +198,7 @@ export async function loadChunks(
   let analyzed = 0;
   let statHits = 0;
   let renamed = 0;
+  const refreshedPaths: string[] = [];
   const take = (file: string, analysis: { chunks: CodeChunk[]; warnings: string[]; textOnly: boolean }) => {
     chunks.push(...analysis.chunks);
     if (analysis.textOnly) textOnly.push(file);
@@ -209,6 +246,7 @@ export async function loadChunks(
       analysis = { chunks: result.chunks, warnings: result.warnings, textOnly: result.textOnly === true };
       analysisCache?.record(file, key, analysis);
       analyzed++;
+      refreshedPaths.push(file);
     }
     if (info) await analysisCache?.note(file, info, key, hash, statAt);
     take(file, analysis);
@@ -217,6 +255,7 @@ export async function loadChunks(
   if (summary) warnings.push(summary);
   if (!cache) return { chunks, warnings, files: textFiles };
   if (signal?.aborted) throw new CancelledError();
+  const removed = (await analysisCache?.removedCount()) ?? 0;
   const outcome = await analysisCache?.commit();
   // Cache problems (open, read, commit) come last and once each, so the rest of the warnings match an uncached run.
   const cacheWarnings = analysisCache ? analysisCache.warnings : openWarnings;
@@ -227,6 +266,7 @@ export async function loadChunks(
     // An unchanged warm run takes no lock and commits nothing (undefined), which is fine; only a failed commit is false.
     cacheCommitted: analysisCache !== undefined && outcome?.committed !== false,
     repositoryCache,
+    ...(analysisCache ? { fileReport: { removed, refreshedPaths: refreshedPaths.sort(compareText) } } : {}),
     files: textFiles,
   };
 }
@@ -252,10 +292,19 @@ async function prepareCandidates(
 ) {
   if (!task.trim()) throw new UsageError("A task description is required.");
   let config = resolveRetrievalConfig(retrieval);
-  const { chunks, warnings, repositoryCache, files } = await loadChunks(repo, { detailed, signal, cache });
+  const {
+    chunks,
+    warnings,
+    repositoryCache,
+    files,
+    analysis,
+    fileReport: filesSeen,
+  } = await loadChunks(repo, { detailed, signal, cache });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
   let memoryWarnings: string[] = [];
+  let weightsVersion: string | undefined;
+  let memoryReport: { candidates: number; disabled?: "env" | "no-history" } | undefined;
   const store = memory?.open
     ? (await openRepositoryCache(resolveRepository(repo).root, { ...memory.open, readOnly: true })).cache
     : repositoryCache;
@@ -264,6 +313,7 @@ async function prepareCandidates(
     const adaptive = await withAdaptiveWeights(store, config, memory.env);
     config = adaptive.config;
     memoryWarnings = adaptive.warnings;
+    weightsVersion = adaptive.active ? config.version : "baseline";
   }
   const fresh = selectCandidates(task, chunks, config);
   let candidates = fresh.candidates;
@@ -278,6 +328,7 @@ async function prepareCandidates(
     candidates = outcome.candidates;
     ranking = outcome.ranking;
     memoryWarnings = [...memoryWarnings, ...outcome.warnings];
+    memoryReport = { candidates: outcome.added.length, ...(outcome.disabled ? { disabled: outcome.disabled } : {}) };
   }
   // The cache and memory reads are asynchronous too, so a Ctrl-C during them still stops the run here.
   if (signal?.aborted) throw new CancelledError();
@@ -295,6 +346,17 @@ async function prepareCandidates(
     ranking,
     memoryWarnings,
     config,
+    // The cache's own part of the report; the Jev-only parts are filled in by `runScope`.
+    cacheReport:
+      repositoryCache && analysis && filesSeen
+        ? {
+            versions: versionRecord(repositoryCache.keys),
+            cold: repositoryCache.fresh,
+            files: fileReport(analysis, filesSeen),
+            ...(memoryReport ? { memory: memoryReport } : {}),
+            ...(weightsVersion === undefined ? {} : { weights: { version: weightsVersion } }),
+          }
+        : undefined,
     ...(warning === undefined ? {} : { warning }),
   };
 }
@@ -354,6 +416,10 @@ function jevMetrics(decision: DecisionResult | undefined, explain: boolean): { j
   };
 }
 
+/** ISO 8601 UTC time at which a decision stored at `time` stops being reusable under the retention bounds in effect. */
+const decisionExpiry = (time: number, env?: NodeJS.ProcessEnv): string =>
+  new Date(time + resolveRetention(env).bounds.decisions.maxDays * DAY_MS).toISOString();
+
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const { task, repo = ".", noJev = false, explain = false, signal } = options;
@@ -365,6 +431,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     ranking,
     memoryWarnings,
     config,
+    cacheReport,
     warning: retrievalWarning,
   } = await prepareCandidates(
     task,
@@ -428,6 +495,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       chunk,
       signals: found?.signals ?? {},
       origin: found?.origin,
+      ...(found?.memory ? { memory: found.memory } : {}),
       relevance: value,
       score: value ?? 1,
       reason: value === undefined ? "Offline baseline: all candidates" : `Jev relevance ${value.toFixed(2)}`,
@@ -492,10 +560,23 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     );
     if (!outcome.committed) cacheWarnings.push(`decision not cached: ${outcome.warning}`);
   }
+  // Jev runs say whether a stored decision was reused; `--no-jev` has no decision and no memory to report.
+  const cache: CacheReport | undefined = cacheReport && {
+    ...cacheReport,
+    ...(mode === "jev"
+      ? {
+          decision: {
+            reused: reused !== undefined,
+            ...(reused ? { expiresAt: decisionExpiry(reused.time, cacheEnv) } : {}),
+          },
+        }
+      : {}),
+  };
   return {
     result: {
       ...result,
       warnings: [...result.warnings, ...cacheWarnings],
+      ...(cache ? { cache } : {}),
       ...metrics,
       ...(reused ? { decisionsReusedFrom: new Date(reused.time).toISOString() } : {}),
       ...(runId === undefined ? {} : { runId }),
