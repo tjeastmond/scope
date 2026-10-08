@@ -9,6 +9,7 @@ import { HISTORY_PREFIX } from "../src/cache/history.ts";
 import { recordMac } from "../src/cache/integrity.ts";
 import { openRepositoryCache } from "../src/cache/location.ts";
 import { currentVersionKeys } from "../src/cache/versions.ts";
+import { JEV_CANDIDATE_MAX_CHARS } from "../src/config.ts";
 import { UsageError } from "../src/errors.ts";
 import { main, parseCli, type Io } from "../src/main.ts";
 import { renderFormat } from "../src/output/index.ts";
@@ -207,6 +208,24 @@ describe("misses", () => {
         );
       },
     ));
+
+  test("a change past the point where the request truncates a long candidate", async () => {
+    const repo = await copyFixture();
+    const provider = counting();
+    const path = join(repo, "src/webhooks/retry-long.ts");
+    const body = (tail: string) =>
+      `export function retryStripeWebhookProcessingLong(): string {\n  const pad = "${"x".repeat(JEV_CANDIDATE_MAX_CHARS + 500)}";\n  return pad + "${tail}";\n}\n`;
+    await writeFile(path, body("first"));
+    const first = await run(repo, { provider });
+    const files = [...first.result.chunks, ...first.result.skipped].map((entry) =>
+      "chunk" in entry ? entry.chunk.file : entry.file,
+    );
+    expect(files).toContain("src/webhooks/retry-long.ts");
+    await writeFile(path, body("second"));
+    const second = await run(repo, { provider });
+    expect(provider.calls).toBe(2);
+    expect(second.result.decisionsReusedFrom).toBeUndefined();
+  });
 
   test("a different question version", () => missWith(() => ({ overrides: { questionVersion: "other" } })));
   test("a different SDK version", () => missWith(() => ({ overrides: { sdkVersion: "0.0.0-other" } })));
@@ -467,15 +486,28 @@ describe("retention", () => {
 
   test("a planted far-future name never takes a slot", async () => {
     const repo = await copyFixture();
-    const env = { SCOPE_DECISIONS_MAX: "1" };
+    const env = { SCOPE_DECISIONS_MAX: "2" };
     const start = Date.now() + HOUR;
     await run(repo, { env, now: () => start });
+    const [real] = await decisionNames(repo);
     await writeFile(join(storeDir(repo), `${DECISION_PREFIX}9999999999999-${"0".repeat(64)}.json`), "{}");
     await writeFile(join(storeDir(repo), `${DECISION_PREFIX}foreign.json`), "{}");
     await run(repo, { env, now: () => start + 1000, task: `${TASK} other` });
     const names = await decisionNames(repo);
+    expect(names).toHaveLength(2);
+    expect(names).toContain(real!);
+    expect(names.some((name) => name.includes("9999999999999"))).toBe(false);
+  });
+
+  test("a write removes expired decisions of other tasks", async () => {
+    const repo = await copyFixture();
+    const start = Date.now() + HOUR;
+    await run(repo, { now: () => start });
+    const [old] = await decisionNames(repo);
+    await run(repo, { now: () => start + 7 * DAY + 1, task: `${TASK} other` });
+    const names = await decisionNames(repo);
     expect(names).toHaveLength(1);
-    expect(names[0]).not.toContain("9999999999999");
+    expect(names).not.toContain(old!);
   });
 });
 
