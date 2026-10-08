@@ -6,6 +6,7 @@ import { resolveRepository } from "../repository/root.ts";
 import { loadChunks } from "../scope.ts";
 import { SHARD_NAME, filesType, shardType } from "./analysis.ts";
 import { DECISION_PREFIX } from "./decisions.ts";
+import { FEEDBACK_PREFIX } from "./feedback.ts";
 import { HISTORY_PREFIX } from "./history.ts";
 import { CACHE_DIR, metaType } from "./location.ts";
 import { resolveRetention, type RetentionBounds } from "./retention.ts";
@@ -106,6 +107,8 @@ export interface CacheStatus {
     historyRuns: number;
     /** Documents named `decision-*`, counted by name only (not verified), like `historyRuns`. */
     decisions: number;
+    /** Documents named `feedback-*`, counted by name only (not verified), like `historyRuns`. */
+    feedback: number;
     /** Entries of the `files` document; 0 when it is missing or unreadable. */
     statRecords: number;
   };
@@ -149,6 +152,7 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
       analysisEntries: 0,
       historyRuns: 0,
       decisions: 0,
+      feedback: 0,
       statRecords: 0,
     },
     versions: { state: "no metadata", differing: [] },
@@ -191,6 +195,7 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
   }
   status.documents.historyRuns = names.filter((candidate) => candidate.startsWith(HISTORY_PREFIX)).length;
   status.documents.decisions = names.filter((candidate) => candidate.startsWith(DECISION_PREFIX)).length;
+  status.documents.feedback = names.filter((candidate) => candidate.startsWith(FEEDBACK_PREFIX)).length;
   if (names.includes(filesType.name)) {
     const files = await documents.read(filesType);
     if (files.warning) unreadable(filesType.name);
@@ -220,6 +225,7 @@ export function formatStatus(status: CacheStatus): string {
       `  stat records:  ${documents.statRecords}`,
       `  history runs:  ${documents.historyRuns}`,
       `  decisions:     ${documents.decisions}`,
+      `  feedback:      ${documents.feedback}`,
       `  versions:      ${versions.state === "stale" ? `stale: ${versions.differing.join(", ")} differ` : versions.state}`,
       `  last updated:  ${status.lastUpdated ?? "never"}`,
     );

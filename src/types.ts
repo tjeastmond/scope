@@ -227,6 +227,12 @@ export interface ScopeResult {
   jev?: JevMetrics;
   /** ISO 8601 UTC time of the stored Jev decision this run reused (identical task, candidates and versions); absent on a fresh decision. */
   decisionsReusedFrom?: string;
+  /**
+   * Id of the run's history record (#73), the handle for `scope feedback` (#76). On a reused decision it is the id of
+   * the run that made the decision. Absent for `--no-jev`, with the cache off, with no candidates, and when no record
+   * was committed.
+   */
+  runId?: string;
   /** Set by `--explain`: renderers add the selection evidence. */
   explain?: true;
 }

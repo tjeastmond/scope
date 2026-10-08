@@ -11,6 +11,12 @@ try {
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
     signal: controller.signal,
+    readStdin: async () => {
+      process.stdin.setEncoding("utf8");
+      let text = "";
+      for await (const chunk of process.stdin) text += chunk;
+      return text;
+    },
   });
 } finally {
   process.removeListener("SIGINT", onInterrupt);

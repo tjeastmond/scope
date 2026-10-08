@@ -122,6 +122,8 @@ export async function loadChunks(
   cacheCommitted?: boolean;
   /** With the cache on and openable: the opened repository cache, for the caller's own commits (run history). */
   repositoryCache?: RepositoryCache;
+  /** Repository-relative paths of the files the scan included (before language and binary checks), sorted. */
+  files: string[];
 }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
@@ -200,7 +202,7 @@ export async function loadChunks(
   }
   const summary = textOnlySummary(textOnly, detailed);
   if (summary) warnings.push(summary);
-  if (!cache) return { chunks, warnings };
+  if (!cache) return { chunks, warnings, files };
   if (signal?.aborted) throw new CancelledError();
   const outcome = await analysisCache?.commit();
   // Cache problems (open, read, commit) come last and once each, so the rest of the warnings match an uncached run.
@@ -212,6 +214,7 @@ export async function loadChunks(
     // An unchanged warm run takes no lock and commits nothing (undefined), which is fine; only a failed commit is false.
     cacheCommitted: analysisCache !== undefined && outcome?.committed !== false,
     repositoryCache,
+    files,
   };
 }
 
@@ -293,7 +296,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const decisionCache = repositoryCache && !noJev && candidates.length > 0 && cacheable ? repositoryCache : undefined;
   const keepDecisions = decisionCache !== undefined && decisionsEnabled(cacheEnv);
   let decisionKey: string | undefined;
-  let reused: { judgments: RelevanceJudgment[]; time: number } | undefined;
+  let reused: { judgments: RelevanceJudgment[]; time: number; runId?: string } | undefined;
   if (decisionCache && keepDecisions) {
     try {
       decisionKey = await decisionKeyId(
@@ -348,6 +351,8 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   });
   const metrics = jevMetrics(decision, explain);
   const cacheWarnings: string[] = [];
+  // A reused decision reports the run that made it; a fresh one reports this run's own record, once committed.
+  let runId = reused?.runId;
   if (options.cache) cacheWarnings.push(...resolveRetention(cacheEnv).warnings);
   // History is recorded last, so it can never change the selection; only a failure adds a warning. A cancelled run
   // and a run Jev did not judge (`--no-jev`, no candidates) record nothing.
@@ -365,6 +370,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       { env: options.cacheOptions?.env },
     );
     if (!outcome.committed) cacheWarnings.push(`history not recorded: ${outcome.warning}`);
+    else runId = outcome.runId;
   }
   // A fresh decision is stored last too (a reused one is already stored; a cancelled run stores nothing). With reuse
   // switched off by a bound of 0 the same commit removes every stored decision.
@@ -376,6 +382,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
         : {
             keyId: decisionKey,
             judgments: candidates.map((chunk) => ({ chunkId: chunk.id, relevance: relevance.get(chunk.id)! })),
+            ...(runId === undefined ? {} : { runId }),
           },
       { env: cacheEnv, now: clock() },
     );
@@ -387,6 +394,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       warnings: [...result.warnings, ...cacheWarnings],
       ...metrics,
       ...(reused ? { decisionsReusedFrom: new Date(reused.time).toISOString() } : {}),
+      ...(runId === undefined ? {} : { runId }),
     },
     decision,
   };

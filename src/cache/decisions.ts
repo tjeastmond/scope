@@ -4,6 +4,7 @@ import { JEV_QUESTION_VERSION } from "../config.ts";
 import { jevModel } from "../jev/provider.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "../retrieval/config.ts";
 import type { CodeChunk, RelevanceJudgment } from "../types.ts";
+import { isRunId } from "./history.ts";
 import { canonical, macEquals, recordMac } from "./integrity.ts";
 import { commitRepositoryCache, type RepositoryCache } from "./location.ts";
 import { resolveRetention } from "./retention.ts";
@@ -21,7 +22,7 @@ import { sdkVersion } from "./versions.ts";
 
 export const DECISION_PREFIX = "decision-";
 /** Version of the record shape; a record of another version is ignored. */
-export const DECISION_RECORD_VERSION = 1;
+export const DECISION_RECORD_VERSION = 2;
 /** More than the shortlist of any real run. */
 export const MAX_DECISION_JUDGMENTS = 1000;
 const MAC_DOMAIN = "decision";
@@ -33,10 +34,15 @@ const KEY_PATTERN = /^[0-9a-f]{64}$/;
 const NAME = /^decision-([0-9]{13})-([0-9a-f]{64})$/;
 
 export interface DecisionRecord {
-  recordVersion: 1;
+  recordVersion: 2;
   keyId: string;
   /** Milliseconds since the epoch when the decision was stored. */
   time: number;
+  /**
+   * The history record committed by the run that made this decision (#73), so a run that reuses it can report that run
+   * id and feedback (#76) can refer to it. Absent when that run's history was not committed.
+   */
+  runId?: string;
   /** Validated relevance of each candidate, in candidate order. */
   judgments: { chunkId: string; relevance: number }[];
 }
@@ -73,13 +79,14 @@ const isJudgment = (value: unknown): value is DecisionRecord["judgments"][number
 export function isDecisionRecord(value: unknown): value is DecisionRecord {
   return (
     isObject(value) &&
-    onlyKeys(value, ["recordVersion", "keyId", "time", "judgments"]) &&
+    onlyKeys(value, ["recordVersion", "keyId", "time", "runId", "judgments"]) &&
     value.recordVersion === DECISION_RECORD_VERSION &&
     typeof value.keyId === "string" &&
     KEY_PATTERN.test(value.keyId) &&
     typeof value.time === "number" &&
     Number.isInteger(value.time) &&
     value.time >= 0 &&
+    (value.runId === undefined || (typeof value.runId === "string" && isRunId(value.runId))) &&
     Array.isArray(value.judgments) &&
     value.judgments.length <= MAX_DECISION_JUDGMENTS &&
     value.judgments.every(isJudgment)
@@ -160,7 +167,7 @@ export async function lookupDecision(
   keyId: string,
   candidates: readonly CodeChunk[],
   options: { env?: NodeJS.ProcessEnv; now: number },
-): Promise<{ judgments: RelevanceJudgment[]; time: number } | undefined> {
+): Promise<{ judgments: RelevanceJudgment[]; time: number; runId?: string } | undefined> {
   try {
     const { max, maxDays } = resolveRetention(options.env).bounds.decisions;
     if (max <= 0 || maxDays <= 0) return undefined;
@@ -191,6 +198,7 @@ export async function lookupDecision(
       return {
         judgments: record.judgments.map(({ chunkId, relevance }) => ({ chunkId, relevance })),
         time: record.time,
+        ...(record.runId === undefined ? {} : { runId: record.runId }),
       };
     }
   } catch {
@@ -207,7 +215,7 @@ export async function lookupDecision(
  */
 export async function recordDecision(
   cache: RepositoryCache,
-  decision: { keyId: string; judgments: { chunkId: string; relevance: number }[] } | undefined,
+  decision: { keyId: string; judgments: { chunkId: string; relevance: number }[]; runId?: string } | undefined,
   options: { env?: NodeJS.ProcessEnv; now: number },
 ): Promise<CommitOutcome> {
   try {
@@ -219,6 +227,7 @@ export async function recordDecision(
             recordVersion: DECISION_RECORD_VERSION,
             keyId: decision.keyId,
             time: options.now,
+            ...(decision.runId === undefined ? {} : { runId: decision.runId }),
             judgments: decision.judgments.slice(0, MAX_DECISION_JUDGMENTS),
           }
         : undefined;

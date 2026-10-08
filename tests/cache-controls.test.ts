@@ -164,6 +164,7 @@ describe("status", () => {
       analysisEntries: entries,
       historyRuns: 0,
       decisions: 0,
+      feedback: 0,
       statRecords: records,
     });
     expect(entries).toBe(run.analysis!.analyzed);

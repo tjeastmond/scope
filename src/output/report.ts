@@ -18,10 +18,12 @@ export const scoreLabel = (relevance: number | undefined, score: number): string
 
 /** Mode, region count and retrieval version; the same facts in every human-readable format. */
 export function summaryLines(result: ScopeResult, quote: Quote): string[] {
-  const { mode, regions, retrievalConfigVersion, jevQuestionVersion, jev, decisionsReusedFrom } = result;
+  const { mode, regions, retrievalConfigVersion, jevQuestionVersion, jev, decisionsReusedFrom, runId } = result;
   return [
     `Mode: ${mode}`,
     `Regions: ${regions.length}`,
+    // The handle for feedback (#76); shown whenever the run has a history record.
+    ...(runId === undefined ? [] : [`Run ${quote(runId)} (scope feedback ${quote(runId)} --useful <chunk-id> ...)`]),
     // Always shown: a reused decision is never silent.
     ...(decisionsReusedFrom === undefined
       ? []

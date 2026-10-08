@@ -35,6 +35,8 @@ const MAC_DOMAIN = "history";
 const DAY_MS = 86_400_000;
 /** `<time as 13 decimal digits>-<8 hex>`: sorts by time, unique per run. */
 const RUN_ID = /^[0-9]{13}-[0-9a-f]{8}$/;
+/** Whether `value` has the shape of a run id (also the shape of a feedback id). */
+export const isRunId = (value: string): boolean => RUN_ID.test(value);
 const KEY_PATTERN = /^[0-9a-f]{64}$/;
 
 export interface HistoryCandidate {
@@ -222,6 +224,9 @@ function nameTime(name: string): number | undefined {
   return Number(name.slice(HISTORY_PREFIX.length, HISTORY_PREFIX.length + 13));
 }
 
+/** A commit outcome that also names the run id when the run's record was written. */
+export type HistoryOutcome = CommitOutcome & { runId?: string };
+
 export interface RecordInput {
   /** The task as given; redacted here. */
   task: string;
@@ -304,14 +309,15 @@ export async function recordHistory(
   cache: RepositoryCache,
   input: RecordInput,
   options: { env?: NodeJS.ProcessEnv; now?: number } = {},
-): Promise<CommitOutcome> {
+): Promise<HistoryOutcome> {
   try {
     const { bounds } = resolveRetention(options.env);
     const { maxRuns, maxDays } = bounds.history;
+    let written: string | undefined;
     const enabled = maxRuns > 0 && maxDays > 0;
     const record = enabled ? await buildHistoryRecord(input, { scope: cache.keys.scope }) : undefined;
     const now = options.now ?? input.time;
-    return await commitRepositoryCache(
+    const outcome = await commitRepositoryCache(
       cache,
       async (tx) => {
         const name = record ? `${HISTORY_PREFIX}${record.runId}` : undefined;
@@ -339,13 +345,30 @@ export async function recordHistory(
             record,
             mac: historyMac(cache, record),
           });
+          written = record.runId;
         }
       },
       { now },
     );
+    return outcome.committed && written !== undefined ? { ...outcome, runId: written } : outcome;
   } catch (error) {
     const message = (error instanceof Error ? error.message : String(error)).replace(/\s+/g, " ").slice(0, 200);
     return { committed: false, warning: message };
+  }
+}
+
+/**
+ * The verified record of one run, or undefined for any reason it cannot be trusted: a malformed id, no such document,
+ * unreadable, failing validation, not signed by this user for this repository. Never throws.
+ */
+export async function readHistoryRecord(cache: RepositoryCache, runId: string): Promise<HistoryRecord | undefined> {
+  if (!RUN_ID.test(runId)) return undefined;
+  const name = `${HISTORY_PREFIX}${runId}`;
+  try {
+    const { value } = await cache.store.read(historyType(name));
+    return isVerified(cache, name, value) ? value!.record : undefined;
+  } catch {
+    return undefined;
   }
 }
 
