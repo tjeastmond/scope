@@ -14,7 +14,7 @@ import {
 import { readHistory } from "../src/cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "../src/cache/location.ts";
 import { readBoundedFile, readBoundedText } from "../src/bounded-input.ts";
-import { UsageError } from "../src/errors.ts";
+import { CancelledError, UsageError } from "../src/errors.ts";
 import { MAX_FEEDBACK_FILE_BYTES, submitFeedback, type FeedbackInput, type FeedbackResult } from "../src/feedback.ts";
 import { main, type Io } from "../src/main.ts";
 import { renderFormat } from "../src/output/index.ts";
@@ -340,6 +340,44 @@ describe("--file input and the CLI", () => {
     await writeFile(file, "x".repeat(11));
     await expect(readBoundedFile(file, 10, "limit.txt")).rejects.toBeInstanceOf(UsageError);
     expect(await readBoundedFile(file, 11, "limit.txt")).toBe("x".repeat(11));
+  });
+
+  test("a pending read rejects with CancelledError when the signal aborts, and the listener is released", async () => {
+    let returned = false;
+    const silent: AsyncIterable<Uint8Array> = {
+      [Symbol.asyncIterator]: () => ({
+        next: () => new Promise<IteratorResult<Uint8Array>>(() => undefined),
+        return: () => {
+          returned = true;
+          return Promise.resolve({ done: true, value: undefined });
+        },
+      }),
+    };
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 20);
+    const started = Date.now();
+    await expect(readBoundedText(silent, 100, "standard input", controller.signal)).rejects.toBeInstanceOf(
+      CancelledError,
+    );
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(returned).toBe(true);
+
+    const already = new AbortController();
+    already.abort();
+    await expect(readBoundedText(silent, 100, "x", already.signal)).rejects.toBeInstanceOf(CancelledError);
+
+    const live = new AbortController();
+    let removed = 0;
+    const remove = live.signal.removeEventListener.bind(live.signal);
+    live.signal.removeEventListener = ((...args: Parameters<typeof remove>) => {
+      removed++;
+      return remove(...args);
+    }) as typeof remove;
+    const data = (async function* () {
+      yield "ok";
+    })();
+    expect(await readBoundedText(data, 10, "x", live.signal)).toBe("ok");
+    expect(removed).toBe(1);
   });
 
   test("an unknown key, a wrong type and a run id mismatch are usage errors that record nothing", async () => {

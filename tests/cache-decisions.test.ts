@@ -148,6 +148,25 @@ describe("exact reuse", () => {
     expect(await decisionNames(repo)).toHaveLength(1);
   });
 
+  test("a reused decision omits the run id once its history record is gone", async () => {
+    const repo = await copyFixture();
+    const provider = counting();
+    const first = await run(repo, { provider });
+    expect(first.result.runId).toBeDefined();
+    const again = await run(repo, { provider });
+    expect(again.result.decisionsReusedFrom).toBeDefined();
+    expect(again.result.runId).toBe(first.result.runId);
+
+    for (const name of await historyNames(repo)) await rm(join(storeDir(repo), name));
+    const reused = await run(repo, { provider });
+    expect(provider.calls).toBe(1);
+    expect(reused.result.decisionsReusedFrom).toBeDefined();
+    expect(reused.result.runId).toBeUndefined();
+    expect(JSON.parse(renderFormat("json", reused.result)).runId).toBeUndefined();
+    expect(renderFormat("text", reused.result)).not.toContain("Run ");
+    expect(await historyNames(repo)).toHaveLength(0);
+  });
+
   test("a hit needs no provider and no credentials", async () => {
     const repo = await copyFixture();
     // Stands in for the real adapter: it shares the default adapter's identity, so the real path can reuse its decision.

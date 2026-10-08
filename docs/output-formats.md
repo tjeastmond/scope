@@ -105,7 +105,7 @@ decision instead of asking Jev (identical task, candidates and versions; see doc
 
 `runId` (additive; `schemaVersion` stays 2) is the id of the run's history record, the handle for `scope feedback`
 (see docs/cache-design.md). It is present when the cache is on and the run's record was committed; a run that reused a
-stored decision reports the id of the run that made it. It is absent for `--no-jev`, with the cache off, with no
+stored decision reports the id of the run that made it, only while that run's history record still exists. It is absent for `--no-jev`, with the cache off, with no
 candidates, and when the record could not be written. Text and Markdown show it as a summary line:
 `Run <runId> (scope feedback <runId> --useful <chunk-id> ...)`.
 

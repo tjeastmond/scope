@@ -258,7 +258,8 @@ under another key, or by hand) verifies as nothing.
   nothing in selection, scoring or decision reuse reads it until #77, and recording it changes no output of a run.
   - **Run id.** A Jev run with the cache on reports the id of its history record (`runId` in JSON, a `Run` line in
     text and Markdown). A decision-reuse hit reports the original run's id (the decision record, version 2, carries an
-    optional `runId`; version 1 documents are a miss). `--no-jev`, cache-off, empty and cancelled runs have none.
+    optional `runId`; version 1 documents are a miss) only if that run's history record still exists and verifies;
+    otherwise the id is omitted, and a reuse never records a new history entry. `--no-jev`, cache-off, empty and cancelled runs have none.
   - **Attribution.** `{ kind: "user" }` by default, `{ kind: "agent", name }` with `--agent` (1 to 100 printable
     characters). Each record stores its time. List flags are repeat-only (a path can contain a comma).
   - **Validation, all-or-nothing.** The run id must name a verified history record. `--useful` and `--irrelevant` ids

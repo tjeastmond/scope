@@ -12,7 +12,7 @@ try {
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
     signal: controller.signal,
-    readStdin: (maxBytes) => readBoundedText(process.stdin, maxBytes, "standard input"),
+    readStdin: (maxBytes) => readBoundedText(process.stdin, maxBytes, "standard input", controller.signal),
   });
 } finally {
   process.removeListener("SIGINT", onInterrupt);

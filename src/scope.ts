@@ -8,7 +8,7 @@ import {
   recordDecision,
   type DecisionKeyOverrides,
 } from "./cache/decisions.ts";
-import { recordHistory } from "./cache/history.ts";
+import { readHistoryRecord, recordHistory } from "./cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "./cache/location.ts";
 import { resolveRetention } from "./cache/retention.ts";
 import type { VersionKeys } from "./cache/versions.ts";
@@ -357,8 +357,12 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   });
   const metrics = jevMetrics(decision, explain);
   const cacheWarnings: string[] = [];
-  // A reused decision reports the run that made it; a fresh one reports this run's own record, once committed.
-  let runId = reused?.runId;
+  // A reused decision reports the run that made it, but only while that run's history record still exists (retention
+  // may have pruned it); no new record is made for a reuse. A fresh one reports this run's own record, once committed.
+  let runId: string | undefined;
+  if (reused?.runId !== undefined && repositoryCache && (await readHistoryRecord(repositoryCache, reused.runId))) {
+    runId = reused.runId;
+  }
   if (options.cache) cacheWarnings.push(...resolveRetention(cacheEnv).warnings);
   // History is recorded last, so it can never change the selection; only a failure adds a warning. A cancelled run
   // and a run Jev did not judge (`--no-jev`, no candidates) record nothing.
