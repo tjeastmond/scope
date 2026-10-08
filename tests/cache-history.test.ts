@@ -4,8 +4,14 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cacheStatus, clearCache, formatStatus, rebuildCache } from "../src/cache/controls.ts";
-import { HISTORY_PREFIX, MAX_TASK_CHARS, readHistory, type HistoryRecord } from "../src/cache/history.ts";
-import { recordMac } from "../src/cache/integrity.ts";
+import {
+  HISTORY_PREFIX,
+  MAX_TASK_CHARS,
+  buildHistoryRecord,
+  historyMac,
+  readHistory,
+  type HistoryRecord,
+} from "../src/cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "../src/cache/location.ts";
 import { currentVersionKeys } from "../src/cache/versions.ts";
 import { CancelledError } from "../src/errors.ts";
@@ -13,7 +19,7 @@ import { JEV_QUESTION_VERSION } from "../src/config.ts";
 import { jevModel } from "../src/jev/provider.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "../src/retrieval/config.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
-import type { DecisionProvider } from "../src/types.ts";
+import type { CodeChunk, DecisionProvider, ScopeResult, SelectedChunk } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
 
 const FIXTURES = join(import.meta.dir, "../fixtures");
@@ -206,6 +212,33 @@ describe("what a Jev run records", () => {
   });
 });
 
+describe("support relevance", () => {
+  test("a support Jev judged below the minimum keeps its relevance", async () => {
+    const repo = await copyFixture();
+    const { chunks } = await loadChunks(repo);
+    const [needed, judged] = chunks;
+    const selected = (chunk: CodeChunk, extra: Partial<SelectedChunk>): SelectedChunk => ({
+      chunk,
+      signals: {},
+      score: 1,
+      reason: "test",
+      ...extra,
+    });
+    const result = {
+      chunks: [selected(judged!, { relevance: 0.9 }), selected(needed!, { supportFor: [judged!.id] })],
+      skipped: [],
+    } as unknown as ScopeResult;
+    const record = await buildHistoryRecord(
+      { task: TASK, result, chunks: new Map(), relevance: new Map([[needed!.id, 0.02]]), time: 1 },
+      { scope: "test" },
+    );
+    expect(record.candidates.map((c) => [c.decision, c.relevance])).toEqual([
+      ["selected", 0.9],
+      ["support", 0.02],
+    ]);
+  });
+});
+
 describe("what does not record", () => {
   test("--no-jev, no candidates, cache off and cancelled runs leave no history", async () => {
     const repo = await copyFixture();
@@ -320,7 +353,8 @@ describe("integrity", () => {
       await writeFile(path(name), JSON.stringify(doc));
     };
     await edit(tampered!, (doc) => (doc.record.task.text = "something else"));
-    await edit(planted!, (doc) => (doc.mac = recordMac(randomBytes(32), "history", doc.record)));
+    const cache = await open(repo);
+    await edit(planted!, (doc) => (doc.mac = historyMac({ ...cache, integrityKey: randomBytes(32) }, doc.record)));
     await writeFile(path(corrupt!), "{ not json");
 
     const { records, warnings } = await readHistory(await open(repo));
@@ -340,6 +374,27 @@ describe("integrity", () => {
     const { records, warnings } = await readHistory(await open(repo));
     expect(records).toHaveLength(1);
     expect(warnings).toEqual([`${copy}: not signed by this user; ignoring it`]);
+  });
+
+  test("a record signed for another repository of the same user is ignored", async () => {
+    const source = await copyFixture();
+    const target = await copyFixture();
+    await run(source);
+    await run(target);
+    const [name] = await historyNames(source);
+    await writeFile(join(storeDir(target), name!), await readFile(join(storeDir(source), name!), "utf8"));
+    const { records, warnings } = await readHistory(await open(target));
+    expect(records).toHaveLength(1);
+    expect(warnings).toEqual([`${name}: not signed by this user; ignoring it`]);
+  });
+
+  test("a history-* file with a name Scope never writes is skipped with a warning, not an error", async () => {
+    const repo = await copyFixture();
+    await run(repo);
+    await writeFile(join(storeDir(repo), "history-BAD.json"), "{}");
+    const { records, warnings } = await readHistory(await open(repo));
+    expect(records).toHaveLength(1);
+    expect(warnings).toEqual(["history-BAD.json: not a history document Scope wrote; ignoring it"]);
   });
 });
 

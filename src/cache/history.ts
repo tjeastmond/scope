@@ -184,12 +184,20 @@ export const historyType = (name: string): DocumentType<HistoryDocument> => ({
   validate: isHistoryDocument,
 });
 
+const withRelevance = (relevance: number | undefined) => (relevance === undefined ? {} : { relevance });
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 
 /** A time-sortable, unique run id: the time as 13 zero-padded decimal digits, then 8 random hex characters. */
 export function newRunId(time: number): string {
   return `${String(Math.min(Math.max(Math.trunc(time), 0), 9_999_999_999_999)).padStart(13, "0")}-${randomBytes(4).toString("hex")}`;
 }
+
+/**
+ * The MAC of a record, bound to the repository's real root: a record signed for another repository of the same user
+ * (copied, or the store of a moved repository) never verifies here.
+ */
+export const historyMac = (cache: RepositoryCache, record: HistoryRecord) =>
+  recordMac(cache.integrityKey, MAC_DOMAIN, { root: cache.root, record });
 
 /** The time encoded in a document name, or undefined when the name is not one Scope wrote. */
 function nameTime(name: string): number | undefined {
@@ -203,6 +211,8 @@ export interface RecordInput {
   result: ScopeResult;
   /** Every chunk of the repository by id (to find kind and content of skipped candidates). */
   chunks: ReadonlyMap<string, CodeChunk>;
+  /** Validated Jev relevance by chunk id: a support that Jev judged below the minimum keeps its judgment. */
+  relevance: ReadonlyMap<string, number>;
   jev?: JevMetrics;
   time: number;
 }
@@ -223,7 +233,7 @@ export async function buildHistoryRecord(input: RecordInput, versions: { scope: 
       ...(chunk.name === undefined ? {} : { name: chunk.name }),
       fingerprint: sha256(chunk.content),
       ...(selected.origin === undefined ? {} : { origin: selected.origin }),
-      ...(selected.relevance === undefined ? {} : { relevance: selected.relevance }),
+      ...withRelevance(selected.relevance ?? input.relevance.get(chunk.id)),
       decision: selected.supportFor === undefined ? "selected" : "support",
       ...(selected.supportFor === undefined ? {} : { supportFor: [...selected.supportFor] }),
     });
@@ -303,7 +313,7 @@ export async function recordHistory(
         if (record && name && keep.includes(name)) {
           tx.write(historyType(name), {
             record,
-            mac: recordMac(cache.integrityKey, MAC_DOMAIN, record),
+            mac: historyMac(cache, record),
           });
         }
       },
@@ -328,7 +338,12 @@ export async function readHistory(cache: RepositoryCache): Promise<{ records: Hi
     names = (await readdir(cache.directory))
       .filter((entry) => entry.endsWith(".json"))
       .map((entry) => entry.slice(0, -".json".length))
-      .filter((name) => name.startsWith(HISTORY_PREFIX))
+      .filter((name) => {
+        if (!name.startsWith(HISTORY_PREFIX)) return false;
+        if (nameTime(name) !== undefined) return true;
+        warnings.push(`${name}.json: not a history document Scope wrote; ignoring it`);
+        return false;
+      })
       .sort()
       .reverse();
   } catch {
@@ -340,7 +355,7 @@ export async function readHistory(cache: RepositoryCache): Promise<{ records: Hi
     else if (!value) continue;
     else if (
       `${HISTORY_PREFIX}${value.record.runId}` !== name ||
-      !macEquals(value.mac, recordMac(cache.integrityKey, MAC_DOMAIN, value.record))
+      !macEquals(value.mac, historyMac(cache, value.record))
     ) {
       warnings.push(`${name}.json: not signed by this user; ignoring it`);
     } else records.push(value.record);

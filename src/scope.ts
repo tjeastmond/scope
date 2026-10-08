@@ -303,6 +303,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
         task,
         result,
         chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
+        relevance,
         jev: jevMetrics(decision, false).jev,
         time: options.cacheOptions?.now?.() ?? Date.now(),
       },
