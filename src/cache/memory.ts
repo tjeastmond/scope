@@ -102,12 +102,17 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
   const taskTerms = termSet(extractTaskTerms(redactedTask));
   const storedTask = redactedTask.slice(0, MAX_TASK_CHARS);
   const scores = new Map<string, number>();
-  const similar = input.history
+  const ranked = input.history
     .map((record) => ({ record, score: similarity(taskTerms, termSet(record.task.terms)) }))
     .filter(({ score }) => score >= config.similarityMin)
-    // Newest first (run ids sort by time); only the newest `maxRuns` similar runs count.
-    .sort((a, b) => compareStrings(b.record.runId, a.record.runId))
-    .slice(0, config.maxRuns);
+    // Newest first (run ids sort by time).
+    .sort((a, b) => compareStrings(b.record.runId, a.record.runId));
+  // Runs of this very task and runs of other similar tasks each get their own window of the newest `maxRuns`, so
+  // repeating a task never pushes the related runs that shaped its shortlist out of the window (which would change the
+  // payload of an identical repeat and forfeit decision reuse, #75).
+  const sameTask = ranked.filter(({ record }) => record.task.text === storedTask).slice(0, config.maxRuns);
+  const otherTasks = ranked.filter(({ record }) => record.task.text !== storedTask).slice(0, config.maxRuns);
+  const similar = [...sameTask, ...otherTasks];
   for (const { record, score } of similar) scores.set(record.runId, score);
   if (similar.length === 0) return unchanged;
 
@@ -157,10 +162,9 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
       }
     }
   }
-  for (const { record } of similar) {
-    // A run of this very task already judged this shortlist; offering its selection again would change the payload of
-    // an identical repeat and forfeit decision reuse (#75).
-    if (record.task.text === storedTask) continue;
+  // A run of this very task already judged this shortlist; offering its selection again would change the payload of an
+  // identical repeat and forfeit decision reuse (#75). Its feedback still counts above.
+  for (const { record } of otherTasks) {
     for (const candidate of record.candidates) {
       if (candidate.decision === "selected" && current.get(candidate.chunkId) === candidate.fingerprint) {
         offer(candidate.chunkId, "jev", record.runId);

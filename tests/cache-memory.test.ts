@@ -344,6 +344,17 @@ describe("decision reuse", () => {
     expect(rec.calls.length).toBe(1);
     expect(second.result.chunks.map((s) => s.chunk.id)).toEqual(first.result.chunks.map((s) => s.chunk.id));
   });
+
+  test("at the maxRuns boundary, a repeat's own run does not push out the related run that shaped it", async () => {
+    const repo = await makeRepo();
+    await seed(repo, T_WIDGETS);
+    const rec = recording(SEED_RELEVANCE);
+    const memory = { maxRuns: 1 };
+    await run(repo, T_NOW, { rec, memory });
+    expect(rec.names(0)).toEqual(["reconcileLedger", "frobnicateWidgets"]);
+    await run(repo, T_NOW, { rec, memory });
+    expect(rec.calls.length).toBe(1);
+  });
 });
 
 describe("payload preview", () => {
