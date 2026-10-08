@@ -452,9 +452,14 @@ describe("the CLI", () => {
     const off = await cli(envOff, "off");
     expect(await readdir(envOff)).not.toContain(".scope");
 
-    expect(warm.stdout()).toBe(cold.stdout());
-    expect(noCache.stdout()).toBe(cold.stdout());
-    expect(off.stdout()).toBe(cold.stdout());
+    // The only difference a cache makes to the output is its one summary line (#79).
+    const withoutCacheLine = (text: string) => text.replace(/^cache: .*\n/m, "");
+    expect(cold.stdout()).toContain("cache: cold start, 0 files reused, 41 refreshed, 0 removed\n");
+    expect(warm.stdout()).toContain("cache: 41 files reused, 0 refreshed, 0 removed\n");
+    expect(noCache.stdout()).not.toContain("cache:");
+    expect(withoutCacheLine(warm.stdout())).toBe(withoutCacheLine(cold.stdout()));
+    expect(noCache.stdout()).toBe(withoutCacheLine(cold.stdout()));
+    expect(off.stdout()).toBe(withoutCacheLine(cold.stdout()));
     expect(warm.stderr()).toBe(noCache.stderr());
   });
 

@@ -118,7 +118,7 @@ async function run(
 const scrub = (value: unknown): unknown =>
   JSON.parse(
     JSON.stringify(value, (key, item: unknown) =>
-      ["runId", "decisionsReusedFrom", "jev"].includes(key) ? undefined : item,
+      ["runId", "decisionsReusedFrom", "jev", "cache"].includes(key) ? undefined : item,
     ),
   );
 
@@ -264,8 +264,8 @@ describe("runtime effect and rollback", () => {
     const again = await run(repo, TASK, { fresh: true });
     expect(again.shortlist).toEqual(first.shortlist);
     expect(scrub(again.json)).toEqual(scrub(first.json));
-    expect(renderFormat("text", again.result).replace(/Run .*/g, "")).toEqual(
-      renderFormat("text", first.result).replace(/Run .*/g, ""),
+    expect(renderFormat("text", again.result).replace(/^(Run |cache:|Cache ).*\n/gm, "")).toEqual(
+      renderFormat("text", first.result).replace(/^(Run |cache:|Cache ).*\n/gm, ""),
     );
   });
 

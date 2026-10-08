@@ -66,7 +66,8 @@ Text and Markdown share one set of facts (`src/output/report.ts`):
 - JSON keeps its structure and lists every skip in full.
 
 Golden files for all three formats live in `tests/golden/`; regenerate with
-`UPDATE_GOLDEN=1 bun test tests/golden.test.ts` and review the diff.
+`UPDATE_GOLDEN=1 bun test tests/golden.test.ts` and review the diff. The cold, warm and decision-reuse runs of a cached
+repository are pinned in `tests/golden/cache/` (`UPDATE_GOLDEN=1 bun test tests/golden-cache.test.ts`).
 
 ## Markdown
 
@@ -90,9 +91,11 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
 { schemaVersion: 2, mode, task,
   regions: [{ file, language, startLine, endLine, content,
               chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
-                         signals?, origin? }] }],
+                         memory?, signals?, origin? }] }],
   warnings, skipped: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
   retrievalConfigVersion?, jevQuestionVersion?, decisionsReusedFrom?, runId?,
+  cache?: { versions, cold, files: { reused, refreshed, removed, refreshedPaths, refreshedTruncated? },
+            decision?: { reused, expiresAt? }, memory?: { candidates, disabled? }, weights?: { version } },
   jev?: { requestCount?, latencyMs, usage: { inputTokens, outputTokens },
           requests?: [{ latencyMs, inputTokens, outputTokens }] },
   explain? }
@@ -111,6 +114,30 @@ decision instead of asking Jev (identical task, candidates and versions; see doc
 stored decision reports the id of the run that made it, only while that run's history record still exists. It is absent for `--no-jev`, with the cache off, with no
 candidates, and when the record could not be written. Text and Markdown show it as a summary line:
 `Run <runId> (scope feedback <runId> --useful <chunk-id> ...)`.
+
+`cache` (additive; `schemaVersion` stays 2: adding an optional key is not breaking, and the schema's
+`additionalProperties: false` only forbids keys it does not declare) says what the cache did for the run (#79; see
+"What a run reports" in docs/cache-design.md). It is absent when the cache is off or could not be opened.
+
+- `versions`: the version keys the store is partitioned by (`store`, `scope`, `analyzer`, `treeSitter` and one
+  `grammar:<package>` per grammar package); no paths or secrets. `cold` is true when the run started from an empty or
+  reset store.
+- `files`: `reused` (analysis read from the cache), `refreshed` (new or changed files parsed), `removed` (cache entries
+  dropped because the file is gone or excluded now), and `refreshedPaths` (repository-relative, sorted, at most 50;
+  `refreshedTruncated: true` when there were more). The counts are exact; `--no-jev` runs report this part too.
+- Jev runs only: `decision.reused` (with `expiresAt`, the ISO 8601 UTC time the reused decision stops being reusable;
+  the time it was made is the top-level `decisionsReusedFrom`), `memory.candidates` (chunks memory added, with
+  `disabled` as `env` for `SCOPE_MEMORY=off` or a zero bound, or `no-history` when there was nothing to remember) and
+  `weights.version` (the active adaptive set, or `baseline`).
+
+A chunk memory added also carries `memory`: `source` (`missing`, `useful` or `selected`: why a similar earlier run
+offered it), that run's `runId`, the task `similarity` (0 to 1), and, when feedback on the similar runs concerns the
+chunk, `feedback` counts plus the distinct `sources` (`user`, `agent:<name>`, at most 10). It is a per-chunk reason, so
+it appears with or without `--explain`.
+
+Text and Markdown show one summary line, for example
+`cache: 41 files reused, 2 refreshed, 0 removed; Jev decision reused from <time>`. With `--explain` they also list the
+version keys, the refreshed paths and, under each memory-assisted chunk, `Memory:` and `Memory feedback:` lines.
 
 `jev` reports Jev's external-service overhead, separately from the selected context. It is present only when Jev was
 called and reported usage (absent with `--no-jev` and when there were no candidates to judge). `latencyMs` is the wall

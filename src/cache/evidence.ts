@@ -52,6 +52,8 @@ export interface ChunkEvidence {
   jev: JevEvidence;
   /** External observations. The only confirmation. */
   feedback: FeedbackEvidence;
+  /** The distinct sources behind `feedback` (`user`, `agent:<name>`), sorted; the names `feedback.sources` counts. */
+  feedbackSources: string[];
 }
 
 /** A `--missing` location given as a path (optionally a line range), for a file that is still included. */
@@ -188,6 +190,7 @@ export function collectEvidence(
         sources: entry.sources.size,
         ...(entry.lastTime === undefined ? {} : { lastTime: entry.lastTime }),
       },
+      feedbackSources: [...entry.sources].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
     });
   }
   const order = (a: MissingLocation, b: MissingLocation) =>

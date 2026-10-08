@@ -1,4 +1,4 @@
-import type { ScopeResult, SkippedChunk } from "../types.ts";
+import type { MemoryReason, ScopeResult, SkippedChunk } from "../types.ts";
 
 /**
  * Report facts shared by the text and Markdown formats, so the two never drift apart. Each helper returns plain lines
@@ -16,6 +16,41 @@ export const sanitizeInline = (text: string): string => text.replace(CONTROL, "\
 export const scoreLabel = (relevance: number | undefined, score: number): string =>
   `${relevance === undefined ? "score" : "relevance"} ${(relevance ?? score).toFixed(2)}`;
 
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
+/**
+ * What the cache did (#79): one short line by default, and under `--explain` the version keys and the refreshed paths.
+ * Absent when the cache was off. Everything here comes from the result's `cache` block, never from the store.
+ */
+function cacheLines({ cache, explain, decisionsReusedFrom }: ScopeResult, quote: Quote): string[] {
+  if (!cache) return [];
+  const { files, decision, memory } = cache;
+  const counts = `${plural(files.reused, "file")} reused, ${files.refreshed} refreshed, ${files.removed} removed`;
+  const parts = [
+    cache.cold ? `cold start, ${counts}` : counts,
+    ...(decision?.reused ? [`Jev decision reused from ${decisionsReusedFrom ?? "an earlier run"}`] : []),
+    ...(memory && memory.candidates > 0 ? [plural(memory.candidates, "memory candidate")] : []),
+  ];
+  const lines = [`cache: ${parts.join("; ")}`];
+  if (explain) {
+    lines.push(
+      `Cache versions: ${Object.entries(cache.versions)
+        .map(([name, value]) => `${quote(name)} ${quote(value)}`)
+        .join(", ")}`,
+    );
+    if (cache.weights) lines.push(`Cache weights: ${quote(cache.weights.version)}`);
+    if (memory?.disabled)
+      lines.push(`Cache memory: off (${memory.disabled === "env" ? "disabled" : "no history yet"})`);
+    if (decision?.reused && decision.expiresAt) lines.push(`Cache decision expires: ${decision.expiresAt}`);
+    if (files.refreshedPaths.length > 0) {
+      const listed = files.refreshedPaths.map(quote).join(", ");
+      const more = files.refreshed - files.refreshedPaths.length;
+      lines.push(`Cache refreshed files: ${listed}${files.refreshedTruncated ? ` (and ${more} more)` : ""}`);
+    }
+  }
+  return lines;
+}
+
 /** Mode, region count and retrieval version; the same facts in every human-readable format. */
 export function summaryLines(result: ScopeResult, quote: Quote): string[] {
   const { mode, regions, retrievalConfigVersion, jevQuestionVersion, jev, decisionsReusedFrom, runId } = result;
@@ -30,6 +65,7 @@ export function summaryLines(result: ScopeResult, quote: Quote): string[] {
       : [
           `Decisions reused from ${decisionsReusedFrom} (identical task, candidates and versions; run with --fresh to ask Jev again)`,
         ]),
+    ...cacheLines(result, quote),
     ...(retrievalConfigVersion === undefined ? [] : [`Retrieval config: ${quote(retrievalConfigVersion)}`]),
     ...(jevQuestionVersion === undefined ? [] : [`Jev questions: ${quote(jevQuestionVersion)}`]),
     // Overhead of the external service, not part of the selected context; shown under --explain only.
@@ -79,6 +115,28 @@ function labeler(result: ScopeResult, quote: Quote): (id: string) => string {
   return (id) => known.get(id) ?? `chunk ${quote(id)}`;
 }
 
+const MEMORY_SOURCES: Record<MemoryReason["source"], string> = {
+  missing: "reported missing in a similar task",
+  useful: "confirmed useful in a similar task",
+  selected: "selected by Jev in a similar task",
+};
+
+/** Why memory offered a chunk (#79): the source, the run and its similarity, then the feedback behind it. */
+function memoryLines(memory: MemoryReason | undefined, quote: Quote): string[] {
+  if (!memory) return [];
+  const { feedback } = memory;
+  return [
+    `Memory: ${memory.source}, ${MEMORY_SOURCES[memory.source]} (run ${quote(memory.runId)}, ` +
+      `similarity ${memory.similarity.toFixed(2)})`,
+    ...(feedback
+      ? [
+          `Memory feedback: ${feedback.useful} useful, ${feedback.irrelevant} irrelevant, ${feedback.missing} missing` +
+            (feedback.sources.length === 0 ? "" : ` from ${feedback.sources.map(quote).join(", ")}`),
+        ]
+      : []),
+  ];
+}
+
 /** Signal names are fixed by the retrieval config; sorted so the line is deterministic. */
 export const signalPairs = (signals: Record<string, number>): [string, number][] =>
   Object.entries(signals).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
@@ -91,7 +149,7 @@ export interface ExplainBlock {
 /** The `--explain` evidence for every selected chunk, in the order of `result.chunks`; shared by text and Markdown. */
 export function explainBlocks(result: ScopeResult, quote: Quote): ExplainBlock[] {
   const label = labeler(result, quote);
-  return result.chunks.map(({ chunk, signals, origin, relevance, score, reason, supportFor }) => {
+  return result.chunks.map(({ chunk, signals, origin, relevance, score, reason, supportFor, memory }) => {
     const found = signalPairs(signals).map(([name, value]) => `${name} ${value.toFixed(2)}`);
     let source = "not recorded";
     if (supportFor) source = `supporting declaration for ${supportFor.map(label).join(", ")}`;
@@ -107,6 +165,7 @@ export function explainBlocks(result: ScopeResult, quote: Quote): ExplainBlock[]
         `Score: ${score.toFixed(2)}`,
         `Origin: ${source}`,
         `Reason: ${quote(reason)}`,
+        ...memoryLines(memory, quote),
       ],
     };
   });

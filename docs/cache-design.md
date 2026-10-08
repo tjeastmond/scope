@@ -426,6 +426,16 @@ and reused under theirs; feedback (#76) is recorded under its bounds and read as
 `SCOPE_MEMORY=off` turns retrieval memory off (see Memory signals). `SCOPE_ADAPTIVE=off` uses the baseline weights
 (see Adaptive weights).
 
+## What a run reports (#79)
+
+With the cache on, the result carries a `cache` block (JSON) and a one-line `cache:` summary (text and Markdown); see
+[output-formats.md](output-formats.md) for the fields. It reports the version keys the store is partitioned by, whether
+the run started cold, how many files were reused, refreshed and removed (and which were refreshed, capped), and, for Jev
+runs, whether a stored decision was reused and when it expires, how many memory candidates were added, and which
+adaptive weight set was active. A memory-assisted chunk carries its reason (source, the similar run, similarity and the
+feedback behind it, with its sources). Reporting reads what the run already computed and changes no selection, score or
+candidate. It never includes source, task text, the integrity key or absolute paths.
+
 ## What is never stored
 
 API keys or any environment variable; excluded files; unredacted source; raw Jev responses. Task text is stored after

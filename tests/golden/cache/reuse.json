@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 2,
+  "mode": "jev",
+  "task": "nightly batch job reconcile ledger",
+  "regions": [
+    {
+      "file": "src/ledger/reconcile.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 3,
+      "content": "export function reconcileLedger(x: number) {\n  return x + 1;\n}",
+      "chunks": [
+        {
+          "id": "fd68fcab0b34",
+          "name": "reconcileLedger",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 3,
+          "relevance": 0.9,
+          "score": 0.9,
+          "reason": "Jev relevance 0.90",
+          "signals": {
+            "dependency": 0,
+            "lexical": 1,
+            "path": 0.4,
+            "proximity": 0,
+            "symbol": 1,
+            "test": 0
+          },
+          "origin": "direct"
+        }
+      ]
+    },
+    {
+      "file": "src/misc/zebra.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 3,
+      "content": "export function frobnicateWidgets(x: number) {\n  return x * 2;\n}",
+      "chunks": [
+        {
+          "id": "d3f7cf15d41f",
+          "name": "frobnicateWidgets",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 3,
+          "relevance": 0.9,
+          "score": 0.9,
+          "reason": "Jev relevance 0.90",
+          "memory": {
+            "source": "useful",
+            "runId": "RUN-1",
+            "similarity": 0.4286,
+            "feedback": {
+              "useful": 1,
+              "irrelevant": 0,
+              "missing": 0,
+              "sources": [
+                "user"
+              ]
+            }
+          },
+          "signals": {
+            "dependency": 0,
+            "lexical": 0,
+            "memory": 1,
+            "path": 0,
+            "proximity": 0,
+            "symbol": 0,
+            "test": 0
+          },
+          "origin": "memory: similar task RUN-1"
+        }
+      ]
+    },
+    {
+      "file": "src/misc/zebra2.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 3,
+      "content": "export function frobnicateGadgets(x: number) {\n  return x * 3;\n}",
+      "chunks": [
+        {
+          "id": "e9ffc1c9f91e",
+          "name": "frobnicateGadgets",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 3,
+          "relevance": 0.8,
+          "score": 0.8,
+          "reason": "Jev relevance 0.80",
+          "memory": {
+            "source": "missing",
+            "runId": "RUN-1",
+            "similarity": 0.4286,
+            "feedback": {
+              "useful": 0,
+              "irrelevant": 0,
+              "missing": 1,
+              "sources": [
+                "agent:review-bot"
+              ]
+            }
+          },
+          "signals": {
+            "dependency": 0,
+            "lexical": 0,
+            "memory": 1,
+            "path": 0,
+            "proximity": 0,
+            "symbol": 0,
+            "test": 0
+          },
+          "origin": "memory: missing in similar task RUN-1"
+        }
+      ]
+    }
+  ],
+  "warnings": [],
+  "skipped": [],
+  "retrievalConfigVersion": "retrieval-v4",
+  "jevQuestionVersion": "relevance-v1",
+  "decisionsReusedFrom": "<time>",
+  "runId": "RUN-2",
+  "cache": {
+    "versions": {
+      "analyzer": "analyzer-golden",
+      "grammar:typescript": "1.0.0",
+      "scope": "0.0.0",
+      "store": "1",
+      "treeSitter": "tree-sitter-golden"
+    },
+    "cold": false,
+    "files": {
+      "reused": 7,
+      "refreshed": 0,
+      "removed": 0,
+      "refreshedPaths": []
+    },
+    "decision": {
+      "reused": true,
+      "expiresAt": "<time>"
+    },
+    "memory": {
+      "candidates": 2
+    },
+    "weights": {
+      "version": "baseline"
+    }
+  },
+  "explain": true
+}
