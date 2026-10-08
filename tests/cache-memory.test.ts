@@ -175,6 +175,15 @@ describe("memory candidates", () => {
     expect(rec.names()).toContain("frobnicateGadgets");
   });
 
+  test("a path-level --missing entry does not bring in code that changed since the feedback", async () => {
+    const repo = await makeRepo();
+    const first = await seed(repo, T_WIDGETS);
+    await give(repo, { runId: first.result.runId!, missing: ["src/misc/zebra2.ts"] });
+    await writeFile(join(repo, "src/misc/zebra2.ts"), fn("frobnicateGadgets", "x * 300"));
+    const { rec } = await run(repo, T_NOW);
+    expect(rec.names()).toEqual(["reconcileLedger", "frobnicateWidgets"]);
+  });
+
   test("a chunk confirmed useful by feedback is labeled as similar-task memory at the full signal", async () => {
     const repo = await makeRepo();
     const first = await seed(repo, T_WIDGETS);
@@ -188,11 +197,10 @@ describe("memory candidates", () => {
   test("a chunk confirmed irrelevant is never added", async () => {
     const repo = await makeRepo();
     const first = await seed(repo, T_WIDGETS);
-    await give(repo, {
-      runId: first.result.runId!,
-      irrelevant: [idOf(first.result, "frobnicateWidgets")],
-      missing: ["src/misc/zebra.ts"],
-    });
+    // Irrelevant reports outweigh the one missing report (a tie would be neither).
+    const widgets = idOf(first.result, "frobnicateWidgets");
+    await give(repo, { runId: first.result.runId!, irrelevant: [widgets], missing: ["src/misc/zebra.ts"] });
+    await give(repo, { runId: first.result.runId!, irrelevant: [widgets] });
     const { rec } = await run(repo, T_NOW);
     expect(rec.names()).toEqual(["reconcileLedger"]);
   });
@@ -358,6 +366,24 @@ describe("payload preview", () => {
     expect(rec.names()).toEqual(["reconcileLedger", "frobnicateGadgets", "frobnicateWidgets"]);
     expect(shown.candidateCount).toBe(3);
     expect(shown.requests).toEqual(planJevRequests(T_NOW, rec.calls[0]!));
+  });
+});
+
+describe("payload preview without a key", () => {
+  test("creates no integrity key, state directory or cache, and sends the memory-free payload", async () => {
+    const repo = await makeRepo();
+    const state = join(tmp, "empty-state");
+    await mkdir(state);
+    const shown = await previewJevPayload({
+      task: T_NOW,
+      repo,
+      cache: true,
+      retrieval: SHORTLIST,
+      cacheOptions: { env: {}, integrityEnv: { XDG_STATE_HOME: state } },
+    });
+    expect(await readdir(state)).toEqual([]);
+    expect(await readdir(repo)).not.toContain(".scope");
+    expect(shown.candidateCount).toBe(1);
   });
 });
 

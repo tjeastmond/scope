@@ -271,15 +271,15 @@ under another key, or by hand) verifies as nothing.
     other code. Chunk ids are not content-addressed, so every reference also stores the fingerprint of the content it
     was about (#77): for `--useful` and `--irrelevant`, the fingerprint in the run's history record. `--missing` is classified as `path:start-end` (an included file, 1-based inclusive range within its
     line count), else a repository-relative included file (whole file), else a symbol: the exact `name` of at least one
-    current chunk (its ids and their current content fingerprints are stored, at most 20). Absolute paths, `..`, symlink escapes and files the scan excludes
+    current chunk. A symbol, a path or a range stores the ids and current content fingerprints of the chunks it resolved to (a path or range: those of the file that overlap it; at most 20), so later readers can tell whether that code has changed. Absolute paths, `..`, symlink escapes and files the scan excludes
     (ignored, binary, secret-like) are rejected without being read. Limits: 200 entries per list, 500 characters per
     entry, at least one entry, no id both useful and irrelevant; duplicates collapse. Any failure records nothing.
   - **Errors.** Bad input, `SCOPE_CACHE=off` and a retention bound of 0 are usage errors (exit 2), as for `scope
 cache rebuild`; an unavailable cache or a failed commit is a failure (exit 1).
   - **Storage.** One document per submission, `feedback-<feedbackId>` (same id shape as a run id, so names sort by
-    time), holding `{ record, mac }` (record version 2, which adds the fingerprints; #76 had merged the same day, so version 1
-    needed no migration, and a version 1 document fails verification, is skipped by `readFeedback` and is pruned at the
-    next write like any unverified document). The MAC is an HMAC under the integrity key, bound to the repository root with
+    time), holding `{ record, mac }` (record version 3, which adds fingerprints and, for paths and ranges, the covered chunks; #76 and #77 had merged the
+    same day, so earlier versions needed no migration, and a version 1 or 2 document is skipped by `readFeedback` and
+    pruned at the next write like any unverified document). The MAC is an HMAC under the integrity key, bound to the repository root with
     the domain `feedback`; `readFeedback` returns verified records newest first and skips (with a warning) anything
     unreadable, malformed, renamed or signed by another key or root. Pruning is in the same commit as the write, by
     name time: newest `SCOPE_FEEDBACK_MAX`, none older than `SCOPE_FEEDBACK_MAX_DAYS`; unverified documents take no
@@ -293,8 +293,9 @@ cache rebuild`; an unavailable cache or a failed commit is a failure (exit 1).
   - **Jev judgments** come from history candidates' `relevance`: how many runs judged the chunk, and the mean and
     maximum relevance. This is a model's opinion.
   - **External feedback** comes from feedback records: counts of `useful`, `irrelevant` and `missing` (a symbol
-    `--missing` counts once for each chunk it lists), the time of the latest feedback and the number of distinct
-    sources (the user, and each agent name). Path-level `--missing` entries are kept separately as locations, for
+    `--missing` counts once for each chunk it lists, as does a path or range, each only while that chunk's content is
+    unchanged), the time of the latest feedback and the number of distinct
+    sources (the user, and each agent name). Path-level `--missing` entries are also kept separately as locations, for
     files that are still included.
   - **Fingerprint validation.** Ids are not content-addressed, so an observation counts only when its chunk id exists
     now and its recorded fingerprint equals the current content fingerprint. Deleted or edited code carries no
@@ -313,8 +314,8 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
     `exact` and `words` terms lowercased as one set) are compared with each history record's stored terms by Jaccard
     similarity (shared terms over all terms). A record is similar at `memory.similarityMin` (0.3) or more; an identical
     task scores 1. Only the newest `memory.maxRuns` (20) similar records count.
-  - **Sources, strongest first.** (a) chunks named by `--missing` feedback on a similar run (a symbol, or the current
-    chunks of a file or range); (b) chunks confirmed useful by external feedback; (c) chunks Jev selected in a similar
+  - **Sources, strongest first.** (a) chunks named by `--missing` feedback on a similar run (a symbol, or a file or range;
+    only the chunks the feedback listed, and only while their content is unchanged); (b) chunks confirmed useful by external feedback; (c) chunks Jev selected in a similar
     run. Within a source: higher similarity first, then file, start line and id. Confirmed-irrelevant chunks (#77) are
     never added, and neither is a chunk already in the fresh shortlist. At most `memory.maxCandidates` (5) are added.
   - **Validation.** A remembered chunk must exist in the current scan with the content fingerprint it was recorded
@@ -328,7 +329,8 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
     `memory.maxCandidates` 0 does too (`src/retrieval/config.ts`). Memory is also off with the cache off, with
     `--no-jev` (a pure deterministic baseline) and for a store that was just reset. In every case the shortlist is
     exactly the memory-free one. Memory reads existing history and feedback and stores nothing;
-    `SCOPE_JEV_PAYLOAD=print` shows the same shortlist a run would send, without writing.
+    `SCOPE_JEV_PAYLOAD=print` shows the same shortlist a run would send, without writing: it only reads an existing
+    integrity key (it never creates the key or its directory) and applies no memory when there is none.
   - **Decision reuse.** The decision key covers the final candidate list, so a memory-assisted shortlist has its own
     key. History records of the identical task text do not offer (c) candidates, since that run already judged this
     exact shortlist; this keeps an identical repeat with unchanged code on the same key and a reuse hit.

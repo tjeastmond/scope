@@ -125,13 +125,6 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
     const found = evidence.get(id);
     return found !== undefined && isConfirmedIrrelevant(found.feedback);
   };
-  const chunksOfFile = new Map<string, CodeChunk[]>();
-  for (const chunk of input.chunks) {
-    const list = chunksOfFile.get(chunk.file);
-    if (list) list.push(chunk);
-    else chunksOfFile.set(chunk.file, [chunk]);
-  }
-
   const found = new Map<string, { source: Source; score: number; runId: string }>();
   const offer = (id: string, source: Source, runId: string) => {
     if (!byId.has(id) || irrelevant(id)) return;
@@ -146,18 +139,10 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
   };
 
   for (const record of feedback) {
+    // A symbol, path or range offers the chunks it resolved to, each only while its content is unchanged.
     for (const missing of record.missing) {
-      if ("symbol" in missing) {
-        for (const ref of missing.chunks) {
-          if (current.get(ref.chunkId) === ref.fingerprint) offer(ref.chunkId, "missing", record.runId);
-        }
-        continue;
-      }
-      for (const chunk of chunksOfFile.get(missing.path) ?? []) {
-        const overlaps =
-          missing.startLine === undefined ||
-          (chunk.startLine <= missing.endLine! && chunk.endLine >= missing.startLine);
-        if (overlaps) offer(chunk.id, "missing", record.runId);
+      for (const ref of missing.chunks) {
+        if (current.get(ref.chunkId) === ref.fingerprint) offer(ref.chunkId, "missing", record.runId);
       }
     }
     for (const ref of record.useful) {

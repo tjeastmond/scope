@@ -77,6 +77,23 @@ export function loadIntegrityKey(env: NodeJS.ProcessEnv = process.env): Promise<
   return result;
 }
 
+/**
+ * Reads the per-user key without ever creating it, its directory or anything else. Undefined when no key exists yet
+ * (or no location is usable); a bad key file is a warning, as for {@link loadIntegrityKey}. Not memoized.
+ */
+export async function readExistingIntegrityKey(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<IntegrityKey | undefined> {
+  const path = integrityKeyPath(env);
+  if (path === undefined) return undefined;
+  try {
+    return await readKey(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    return { warning: `cache disabled: integrity key ${path} unusable: ${oneLine(error)}` };
+  }
+}
+
 /** JSON with object keys sorted recursively and `undefined` members omitted, so field order never matters. */
 export function canonical(value: unknown): string {
   if (Array.isArray(value))

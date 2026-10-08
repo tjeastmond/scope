@@ -146,6 +146,8 @@ export function collectEvidence(
         for (const ref of missing.chunks) count(valid(ref.chunkId, ref.fingerprint), "missing");
         continue;
       }
+      // The chunks the location covered when recorded count like a symbol's, each only while its content is unchanged.
+      for (const ref of missing.chunks) count(valid(ref.chunkId, ref.fingerprint), "missing");
       if (!currentFiles?.has(missing.path)) {
         stale++;
         continue;

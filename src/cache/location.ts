@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { lstat, mkdir, open, realpath } from "node:fs/promises";
 import { join } from "node:path";
-import { loadIntegrityKey } from "./integrity.ts";
+import { loadIntegrityKey, readExistingIntegrityKey } from "./integrity.ts";
 import { DocumentStore, type CommitOutcome, type DocumentType, type Transaction } from "./store.ts";
 import { STORE_MAJOR, currentVersionKeys, type VersionKeys } from "./versions.ts";
 
@@ -65,10 +65,19 @@ const oneLine = (error: unknown) =>
  */
 export async function openRepositoryCache(
   repoRoot: string,
-  options: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv; lockWaitMs?: number } = {},
+  options: {
+    keys?: VersionKeys;
+    integrityEnv?: NodeJS.ProcessEnv;
+    lockWaitMs?: number;
+    /** Only read an existing integrity key; with none, no cache is opened and nothing is created. */
+    readOnly?: boolean;
+  } = {},
 ): Promise<{ cache?: RepositoryCache; warnings: string[] }> {
   try {
-    const integrity = await loadIntegrityKey(options.integrityEnv);
+    const integrity = options.readOnly
+      ? await readExistingIntegrityKey(options.integrityEnv)
+      : await loadIntegrityKey(options.integrityEnv);
+    if (integrity === undefined) return { warnings: [] };
     if ("warning" in integrity) return { warnings: [integrity.warning] };
     const root = await realpath(repoRoot);
     const keys = options.keys ?? (await currentVersionKeys());

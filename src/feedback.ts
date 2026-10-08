@@ -188,6 +188,18 @@ function validateInput(input: FeedbackInput): Validated {
 const lineCount = (text: string): number =>
   text.length === 0 ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
 
+/** The current chunks of `path` (those overlapping the range, if given) with their fingerprints, in source order. */
+function refsOverlapping(chunks: readonly CodeChunk[], path: string, startLine?: number, endLine?: number) {
+  return chunks
+    .filter(
+      (chunk) =>
+        chunk.file === path && (startLine === undefined || (chunk.startLine <= endLine! && chunk.endLine >= startLine)),
+    )
+    .sort((a, b) => a.startLine - b.startLine || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .slice(0, MAX_SYMBOL_CHUNKS)
+    .map((chunk) => ({ chunkId: chunk.id, fingerprint: contentFingerprint(chunk.content) }));
+}
+
 /**
  * Resolves one `--missing` value against the current repository. Classification: a value of the form
  * `path:start-end` is a line range of an included text file; any other value that is an included repository-relative
@@ -210,7 +222,7 @@ async function resolveMissing(
     if (normal !== ".." && !normal.startsWith("../") && !normal.endsWith("/") && files.has(normal)) path = normal;
   }
   if (path !== undefined) {
-    if (!range) return { path };
+    if (!range) return { path, chunks: refsOverlapping(chunks, path) };
     const startLine = Number(range[2]);
     const endLine = Number(range[3]);
     if (startLine < 1 || startLine > endLine) {
@@ -222,7 +234,7 @@ async function resolveMissing(
     if (bytes.includes(0)) throw new UsageError(`--missing ${quoted(value)}: ${path} is not a text file.`);
     const lines = lineCount(bytes.toString("utf8"));
     if (endLine > lines) throw new UsageError(`--missing ${quoted(value)}: ${path} has only ${lines} lines.`);
-    return { path, startLine, endLine };
+    return { path, startLine, endLine, chunks: refsOverlapping(chunks, path, startLine, endLine) };
   }
   if (range) {
     throw new UsageError(

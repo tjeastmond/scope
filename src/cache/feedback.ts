@@ -17,7 +17,7 @@ import type { CommitOutcome, DocumentType } from "./store.ts";
 
 export const FEEDBACK_PREFIX = "feedback-";
 /** Version of the record shape; a record of another version is ignored. */
-export const FEEDBACK_RECORD_VERSION = 2;
+export const FEEDBACK_RECORD_VERSION = 3;
 /** Entries per list (useful, irrelevant, missing). */
 export const MAX_FEEDBACK_ENTRIES = 200;
 /** Characters per entry (chunk id, path, symbol name). */
@@ -46,17 +46,18 @@ export interface FeedbackChunkRef {
   current: boolean;
 }
 
-/** A current chunk a `--missing` symbol resolved to, with the fingerprint of its content at that time. */
+/** A current chunk a `--missing` symbol, path or range resolved to, with its content fingerprint at that time. */
 export interface SymbolChunkRef {
   chunkId: string;
   fingerprint: string;
 }
 
 export type FeedbackMissing =
-  { path: string; startLine?: number; endLine?: number } | { symbol: string; chunks: SymbolChunkRef[] };
+  | { path: string; startLine?: number; endLine?: number; chunks: SymbolChunkRef[] }
+  | { symbol: string; chunks: SymbolChunkRef[] };
 
 export interface FeedbackRecord {
-  recordVersion: 2;
+  recordVersion: 3;
   /** `<time as 13 digits>-<8 hex>`, the document name without its prefix. */
   feedbackId: string;
   /** The run the feedback is about (its history record id). */
@@ -110,7 +111,9 @@ function isMissing(value: unknown): value is FeedbackMissing {
       (value.chunks as unknown[]).length > 0
     );
   }
-  if (!onlyKeys(value, ["path", "startLine", "endLine"]) || !isEntry(value.path)) return false;
+  // A path or range lists the chunks it covered when recorded (possibly none), so memory can validate their content.
+  if (!onlyKeys(value, ["path", "startLine", "endLine", "chunks"]) || !isEntry(value.path)) return false;
+  if (!list(value.chunks, MAX_SYMBOL_CHUNKS, isSymbolChunk)) return false;
   // A range has both ends or neither.
   if (value.startLine === undefined || value.endLine === undefined) {
     return value.startLine === undefined && value.endLine === undefined;

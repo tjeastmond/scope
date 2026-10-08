@@ -260,7 +260,7 @@ async function prepareCandidates(
   let ranking: ReadonlyMap<string, RankedChunk> = fresh.ranking;
   let memoryWarnings: string[] = [];
   const store = memory?.open
-    ? (await openRepositoryCache(resolveRepository(repo).root, memory.open)).cache
+    ? (await openRepositoryCache(resolveRepository(repo).root, { ...memory.open, readOnly: true })).cache
     : repositoryCache;
   if (memory && store) {
     const outcome = await withMemory(
