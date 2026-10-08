@@ -198,6 +198,16 @@ describe("status", () => {
     expect((await cli("cache", "status", "--repo", repo)).code).toBe(0);
   });
 
+  test("a corrupt meta is reported as unreadable, with no version state", async () => {
+    const repo = await copyFixture();
+    await warm(repo);
+    await writeFile(join(storeDir(repo), "meta.json"), "{ not json");
+    const status = await cacheStatus(repo);
+    expect(status.documents.unreadable).toEqual(["meta"]);
+    expect(status.versions.state).toBe("no metadata");
+    expect(status.lastUpdated).toBeUndefined();
+  });
+
   test("other store majors are listed with their size", async () => {
     const repo = await copyFixture();
     await mkdir(join(repo, ".scope/store-v9"), { recursive: true });
@@ -412,6 +422,18 @@ describe("rebuild", () => {
     const before = await readFile(join(storeDir(repo), "history-runs.json"), "utf8");
     await rebuildCache(repo, { now: later });
     expect(await readFile(join(storeDir(repo), "history-runs.json"), "utf8")).toBe(before);
+  });
+
+  test("fails with exit 1 when the rebuilt analysis cannot be written", async () => {
+    const repo = await copyFixture();
+    await warm(repo);
+    await writeFile(join(storeDir(repo), "lock"), JSON.stringify({ token: "other", createdAt: Date.now() }));
+    const before = await tree(storeDir(repo));
+    const result = await cli("cache", "rebuild", "--repo", repo);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("could not be written");
+    expect(result.stdout).toBe("");
+    expect(await tree(storeDir(repo))).toEqual(before);
   });
 
   test("never contacts Jev and needs no credentials", async () => {
