@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readBoundedText } from "./bounded-input.ts";
 import { main } from "./main.ts";
 
 // The first Ctrl-C cancels the run cleanly; `once` removes the listener, so a second Ctrl-C terminates the process.
@@ -11,12 +12,7 @@ try {
     stdout: (text) => process.stdout.write(text),
     stderr: (text) => process.stderr.write(text),
     signal: controller.signal,
-    readStdin: async () => {
-      process.stdin.setEncoding("utf8");
-      let text = "";
-      for await (const chunk of process.stdin) text += chunk;
-      return text;
-    },
+    readStdin: (maxBytes) => readBoundedText(process.stdin, maxBytes, "standard input"),
   });
 } finally {
   process.removeListener("SIGINT", onInterrupt);

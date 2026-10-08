@@ -21,8 +21,14 @@ import {
   formatStatus,
   rebuildCache,
 } from "./cache/controls.ts";
-import { mergeFeedbackInput, parseFeedbackFile, submitFeedback, type FeedbackInput } from "./feedback.ts";
-import { readFile } from "node:fs/promises";
+import { readBoundedFile } from "./bounded-input.ts";
+import {
+  MAX_FEEDBACK_FILE_BYTES,
+  mergeFeedbackInput,
+  parseFeedbackFile,
+  submitFeedback,
+  type FeedbackInput,
+} from "./feedback.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { previewJevPayload, runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
@@ -127,8 +133,11 @@ export interface Io {
   provider?: DecisionProvider;
   /** Aborted when the user cancels (Ctrl-C); stops the scan and the Jev request. Tests abort it without real signals. */
   signal?: AbortSignal;
-  /** Reads standard input to the end (`scope feedback --file -`). Tests inject a string. */
-  readStdin?: () => Promise<string>;
+  /**
+   * Reads standard input to the end as UTF-8 (`scope feedback --file -`), failing with a UsageError once more than
+   * `maxBytes` bytes arrive. Tests inject a string.
+   */
+  readStdin?: (maxBytes: number) => Promise<string>;
 }
 
 /** A feedback command: `scope feedback <run-id> ...`. */
@@ -422,15 +431,9 @@ export async function main(argv: string[], io: Io): Promise<number> {
 async function readFeedbackFile(path: string, io: Io): Promise<FeedbackInput> {
   if (path === "-") {
     if (!io.readStdin) throw new UsageError("--file - needs standard input, which is not available.");
-    return parseFeedbackFile(await io.readStdin(), "standard input");
+    return parseFeedbackFile(await io.readStdin(MAX_FEEDBACK_FILE_BYTES), "standard input");
   }
-  let text: string;
-  try {
-    text = await readFile(path, "utf8");
-  } catch {
-    throw new UsageError(`--file could not be read: ${path}`);
-  }
-  return parseFeedbackFile(text, path);
+  return parseFeedbackFile(await readBoundedFile(path, MAX_FEEDBACK_FILE_BYTES, path), path);
 }
 
 async function runFeedback(options: FeedbackCliOptions, io: Io): Promise<void> {

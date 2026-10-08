@@ -67,7 +67,7 @@ const sha256 = (text: string) => createHash("sha256").update(text).digest("hex")
  * else (a non-object, an unknown key, a wrong type) is a usage error.
  */
 export function parseFeedbackFile(text: string, label: string): FeedbackInput {
-  if (text.length > MAX_FEEDBACK_FILE_BYTES) {
+  if (Buffer.byteLength(text, "utf8") > MAX_FEEDBACK_FILE_BYTES) {
     throw new UsageError(`${label} is larger than ${MAX_FEEDBACK_FILE_BYTES} bytes.`);
   }
   let parsed: unknown;
@@ -188,9 +188,9 @@ const lineCount = (text: string): number =>
 
 /**
  * Resolves one `--missing` value against the current repository. Classification: a value of the form
- * `path:start-end` is a line range of an included file; any other value that is an included repository-relative file
- * path is the whole file; anything else must be the exact `name` of at least one current chunk (a symbol). A path
- * that is absolute, climbs out of the repository, or is not a file the scan includes (ignored, binary, secret-like,
+ * `path:start-end` is a line range of an included file; any other value that is an included repository-relative text file
+ * path is the whole file (a text file in a language Scope has no analyzer for counts); anything else must be the exact `name` of at least one current chunk (a symbol). A path
+ * that is absolute, climbs out of the repository, or is not a text file the scan includes (ignored, binary, secret-like,
  * excluded) is never read and is not a symbol either, so it is rejected.
  */
 async function resolveMissing(

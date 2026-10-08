@@ -13,8 +13,9 @@ import {
 } from "../src/cache/feedback.ts";
 import { readHistory } from "../src/cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "../src/cache/location.ts";
+import { readBoundedFile, readBoundedText } from "../src/bounded-input.ts";
 import { UsageError } from "../src/errors.ts";
-import { submitFeedback, type FeedbackInput, type FeedbackResult } from "../src/feedback.ts";
+import { MAX_FEEDBACK_FILE_BYTES, submitFeedback, type FeedbackInput, type FeedbackResult } from "../src/feedback.ts";
 import { main, type Io } from "../src/main.ts";
 import { renderFormat } from "../src/output/index.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
@@ -268,6 +269,77 @@ describe("--file input and the CLI", () => {
     const merged = records.find((r) => r.source.kind === "agent")!;
     expect(merged.source).toEqual({ kind: "agent", name: "bot" });
     expect(merged.useful.map((r) => r.chunkId).sort()).toEqual([a, b].sort());
+  });
+
+  test("a text file in a language without an analyzer is an accepted whole-file --missing target", async () => {
+    const { repo, runId } = await started();
+    await writeFile(join(repo, "notes.txt"), "plain notes\n");
+    const fed = await give(repo, { runId, missing: ["notes.txt", "notes.txt:1-1"] });
+    expect(fed.counts.missing).toBe(2);
+  });
+
+  test("a NUL byte anywhere makes a file an invalid --missing target, whole or ranged", async () => {
+    const { repo, runId } = await started();
+    const late = Buffer.concat([
+      Buffer.from("export const late = 1;\n".repeat(600)),
+      Buffer.from([0]),
+      Buffer.from("\n"),
+    ]);
+    expect(late.indexOf(0)).toBeGreaterThan(8192);
+    await writeFile(join(repo, "late.ts"), late);
+    await writeFile(join(repo, "early.ts"), Buffer.from("export const early = 1;\n\0\n"));
+    for (const value of ["late.ts", "late.ts:1-2", "early.ts", "early.ts:1-1"]) {
+      await rejected(repo, { runId, missing: [value] }, /--missing/);
+    }
+    expect(await feedbackNames(repo)).toEqual([]);
+  });
+
+  test("an oversized --file or stdin document is a usage error that records nothing, counting bytes not characters", async () => {
+    const { repo, runId, a } = await started();
+    const base = { runId, useful: [a] };
+    // Under the limit in characters, over it in bytes: 4-byte characters.
+    const wide = JSON.stringify({ ...base, agent: "\u{1F600}".repeat(MAX_FEEDBACK_FILE_BYTES / 4 - 10) });
+    expect(wide.length).toBeLessThan(MAX_FEEDBACK_FILE_BYTES);
+    expect(Buffer.byteLength(wide)).toBeGreaterThan(MAX_FEEDBACK_FILE_BYTES);
+    const plain = JSON.stringify({ ...base, agent: "x".repeat(MAX_FEEDBACK_FILE_BYTES) });
+    for (const document of [wide, plain]) {
+      const file = join(tmp, "big.json");
+      await writeFile(file, document);
+      const fromFile = await cli(["feedback", "--file", file, "--repo", repo]);
+      expect(fromFile.code).toBe(2);
+      expect(fromFile.stderr).toContain("larger than");
+      const fromStdin = await cli(["feedback", "--file", "-", "--repo", repo], document);
+      expect(fromStdin.code).toBe(2);
+      expect(fromStdin.stderr).toContain("larger than");
+    }
+    expect(await feedbackNames(repo)).toEqual([]);
+  });
+
+  test("the bounded readers stop as soon as the limit is crossed", async () => {
+    let produced = 0;
+    async function* endless() {
+      while (true) {
+        produced++;
+        yield Buffer.alloc(1000, 0x61);
+      }
+    }
+    let error: unknown;
+    try {
+      await readBoundedText(endless(), 5000, "standard input");
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(UsageError);
+    expect(produced).toBe(6);
+    const split = (async function* () {
+      yield "h\u00e9";
+      yield Buffer.from("llo");
+    })();
+    expect(await readBoundedText(split, 7, "x")).toBe("h\u00e9llo");
+    const file = join(tmp, "limit.txt");
+    await writeFile(file, "x".repeat(11));
+    await expect(readBoundedFile(file, 10, "limit.txt")).rejects.toBeInstanceOf(UsageError);
+    expect(await readBoundedFile(file, 11, "limit.txt")).toBe("x".repeat(11));
   });
 
   test("an unknown key, a wrong type and a run id mismatch are usage errors that record nothing", async () => {
