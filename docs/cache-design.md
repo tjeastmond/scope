@@ -333,7 +333,10 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
     integrity key (it never creates the key or its directory) and applies no memory when there is none.
   - **Decision reuse.** The decision key covers the final candidate list, so a memory-assisted shortlist has its own
     key. History records of the identical task text do not offer (c) candidates, since that run already judged this
-    exact shortlist; this keeps an identical repeat with unchanged code on the same key and a reuse hit.
+    exact shortlist; this keeps an identical repeat with unchanged code on the same key and a reuse hit. History keeps
+    only the first 4,000 characters of a task, so a task is treated as identical only when neither it nor the record was
+    truncated. Two long tasks that share that prefix are then related, not identical; the cost is that a long task's
+    first repeat gets a fresh Jev review instead of a reuse hit.
 - **Decision reuse** (#75, `src/cache/decisions.ts`) is separate from analysis reuse: a similar task always gets a
   fresh Jev review, and a Jev decision is reused only on an exact key match within its expiry.
   - **Key.** `keyId` is HMAC-SHA256, under the integrity key and bound to the repository's real root, of: the exact task
