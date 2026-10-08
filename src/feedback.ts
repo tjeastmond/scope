@@ -188,10 +188,11 @@ const lineCount = (text: string): number =>
 
 /**
  * Resolves one `--missing` value against the current repository. Classification: a value of the form
- * `path:start-end` is a line range of an included file; any other value that is an included repository-relative text file
- * path is the whole file (a text file in a language Scope has no analyzer for counts); anything else must be the exact `name` of at least one current chunk (a symbol). A path
- * that is absolute, climbs out of the repository, or is not a text file the scan includes (ignored, binary, secret-like,
- * excluded) is never read and is not a symbol either, so it is rejected.
+ * `path:start-end` is a line range of an included text file; any other value that is an included repository-relative
+ * text file path is the whole file (a text file in a language Scope has no analyzer for counts); anything else must be
+ * the exact `name` of at least one current chunk (a symbol). A path that is absolute, climbs out of the repository, or
+ * is not a text file the scan includes (ignored, binary, secret-like, excluded) is never read and is not a symbol
+ * either, so it is rejected.
  */
 async function resolveMissing(
   value: string,
