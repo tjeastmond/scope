@@ -103,7 +103,12 @@ and never touches the integrity key. `rebuild` rewrites analysis data only (unle
 the whole store as any run does); `clear` removes everything. To run a task
 that is literally the word `cache`, write `scope -- cache`.
 
-Retention bounds for the data later features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`
+The cache also keeps a bounded run history of Jev runs: the redacted task, chunk ids and content fingerprints, Jev
+scores and the selection, signed with the same per-user key; never source code or keys. `--no-jev` runs are not
+recorded. Bound it with `SCOPE_HISTORY_MAX_RUNS` and `SCOPE_HISTORY_MAX_DAYS`, or turn it off with
+`SCOPE_HISTORY_MAX_RUNS=0`.
+
+Retention bounds for the data features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`
 (default 200), `SCOPE_HISTORY_MAX_DAYS` (90), `SCOPE_DECISIONS_MAX` (500), `SCOPE_DECISIONS_MAX_DAYS` (7),
 `SCOPE_FEEDBACK_MAX` (2000) and `SCOPE_FEEDBACK_MAX_DAYS` (365). Each takes a whole number from 0 (keep none) up to
 10 times its default; an invalid value is ignored with a warning.

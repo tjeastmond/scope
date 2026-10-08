@@ -227,11 +227,31 @@ under another key, or by hand) verifies as nothing.
 - **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
 - It is the only file Scope writes outside the project.
 
-## Retrieval memory (#73 to #78, _planned_)
+## Retrieval memory (#73 implemented; #74 to #78 _planned_)
 
-- **History** records, per run: run id, time, the redacted task and its normalized terms, mode, each candidate's
-  chunk id, file, kind, name and content fingerprint, Jev relevance, the selection decision, bounded request metadata
-  (latency, usage) and the decision configuration (SDK version, question version, retrieval config version).
+- **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
+  finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
+  holds `{ record, mac }`; `mac` is an HMAC-SHA256 of the record and the repository's real root under the integrity key, and
+  `readHistory` skips a record whose MAC, shape or id (it must match the document name) fails, and any `history-*`
+  name Scope never writes, so a planted or cloned `.scope/`, or history copied from another repository, contributes
+  no history. A record holds: record version, run id, time, the redacted task (credential shapes and the configured `TYPESAFE_API_KEY` value removed; cut to 4,000 characters, with a
+  `truncated` flag) and its normalized terms (each list capped at 200 terms of at most 200 characters), mode, the
+  decision configuration (Scope version, installed SDK version, model, question version, retrieval config version),
+  bounded request metadata (latency, request count, token totals, only valid non-negative integers) and the
+  candidates (at most 1,000, selected chunks first): chunk id, file, kind, name, a SHA-256 fingerprint of the chunk
+  content (the content itself is not stored), origin, Jev relevance (kept for a support Jev judged) and the decision (`selected`, `support` or
+  `skipped`, with `supportFor` for supports).
+- **When a run records.** Only when the cache is on, the mode is `jev` and Jev judged candidates. `--no-jev` runs, runs
+  with no candidates, cancelled runs and `previewJevPayload` record nothing: they carry no Jev judgment to learn from,
+  and diagnostic baselines would evict real history from the bounded store. The record is written in a second commit
+  after the selection is built, so it never changes the selection or any output field. If that commit fails the run
+  still succeeds and gains one warning, `history not recorded: <reason>`.
+- **Pruning** happens in the same commit, by the time in the document name: the newest `SCOPE_HISTORY_MAX_RUNS`
+  survive and none older than `SCOPE_HISTORY_MAX_DAYS`. A `history-*` document whose name does not parse was not
+  written by Scope and is removed, and so is any document that fails verification (shape, id or MAC), so a
+  planted name can never take a retention slot. With either bound at 0 nothing is written and all history is removed.
+  `scope cache status` counts the documents by name only (it never loads the integrity key); `rebuild` leaves history
+  alone on a current cache and `clear` removes it.
 - **Evidence classes are kept apart** (#77): Scope's predictions (selected), Jev's judgments, and external feedback.
   Only external feedback counts as confirmed usefulness; repeated selection or a high Jev score never does.
 - **Memory signals** (#74) only add candidates or add a bounded score; they never remove a fresh match, reserved slots
@@ -257,7 +277,8 @@ The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_
 `SCOPE_DECISIONS_MAX`, `SCOPE_DECISIONS_MAX_DAYS`, `SCOPE_FEEDBACK_MAX` and `SCOPE_FEEDBACK_MAX_DAYS` (`src/cache/retention.ts`,
 `resolveRetention`). A value must be a non-negative decimal integer, at most 10 times its default; 0 keeps none (the data
 type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
-bounds in effect. Nothing consumes them yet: #73, #75 and #76 will.
+bounds in effect. History (#73) is recorded under its bounds today and #74 will consume it; decisions (#75) and
+feedback (#76) are still planned.
 
 ## What is never stored
 

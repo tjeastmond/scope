@@ -5,6 +5,7 @@ import { CancelledError, UsageError } from "../errors.ts";
 import { resolveRepository } from "../repository/root.ts";
 import { loadChunks } from "../scope.ts";
 import { SHARD_NAME, filesType, shardType } from "./analysis.ts";
+import { HISTORY_PREFIX } from "./history.ts";
 import { CACHE_DIR, metaType } from "./location.ts";
 import { resolveRetention, type RetentionBounds } from "./retention.ts";
 import { BREAK_CLAIM_PREFIX, DATA_TEMP, DocumentStore, LOCK_FILE } from "./store.ts";
@@ -100,6 +101,8 @@ export interface CacheStatus {
     unreadable: string[];
     analysisShards: number;
     analysisEntries: number;
+    /** Documents named `history-*`, counted by name only: status never loads the integrity key, so it cannot verify them. */
+    historyRuns: number;
     /** Entries of the `files` document; 0 when it is missing or unreadable. */
     statRecords: number;
   };
@@ -136,7 +139,7 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
     exists: layout.stores.includes(name),
     sizeBytes: 0,
     size: formatBytes(0),
-    documents: { total: 0, unreadable: [], analysisShards: 0, analysisEntries: 0, statRecords: 0 },
+    documents: { total: 0, unreadable: [], analysisShards: 0, analysisEntries: 0, historyRuns: 0, statRecords: 0 },
     versions: { state: "no metadata", differing: [] },
     lastUpdated: undefined,
     otherStores: [],
@@ -175,6 +178,7 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
     if (Number.isNaN(lastUsed.getTime())) unreadable("meta");
     else status.lastUpdated = lastUsed.toISOString();
   }
+  status.documents.historyRuns = names.filter((candidate) => candidate.startsWith(HISTORY_PREFIX)).length;
   if (names.includes(filesType.name)) {
     const files = await documents.read(filesType);
     if (files.warning) unreadable(filesType.name);
@@ -202,6 +206,7 @@ export function formatStatus(status: CacheStatus): string {
       `  documents:     ${documents.total}${documents.unreadable.length > 0 ? `, unreadable: ${documents.unreadable.join(", ")}` : ""}`,
       `  analysis:      ${documents.analysisEntries} entries in ${documents.analysisShards} shards`,
       `  stat records:  ${documents.statRecords}`,
+      `  history runs:  ${documents.historyRuns}`,
       `  versions:      ${versions.state === "stale" ? `stale: ${versions.differing.join(", ")} differ` : versions.state}`,
       `  last updated:  ${status.lastUpdated ?? "never"}`,
     );

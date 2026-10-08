@@ -65,7 +65,7 @@ const oneLine = (error: unknown) =>
  */
 export async function openRepositoryCache(
   repoRoot: string,
-  options: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv } = {},
+  options: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv; lockWaitMs?: number } = {},
 ): Promise<{ cache?: RepositoryCache; warnings: string[] }> {
   try {
     const integrity = await loadIntegrityKey(options.integrityEnv);
@@ -79,6 +79,7 @@ export async function openRepositoryCache(
     // (Node has no openat/unlinkat, so a process rewriting the repository between a check and the next system call
     // is out of reach; such a process can already write the repository directly.)
     const store = new DocumentStore(directory, {
+      lockWaitMs: options.lockWaitMs,
       verifyDirectory: async () => {
         if ((await realpath(directory)) !== directory) {
           throw new Error(`${directory} is not a directory (symlinks are not followed)`);
