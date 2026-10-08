@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { join } from "node:path";
 import { CancelledError, UsageError } from "../errors.ts";
 import { resolveRepository } from "../repository/root.ts";
+import { DEFAULT_RETRIEVAL_CONFIG } from "../retrieval/config.ts";
 import { loadChunks } from "../scope.ts";
 import { SHARD_NAME, filesType, shardType } from "./analysis.ts";
 import { DECISION_PREFIX } from "./decisions.ts";
@@ -10,6 +11,7 @@ import { FEEDBACK_PREFIX } from "./feedback.ts";
 import { HISTORY_PREFIX } from "./history.ts";
 import { CACHE_DIR, metaType } from "./location.ts";
 import { resolveRetention, type RetentionBounds } from "./retention.ts";
+import { WEIGHTS_DOCUMENT, weightsType } from "./weights.ts";
 import { BREAK_CLAIM_PREFIX, DATA_TEMP, DocumentStore, LOCK_FILE } from "./store.ts";
 import { STORE_MAJOR, currentVersionKeys, type VersionKeys } from "./versions.ts";
 
@@ -117,6 +119,11 @@ export interface CacheStatus {
     /** Which of root, store, scope, analyzer, treeSitter and grammars differ from this Scope's; empty unless stale. */
     differing: string[];
   };
+  /**
+   * The adaptive weights document (#78), read by name and shape only (status never loads the integrity key, so the
+   * signature is not checked): its version, or undefined for the baseline.
+   */
+  weights: { version: string; baselineVersion: string; evaluation: string } | undefined;
   /** ISO 8601 time of the last cache write, or undefined when never. */
   lastUpdated: string | undefined;
   /** Other `store-v*` directories present (for example from another Scope major). */
@@ -156,6 +163,7 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
       statRecords: 0,
     },
     versions: { state: "no metadata", differing: [] },
+    weights: undefined,
     lastUpdated: undefined,
     otherStores: [],
     retention,
@@ -201,6 +209,19 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
     if (files.warning) unreadable(filesType.name);
     status.documents.statRecords = files.value ? Object.keys(files.value.files).length : 0;
   }
+  if (names.includes(WEIGHTS_DOCUMENT)) {
+    const weights = await documents.read(weightsType);
+    if (weights.warning) unreadable(WEIGHTS_DOCUMENT);
+    else if (weights.value) {
+      const { record } = weights.value;
+      const { baseline, proposal } = record.evaluation;
+      status.weights = {
+        version: record.version,
+        baselineVersion: record.baselineVersion,
+        evaluation: `held-out recall ${proposal.found}/${proposal.total} against the baseline's ${baseline.found}/${baseline.total} on ${record.evaluation.tasks} tasks`,
+      };
+    }
+  }
   for (const documentName of names.filter((candidate) => SHARD_NAME.test(candidate))) {
     status.documents.analysisShards++;
     const shard = await documents.read(shardType(documentName));
@@ -208,6 +229,15 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
     status.documents.analysisEntries += shard.value ? Object.keys(shard.value.entries).length : 0;
   }
   return status;
+}
+
+function formatWeights(weights: CacheStatus["weights"]): string {
+  if (!weights) return "baseline";
+  const stale =
+    weights.baselineVersion === DEFAULT_RETRIEVAL_CONFIG.version
+      ? ""
+      : `, stale for ${weights.baselineVersion}: baseline in use`;
+  return `${weights.version} (${weights.evaluation}; signature not checked here${stale})`;
 }
 
 /** The text form of {@link cacheStatus}. */
@@ -227,6 +257,7 @@ export function formatStatus(status: CacheStatus): string {
       `  decisions:     ${documents.decisions}`,
       `  feedback:      ${documents.feedback}`,
       `  versions:      ${versions.state === "stale" ? `stale: ${versions.differing.join(", ")} differ` : versions.state}`,
+      `  weights:       ${formatWeights(status.weights)}`,
       `  last updated:  ${status.lastUpdated ?? "never"}`,
     );
   }
@@ -317,6 +348,45 @@ export async function clearCache(repo: string, options: { lockWaitMs?: number } 
     }
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// reset-weights
+
+export interface ResetWeightsResult {
+  /** True when an adaptive weights document was removed. */
+  removed: boolean;
+}
+
+/**
+ * Removes the adaptive weights document (#78) so runs use the baseline weights exactly again. Everything else stays:
+ * analysis, history, feedback, decisions and the metadata. Done in one store commit under the lock. Without a store
+ * there is nothing to remove and nothing is created. A symlinked `.scope` or store directory is refused.
+ */
+export async function resetWeights(repo: string, options: { lockWaitMs?: number } = {}): Promise<ResetWeightsResult> {
+  const layout = await inspectLayout(repo);
+  const name = `store-v${STORE_MAJOR}`;
+  if (layout.scopeDir === undefined || !layout.stores.includes(name)) return { removed: false };
+  const directory = join(layout.scopeDir, name);
+  const store = new DocumentStore(directory, {
+    lockWaitMs: options.lockWaitMs,
+    verifyDirectory: async () => {
+      if ((await realpath(directory)) !== directory) {
+        throw new Error(`${directory} is not a directory (symlinks are not followed)`);
+      }
+    },
+  });
+  let removed = false;
+  const outcome = await store.commit(async (tx) => {
+    if ((await tx.list()).includes(WEIGHTS_DOCUMENT)) {
+      tx.removeName(WEIGHTS_DOCUMENT);
+      removed = true;
+    }
+  });
+  if (!outcome.committed) {
+    throw new CacheControlError(`could not reset the adaptive weights: ${outcome.warning}. Nothing was changed.`);
+  }
+  return { removed };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

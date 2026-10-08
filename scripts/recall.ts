@@ -3,35 +3,12 @@
 
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks } from "../src/scope.ts";
-import { FIXTURES, loadLabeledTasks, resolve, TASKS, type LabeledTask } from "../tests/helpers/labels.ts";
+import { FIXTURES, TASKS } from "../tests/helpers/labels.ts";
+import { measureRecall, pct } from "./recall-lib.ts";
 
-interface TaskRecall {
-  fixture: string;
-  task: LabeledTask;
-  found: string[];
-  missed: string[];
-}
-
-const pct = (found: number, total: number) => (total === 0 ? "n/a" : `${((100 * found) / total).toFixed(0)}%`);
-
-/** A label is present when any chunk it resolves to is in the shortlist; an unresolvable label is a labeling error. */
-async function measure(fixture: string): Promise<TaskRecall[]> {
-  const { chunks } = await loadChunks(join(FIXTURES, fixture));
-  const results: TaskRecall[] = [];
-  for (const task of await loadLabeledTasks(fixture)) {
-    const shortlist = new Set(selectCandidates(task.task, chunks).candidates.map((chunk) => chunk.id));
-    const result: TaskRecall = { fixture, task, found: [], missed: [] };
-    for (const label of task.required) {
-      const resolved = resolve(label, chunks);
-      if (resolved.length === 0) throw new Error(`${fixture}/${task.id}: label does not match any chunk: ${label}`);
-      (resolved.some((chunk) => shortlist.has(chunk.id)) ? result.found : result.missed).push(label);
-    }
-    results.push(result);
-  }
-  return results;
-}
+/** Loads the fixture and measures every task with the baseline config. */
+const measure = async (fixture: string) => measureRecall(fixture, (await loadChunks(join(FIXTURES, fixture))).chunks);
 
 const fixtures =
   process.argv.length > 2

@@ -227,7 +227,7 @@ under another key, or by hand) verifies as nothing.
 - **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
 - It is the only file Scope writes outside the project.
 
-## Retrieval memory (#73, #74, #75, #76 and #77 implemented; #78 _planned_)
+## Retrieval memory (#73, #74, #75, #76 and #77 and #78 implemented)
 
 - **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
   finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
@@ -328,7 +328,7 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
     `memory` signal next to the six retrieval signals (as they were, or 0), and its retrieval total is left as it was:
     memory decides only which chunks are appended and in what order, and Jev's relevance is the score. Its origin is `memory: missing in similar task <runId>` for (a) and
     `memory: similar task <runId>` for (b) and (c); the report shows it as the chunk's source.
-  - **Controls.** `SCOPE_MEMORY=off` (any other value or none leaves memory on) turns it off for benchmarks;
+  - **Controls.** `SCOPE_MEMORY=off` (any other value or none leaves memory on) turns it off for benchmarks (and `SCOPE_ADAPTIVE=off` the adapted weights);
     `memory.maxCandidates` 0 does too (`src/retrieval/config.ts`). Memory is also off with the cache off, with
     `--no-jev` (a pure deterministic baseline) and for a store that was just reset. In every case the shortlist is
     exactly the memory-free one. Memory reads existing history and feedback and stores nothing;
@@ -378,8 +378,34 @@ candidates and versions; run with --fresh to ask Jev again)`. A hit has no `jev`
   - **Failure.** A decision is stored after the selection is built, in its own commit. If that fails the run still
     succeeds and gains one warning, `decision not cached: <reason>`, after the other cache warnings. `--no-jev` runs,
     runs with no candidates, cancelled runs and `previewJevPayload` neither read nor write decisions.
-- **Adaptive weights** (#78) are versioned, bounded around the baseline, promoted only after held-out evaluation, and
-  can be reset to the baseline.
+- **Adaptive weights** (#78) are described in the next section.
+
+### Adaptive weights (#78)
+
+Retrieval weights can be adapted within a fixed bound, only after a held-out evaluation, and are always reversible.
+
+- **Baseline.** `DEFAULT_RETRIEVAL_CONFIG.weights` (version `retrieval-v4`) is never stored or edited. Adaptation is
+  one multiplier per signal (symbol, lexical, path, dependency, test, proximity), each within 0.8 to 1.2 (a bound of 0.2).
+- **Document.** One signed document, `weights-active`: the multipliers, the baseline version they apply to, the held-out
+  evaluation that justified them and a MAC under the per-user integrity key. Its version is `adaptive-<12 hex>`, a hash
+  of the baseline version and the multipliers. It holds numbers only: no task text, labels or paths.
+- **Verification.** A document with a wrong MAC, a multiplier outside the bound, a `baselineVersion` other than the
+  current baseline, or one that is unreadable or malformed is ignored with exactly one warning, and the baseline is used.
+- **Runtime.** In a Jev run with the cache on, weights become baseline times multiplier and the configuration version
+  becomes `<baseline>+<adaptive>` (for example `retrieval-v4+adaptive-0123456789ab`). That version appears in the result,
+  in run history and in the decision key, so a decision made under one weight set is never reused under another.
+  `SCOPE_ADAPTIVE=off` (any other value leaves it on), `--no-jev`, `--no-cache` and a store that was just reset all use
+  the baseline. `SCOPE_JEV_PAYLOAD=print` shows the shortlist the adapted run would send.
+- **Proposals.** `proposeWeights` learns only from external feedback (#77): chunks confirmed useful against chunks
+  confirmed irrelevant (or, with no irrelevant feedback, the other candidates of the same run), comparing each signal's
+  mean under the baseline. Scope's own selections and Jev scores are never evidence. No feedback gives the identity.
+- **Gate.** `scripts/adapt-weights.ts` evaluates the baseline and the proposal on the `heldout` split of a labeled
+  fixture, with retrieval only (never `runScope`), so held-out task text and labels are never written to history,
+  feedback or decisions. A proposal is promoted (with `--promote`) only if held-out recall is strictly higher on the
+  same labels over at least one task and it differs from the baseline; otherwise nothing is written and a reason is shown.
+- **Rollback.** `scope cache reset-weights` removes only the weights document. `scope cache status` shows the active
+  version, or `baseline`; `scope cache clear` removes the document with everything else. Status cannot verify the MAC
+  (it never loads the key), so it labels the version unverified.
 
 ## Retention bounds
 
@@ -397,7 +423,8 @@ The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_
 type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
 bounds in effect. History (#73) is recorded under its bounds and read by memory (#74); decisions (#75) are stored
 and reused under theirs; feedback (#76) is recorded under its bounds and read as evidence by #77 and by memory.
-`SCOPE_MEMORY=off` turns retrieval memory off (see Memory signals).
+`SCOPE_MEMORY=off` turns retrieval memory off (see Memory signals). `SCOPE_ADAPTIVE=off` uses the baseline weights
+(see Adaptive weights).
 
 ## What is never stored
 

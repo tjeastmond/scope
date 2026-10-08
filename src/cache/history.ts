@@ -244,6 +244,8 @@ export interface RecordInput {
   relevance: ReadonlyMap<string, number>;
   jev?: JevMetrics;
   time: number;
+  /** The retrieval config version the run used, adaptive suffix included (#78); default: the baseline's. */
+  retrievalConfigVersion?: string;
 }
 
 /** Builds the record of a run. Pure apart from the random part of the run id and reading the installed versions. */
@@ -295,7 +297,7 @@ export async function buildHistoryRecord(input: RecordInput, versions: { scope: 
       sdkVersion: await sdkVersion(),
       model: jevModel(),
       questionVersion: JEV_QUESTION_VERSION,
-      retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
+      retrievalConfigVersion: input.retrievalConfigVersion ?? DEFAULT_RETRIEVAL_CONFIG.version,
     },
     request: {
       ...(jev === undefined ? {} : { latencyMs: jev.latencyMs }),

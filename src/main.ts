@@ -20,6 +20,7 @@ import {
   formatBytes,
   formatStatus,
   rebuildCache,
+  resetWeights,
 } from "./cache/controls.ts";
 import { readBoundedFile } from "./bounded-input.ts";
 import {
@@ -59,6 +60,7 @@ Cache commands:
   scope cache status  [--repo <path>] [--format text|json]   Show what the local cache holds
   scope cache clear   [--repo <path>] --yes                  Delete everything Scope stored in .scope/
   scope cache rebuild [--repo <path>]                        Reanalyze every file and rewrite the analysis cache
+  scope cache reset-weights [--repo <path>]                  Remove adaptive retrieval weights; use the baseline again
 Run scope cache --help for details. To run a task that is literally the word cache: scope -- cache
 
 Feedback:
@@ -67,12 +69,13 @@ Tell Scope what turned out to be useful. Run scope feedback --help for details. 
 word feedback: scope -- feedback
 `;
 
-const CACHE_ACTIONS = ["status", "clear", "rebuild"] as const;
+const CACHE_ACTIONS = ["status", "clear", "rebuild", "reset-weights"] as const;
 type CacheAction = (typeof CACHE_ACTIONS)[number];
 
 const CACHE_HELP = `Usage: scope cache status  [--repo <path>] [--format text|json]
        scope cache clear   [--repo <path>] --yes
        scope cache rebuild [--repo <path>]
+       scope cache reset-weights [--repo <path>]
 
 Inspect and control the local cache in <repo>/.scope/. None of these commands needs Jev or a task.
 
@@ -86,6 +89,8 @@ Commands:
   rebuild  Reanalyze every file and rewrite the analysis cache, ignoring cached entries. On a current cache it
            touches only analysis data; a stale cache (another root or other version keys) is reset entirely,
            as by any run. Does not work with SCOPE_CACHE=off.
+  reset-weights  Remove the adaptive retrieval weights, if any, so runs use the baseline weights exactly again.
+           Analysis, history, feedback and decisions stay. status shows the active weights version, or baseline.
 
 Options:
   --repo <path>      Repository (default: current directory)
@@ -95,6 +100,7 @@ Options:
 
 Retention bounds (shown by status; used by features that keep history) can be set with SCOPE_HISTORY_MAX_RUNS,
 SCOPE_HISTORY_MAX_DAYS, SCOPE_DECISIONS_MAX, SCOPE_DECISIONS_MAX_DAYS, SCOPE_FEEDBACK_MAX and SCOPE_FEEDBACK_MAX_DAYS.
+SCOPE_ADAPTIVE=off makes runs ignore adaptive retrieval weights and use the baseline (like SCOPE_MEMORY=off for memory).
 `;
 
 const FEEDBACK_HELP = `Usage: scope feedback <run-id> [--useful <chunk-id>]... [--irrelevant <chunk-id>]...
@@ -469,6 +475,13 @@ async function runCache(options: CacheCliOptions, io: Io): Promise<void> {
     const bytes = result.stores.reduce((sum, store) => sum + store.bytes, 0);
     io.stdout(
       `Cleared ${result.stores.length} store${result.stores.length === 1 ? "" : "s"}: removed ${documents} documents (${formatBytes(bytes)}).\n`,
+    );
+  } else if (options.action === "reset-weights") {
+    const result = await resetWeights(options.repo);
+    io.stdout(
+      result.removed
+        ? "Removed the adaptive retrieval weights; runs use the baseline weights.\n"
+        : "No adaptive retrieval weights were active; runs already use the baseline weights.\n",
     );
   } else if (options.action === "rebuild") {
     const result = await rebuildCache(options.repo, { signal: io.signal });
