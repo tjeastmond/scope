@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { lstat, mkdir, open, readFile } from "node:fs/promises";
+import { link, lstat, mkdir, open, readFile, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
 /** Result of looking for the per-user integrity key: the key, or why the cache must stay off. */
@@ -37,20 +37,32 @@ async function readKey(path: string): Promise<IntegrityKey> {
   return { key: Buffer.from(text, "hex") };
 }
 
+/**
+ * Publishes a new key atomically: it is written and flushed under a temporary name, then hard-linked into place, which
+ * fails with EEXIST if another run won the race. A concurrent first run therefore never reads an empty or partial key.
+ */
+async function createKey(path: string): Promise<void> {
+  const temporary = `${path}.${randomBytes(8).toString("hex")}.tmp`;
+  try {
+    const handle = await open(temporary, "wx", 0o600);
+    try {
+      await handle.writeFile(`${randomBytes(32).toString("hex")}\n`, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await link(temporary, path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
 async function load(path: string): Promise<IntegrityKey> {
   try {
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-    try {
-      const handle = await open(path, "wx", 0o600);
-      try {
-        await handle.writeFile(`${randomBytes(32).toString("hex")}\n`, "utf8");
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    }
+    await createKey(path);
     return await readKey(path);
   } catch (error) {
     return { warning: `cache disabled: integrity key ${path} unusable: ${oneLine(error)}` };
