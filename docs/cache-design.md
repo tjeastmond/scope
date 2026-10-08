@@ -184,14 +184,31 @@ one of their commits or a merge of both, never a mix of half-written documents.
   result, because every file is decided independently by its own hash and the commit keeps only what this run used. The
   next run is all stat hits (once the files are past the racy margin).
 
-**Planned** (#72):
+**Built in #72** (`tests/cache-invalidation.test.ts`; no source change was needed):
 
+- **Parse counter.** Reuse is proven by counting real Tree-sitter parses (a spy on `Parser.prototype.parse`), not just
+  `analysis.analyzed`. A cold run parses, a no-change warm run parses 0 times, an edited file costs exactly the parses
+  of analyzing that file alone with the cache off, and a rename parses 0 times.
+- **Version keys.** Each field (`store`, `scope`, `analyzer`, `treeSitter`, each grammar entry, and an added grammar
+  entry) invalidates alone: shards and stat records are all rebuilt (`reused`, `statHits` and `renamed` are 0), the
+  output equals an uncached run, every MAC on disk verifies under the new keys, and the next run is all stat hits.
+  Stat records signed under the old keys never verify, so a rename across a version change is analyzed, not reused.
+  Documents from another version are discarded without being read, so damage in them is not reported.
+- **Ignore rules.** The scan is never cached: every run applies the current `.gitignore` files (root, nested, directory
+  rules). A newly ignored file leaves the output, its analysis entry and its stat record at the next commit; unignoring
+  it analyzes it again, and the output always equals an uncached run. `.scope/` is never scanned.
+- **Corruption.** Each document (`meta`, `files`, each shard) is validated on its own. A broken one is rebuilt from
+  source with exactly one warning and never produces stale output (a damaged `files` document makes every file be read
+  and hashed, so a same-size edit with a restored mtime still shows); the next run repairs it. A damaged `meta.json`
+  makes the cache fresh. A `.<name>.<hex>.tmp` leftover is never read, and a commit sweeps it once it is older than
+  `TMP_MAX_AGE_MS`. A shard replaced by a symlink is not followed (`O_NOFOLLOW`). A shard replaced by a directory is
+  reported and never read; since a rename cannot replace a directory, the cache then stays unwritten (one `cache not
+written` warning per run) until the directory is removed. A deleted store directory is just a fresh run.
 - There are no token estimates: the token budget and all estimation were removed in #164, so nothing size-related is
-  cached.
+  cached, and no token estimator version is part of the version keys.
 - Relationships are not cached separately: references are part of each chunk, and the repository graph is rebuilt
   from the current chunks on every run (it is cheap and depends on every file, so caching it would only add
   invalidation risk). The warm index is always derived from current source, never from prior task selections.
-- Version reuse and invalidation tests (#72).
 - Every reuse must equal a cold analysis of the same bytes. The cold-versus-warm equivalence tests prove it.
 
 ### Integrity key
