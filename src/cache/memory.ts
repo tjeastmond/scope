@@ -100,7 +100,11 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
   // The same redaction history applies, so the terms are comparable with the stored ones.
   const redactedTask = redactCredentials(input.task);
   const taskTerms = termSet(extractTaskTerms(redactedTask));
-  const storedTask = redactedTask.slice(0, MAX_TASK_CHARS);
+  // History stores at most MAX_TASK_CHARS of a task, so two tasks are known to be identical only when neither was cut.
+  // A long task's repeat is then treated as a related task: correct, at the cost of one fresh Jev review.
+  const truncated = redactedTask.length > MAX_TASK_CHARS;
+  const isSameTask = (record: HistoryRecord) =>
+    !truncated && !record.task.truncated && record.task.text === redactedTask;
   const scores = new Map<string, number>();
   const ranked = input.history
     .map((record) => ({ record, score: similarity(taskTerms, termSet(record.task.terms)) }))
@@ -110,8 +114,8 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
   // Runs of this very task and runs of other similar tasks each get their own window of the newest `maxRuns`, so
   // repeating a task never pushes the related runs that shaped its shortlist out of the window (which would change the
   // payload of an identical repeat and forfeit decision reuse, #75).
-  const sameTask = ranked.filter(({ record }) => record.task.text === storedTask).slice(0, config.maxRuns);
-  const otherTasks = ranked.filter(({ record }) => record.task.text !== storedTask).slice(0, config.maxRuns);
+  const sameTask = ranked.filter(({ record }) => isSameTask(record)).slice(0, config.maxRuns);
+  const otherTasks = ranked.filter(({ record }) => !isSameTask(record)).slice(0, config.maxRuns);
   const similar = [...sameTask, ...otherTasks];
   for (const { record, score } of similar) scores.set(record.runId, score);
   if (similar.length === 0) return unchanged;

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MAX_TASK_CHARS } from "../src/cache/history.ts";
 import { addMemoryCandidates, memoryEnabled, similarity } from "../src/cache/memory.ts";
 import { submitFeedback, type FeedbackInput } from "../src/feedback.ts";
 import { planJevRequests } from "../src/jev/provider.ts";
@@ -343,6 +344,17 @@ describe("decision reuse", () => {
     // The first run of this task is not offered again, so the payload, its key and the stored decision are the same.
     expect(rec.calls.length).toBe(1);
     expect(second.result.chunks.map((s) => s.chunk.id)).toEqual(first.result.chunks.map((s) => s.chunk.id));
+  });
+
+  test("two long tasks that share their stored prefix are related, not the same task", async () => {
+    const repo = await makeRepo();
+    // History keeps only the first MAX_TASK_CHARS characters, which these two tasks share.
+    const prefix = "nightly batch job ".repeat(Math.ceil(MAX_TASK_CHARS / 18));
+    const first = await seed(repo, `${prefix} frobnicate widgets`);
+    expect(first.result.chunks.map((s) => s.chunk.name)).toContain("frobnicateWidgets");
+    const { result, rec } = await run(repo, `${prefix} reconcile ledger`);
+    expect(rec.names()).toContain("frobnicateWidgets");
+    expect(find(result, "frobnicateWidgets")!.origin).toBe(`memory: similar task ${first.result.runId!}`);
   });
 
   test("at the maxRuns boundary, a repeat's own run does not push out the related run that shaped it", async () => {
