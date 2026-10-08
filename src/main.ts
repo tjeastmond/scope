@@ -69,8 +69,9 @@ Commands:
            Requires --yes: there is no prompt. Never follows a symlinked .scope or store directory, and never
            touches anything outside .scope/ or the per-user integrity key. Files in the store that Scope did
            not create are left in place and reported.
-  rebuild  Reanalyze every file and rewrite the analysis cache, ignoring cached entries. It touches only analysis
-           data; other stored data is kept. Does not work with SCOPE_CACHE=off.
+  rebuild  Reanalyze every file and rewrite the analysis cache, ignoring cached entries. On a current cache it
+           touches only analysis data; a stale cache (another root or other version keys) is reset entirely,
+           as by any run. Does not work with SCOPE_CACHE=off.
 
 Options:
   --repo <path>      Repository (default: current directory)

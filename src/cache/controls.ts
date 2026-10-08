@@ -170,7 +170,10 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
       ...differingKeys(meta.value.keys, current),
     ];
     status.versions = differing.length === 0 ? { state: "current", differing } : { state: "stale", differing };
-    if (Number.isFinite(meta.value.lastUsed)) status.lastUpdated = new Date(meta.value.lastUsed).toISOString();
+    // Valid JSON can still hold a time no Date can represent (for example 1e20); report it instead of throwing.
+    const lastUsed = new Date(meta.value.lastUsed);
+    if (Number.isNaN(lastUsed.getTime())) unreadable("meta");
+    else status.lastUpdated = lastUsed.toISOString();
   }
   if (names.includes(filesType.name)) {
     const files = await documents.read(filesType);
@@ -305,9 +308,11 @@ export interface RebuildResult {
 }
 
 /**
- * Reanalyzes every file and rewrites the analysis cache, ignoring any cached analysis or stat record. Touches only
- * analysis data (shards and the `files` document); other documents in the store stay. Needs no task and never
- * contacts Jev.
+ * Reanalyzes every file and rewrites the analysis cache, ignoring any cached analysis or stat record. On a current
+ * cache it touches only analysis data (shards and the `files` document) and other documents stay. A stale cache
+ * (another root or other version keys) is reset entirely by the commit, as by any run: its other documents were
+ * recorded under that root or those versions, and keeping them under the new meta would pass them off as current.
+ * Needs no task and never contacts Jev.
  */
 export async function rebuildCache(
   repo: string,

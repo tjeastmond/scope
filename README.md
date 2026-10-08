@@ -99,7 +99,8 @@ scope cache rebuild [--repo <path>]                        # reanalyze every fil
 
 `status` is read-only and creates nothing. `clear` has no prompt: it needs `--yes`, never follows a symlinked `.scope/`
 or store directory, deletes only Scope's own files inside `.scope/` (files it did not create are left and reported)
-and never touches the integrity key. `rebuild` rewrites analysis data only; `clear` removes everything. To run a task
+and never touches the integrity key. `rebuild` rewrites analysis data only (unless the cache is stale, from another root or Scope version, which resets
+the whole store as any run does); `clear` removes everything. To run a task
 that is literally the word `cache`, write `scope -- cache`.
 
 Retention bounds for the data later features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`

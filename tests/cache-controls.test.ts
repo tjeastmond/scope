@@ -208,6 +208,19 @@ describe("status", () => {
     expect(status.lastUpdated).toBeUndefined();
   });
 
+  test("a meta time no Date can represent is reported as unreadable instead of failing", async () => {
+    const repo = await copyFixture();
+    await warm(repo);
+    const path = join(storeDir(repo), "meta.json");
+    const meta = JSON.parse(await readFile(path, "utf8"));
+    meta.lastUsed = 1e20;
+    await writeFile(path, JSON.stringify(meta));
+    const status = await cacheStatus(repo);
+    expect(status.documents.unreadable).toEqual(["meta"]);
+    expect(status.lastUpdated).toBeUndefined();
+    expect((await cli("cache", "status", "--repo", repo)).code).toBe(0);
+  });
+
   test("other store majors are listed with their size", async () => {
     const repo = await copyFixture();
     await mkdir(join(repo, ".scope/store-v9"), { recursive: true });
@@ -422,6 +435,21 @@ describe("rebuild", () => {
     const before = await readFile(join(storeDir(repo), "history-runs.json"), "utf8");
     await rebuildCache(repo, { now: later });
     expect(await readFile(join(storeDir(repo), "history-runs.json"), "utf8")).toBe(before);
+  });
+
+  test("on a stale cache resets the whole store, as any run does, so old documents never pass as current", async () => {
+    const repo = await copyFixture();
+    const current = await currentVersionKeys();
+    await warm(repo, { ...current, scope: `${current.scope}-old` });
+    const history: DocumentType<{ runs: number[] }> = {
+      name: "history-runs",
+      schemaVersion: 1,
+      validate: (payload): payload is { runs: number[] } => Array.isArray((payload as { runs?: unknown }).runs),
+    };
+    await new DocumentStore(storeDir(repo)).commit((tx) => tx.write(history, { runs: [1] }));
+    await rebuildCache(repo, { now: later });
+    expect(await storeNames(repo)).not.toContain("history-runs.json");
+    expect((await cacheStatus(repo)).versions.state).toBe("current");
   });
 
   test("fails with exit 1 when the rebuilt analysis cannot be written", async () => {

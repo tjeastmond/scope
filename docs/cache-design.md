@@ -279,6 +279,8 @@ the same secret redaction applied to source.
   `.scope` and each store directory are checked with `lstat` and `realpath` first; a link or non-directory aborts
   before anything is deleted. If the lock cannot be taken the command fails and says nothing was deleted.
 - `scope cache rebuild` runs the normal scan with `rebuild: true`: no entry lookup, no stat fast path, no rename reuse,
-  then a normal commit. It rewrites analysis shards and the `files` document and leaves every other document (later:
-  run history, decisions, feedback) alone, which is why it is not "clear then run". It is a usage error under
-  `SCOPE_CACHE=off`.
+  then a normal commit. On a current cache it rewrites analysis shards and the `files` document and leaves every other
+  document (later: run history, decisions, feedback) alone, which is why it is not "clear then run". On a stale cache
+  (another root, or other version keys) the commit resets the whole store, as on any run: the other documents were
+  recorded under that root or those versions, and keeping them under the new `meta` would pass them off as current.
+  It is a usage error under `SCOPE_CACHE=off`.

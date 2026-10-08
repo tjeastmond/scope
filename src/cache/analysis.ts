@@ -67,7 +67,8 @@ export interface RefreshOptions {
   racyMarginMs?: number;
   /**
    * Reanalyze everything: no entry lookup, no stat fast path and no rename reuse, as if nothing had been cached.
-   * The commit still rewrites the analysis data for this scan and leaves every other document alone.
+   * The commit still rewrites the analysis data for this scan and leaves every other document alone, unless the
+   * cache is stale, which resets the whole store as on any run.
    */
   rebuild?: boolean;
 }
