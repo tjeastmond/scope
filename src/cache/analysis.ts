@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
-import { makeChunkId } from "../chunk-id.ts";
 import type { ChunkKind, CodeChunk, Language, Reference, ReferenceEvidence, SourceLocation } from "../types.ts";
+import { entryMac, macEquals } from "./integrity.ts";
 import { commitRepositoryCache, type RepositoryCache } from "./location.ts";
 import type { CommitOutcome, DocumentType } from "./store.ts";
 
@@ -14,6 +14,8 @@ export interface CachedAnalysis {
 
 interface Entry extends CachedAnalysis {
   path: string;
+  /** HMAC of the entry key and the rest of the entry under the user's integrity key. */
+  mac: string;
 }
 
 interface Shard {
@@ -162,13 +164,15 @@ const isChunk = (value: unknown, file: string): value is CodeChunk =>
 
 const isEntry = (value: unknown): value is Entry =>
   isObject(value) &&
-  onlyKeys(value, ["path", "chunks", "warnings", "textOnly"]) &&
+  onlyKeys(value, ["path", "chunks", "warnings", "textOnly", "mac"]) &&
   isString(value.path) &&
   Array.isArray(value.chunks) &&
   value.chunks.every((chunk) => isChunk(chunk, value.path as string)) &&
   Array.isArray(value.warnings) &&
   value.warnings.every(isString) &&
-  typeof value.textOnly === "boolean";
+  typeof value.textOnly === "boolean" &&
+  isString(value.mac) &&
+  KEY_PATTERN.test(value.mac);
 
 /** Strict shape check of a shard payload (everything but `schemaVersion`). Repository contents are untrusted. */
 export function isShard(payload: unknown, name?: string): payload is Shard {
@@ -180,55 +184,9 @@ export function isShard(payload: unknown, name?: string): payload is Shard {
 
 const shardType = (name: string): DocumentType<Shard> => ({
   name,
-  schemaVersion: 1,
+  schemaVersion: 2,
   validate: (payload): payload is Shard => isShard(payload, name),
 });
-
-/**
- * Tokens the analyzers emit that need not occur in the source: `default` names a default import or export
- * (src/analyzers/ecmascript.ts) and `preamble` names the text before a markdown file's first heading
- * (src/analyzers/markdown.ts). A false rejection here would only cost a reparse, never wrong output.
- */
-const SYNTHETIC_TOKENS: ReadonlySet<string> = new Set(["default", "preamble"]);
-
-const tokensOf = (text: string) => text.split(/[^\p{L}\p{N}_$]+/u).filter((token) => token !== "");
-
-/**
- * Whether every chunk is what analysis of this source would hold: its range lies in the source, its content is the
- * exact text of those lines (split on `\n` only, see docs/chunk-model.md), its id is derived from its fields, and a
- * parent is a chunk of the same entry. Names, container names and reference names, specifiers and locals must be made
- * of words that occur in the source (case-insensitively; SQL keywords are emitted lowercase), because they reach Jev.
- * References are never resolved by analysis, so `targetChunkId` must be absent, and every warning starts with the
- * file's path. Reference lines are not checked: file-level references sit outside chunks. A false rejection only costs
- * a reparse, never wrong output.
- */
-function matchesSource(entry: Entry, redactedSource: string): boolean {
-  const lines = redactedSource.split("\n");
-  const haystack = redactedSource.toLowerCase();
-  const ids = new Set(entry.chunks.map((chunk) => chunk.id));
-  const fromSource = (text: string | undefined) =>
-    text === undefined ||
-    tokensOf(text.toLowerCase()).every((token) => SYNTHETIC_TOKENS.has(token) || haystack.includes(token));
-  return (
-    entry.warnings.every((warning) => warning.startsWith(`${entry.path}: `)) &&
-    entry.chunks.every(
-      (chunk) =>
-        chunk.endLine <= lines.length &&
-        chunk.content === lines.slice(chunk.startLine - 1, chunk.endLine).join("\n") &&
-        chunk.id === makeChunkId(chunk) &&
-        (chunk.parentId === undefined || ids.has(chunk.parentId)) &&
-        fromSource(chunk.name) &&
-        fromSource(chunk.containerName) &&
-        chunk.references.every(
-          (reference) =>
-            reference.targetChunkId === undefined &&
-            fromSource(reference.name) &&
-            fromSource(reference.specifier) &&
-            fromSource(reference.local),
-        ),
-    )
-  );
-}
 
 /**
  * Per-file analysis results stored in the repository cache, reused when the same path has the same bytes.
@@ -272,20 +230,23 @@ export class AnalysisCache {
   }
 
   /**
-   * The stored analysis for this path and key, or undefined. A fresh cache never reads: every lookup misses. A hit is
-   * checked against `redactedSource` (the current redacted text of the file), so shape-valid but wrong content is a miss.
+   * The stored analysis for this path and key, or undefined. A fresh cache never reads: every lookup misses. A hit
+   * needs the entry's path to match and its MAC to verify under this user's key and this entry key, so a planted or
+   * cloned entry (the repository is untrusted) is a miss.
    */
-  async lookup(path: string, key: string, redactedSource: string): Promise<CachedAnalysis | undefined> {
+  async lookup(path: string, key: string): Promise<CachedAnalysis | undefined> {
     if (this.#cache.fresh) return undefined;
     const entry = (await this.#shard(shardName(key)))?.entries[key];
-    if (!entry || entry.path !== path || !matchesSource(entry, redactedSource)) return undefined;
+    if (!entry || entry.path !== path || !macEquals(entry.mac, entryMac(this.#cache.integrityKey, key, entry)))
+      return undefined;
     this.#used.set(key, entry);
     return { chunks: entry.chunks, warnings: entry.warnings, textOnly: entry.textOnly };
   }
 
   /** Notes a result to store at commit. */
   record(path: string, key: string, analysis: CachedAnalysis): void {
-    this.#used.set(key, { path, chunks: analysis.chunks, warnings: analysis.warnings, textOnly: analysis.textOnly });
+    const entry = { path, chunks: analysis.chunks, warnings: analysis.warnings, textOnly: analysis.textOnly };
+    this.#used.set(key, { ...entry, mac: entryMac(this.#cache.integrityKey, key, entry) });
     this.#recorded.add(key);
   }
 

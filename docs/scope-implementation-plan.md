@@ -212,6 +212,7 @@ Later task → validate cached source fingerprints → refresh changed files
 
 - [ ] Add a repository-scoped, versioned local store for file fingerprints, normalized chunks, relationships, lexical indexes, and retrieval history. SQLite is a candidate implementation; choose a Node 24-compatible storage approach after a small compatibility check.
 - [ ] Put generated data in a documented ignored local directory, proposed `.scope/`; partition by repository identity and store schema, parser, and grammar versions.
+- [ ] Authenticate cached analysis entries with an HMAC under a random per-user key stored outside the project at `$XDG_STATE_HOME/scope/cache-key` (default `~/.local/state/scope/cache-key`, mode 0600), so a planted or cloned `.scope/` is a miss. It is the one file Scope writes outside the repository; it is never printed, and deleting it only costs a cold run.
 - [ ] Cache source-derived chunks after analysis, including IDs, content fingerprints, names, ranges, and references. Derive the initial warm index from real source rather than prior task selections alone.
 - [ ] On each run, detect new, changed, renamed, and deleted files, including uncommitted changes. Reparse affected files and refresh impacted relationships; remove stale entries and recompute line ranges from current source.
 - [ ] Reuse parsing and indexing for unchanged files. Invalidate affected cache data when parser, grammar, or ignore rules change.

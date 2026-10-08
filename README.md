@@ -85,7 +85,9 @@ to it on its own).
 
 Scope keeps derived data in `.scope/` at the repository root. It creates `.scope/.gitignore` so git ignores the
 directory, and it never edits your own `.gitignore`. You can delete the directory at any time; Scope rebuilds what it
-needs on the next run. `--no-cache` (or `SCOPE_CACHE=off`) makes a run neither read nor write it.
+needs on the next run. Cached entries are signed with a random per-user key that Scope creates at
+`~/.local/state/scope/cache-key` (or under `$XDG_STATE_HOME`), outside any project, so a cache planted in a repository
+is never trusted. `--no-cache` (or `SCOPE_CACHE=off`) makes a run neither read nor write it.
 
 ## Status
 

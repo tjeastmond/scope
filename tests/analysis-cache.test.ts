@@ -3,8 +3,8 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, stat, truncate, writeFile } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analysisKey, isShard } from "../src/cache/analysis.ts";
+import { entryMac, loadIntegrityKey } from "../src/cache/integrity.ts";
 import { makeChunkId } from "../src/chunk-id.ts";
-import { redactSecrets } from "../src/repository/redact.ts";
 import type { CodeChunk } from "../src/types.ts";
 import { currentVersionKeys, type VersionKeys } from "../src/cache/versions.ts";
 import { main, type Io } from "../src/main.ts";
@@ -33,7 +33,7 @@ const readShards = async (repo: string) =>
     (await shardFiles(repo)).map(async (name) => ({
       name,
       doc: JSON.parse(await readFile(join(storeDir(repo), name), "utf8")) as {
-        entries: Record<string, { path: string; chunks: { endLine?: number; file: string }[] }>;
+        entries: Record<string, { path: string; chunks: { endLine?: number; file: string }[]; mac: string }>;
       },
     })),
   );
@@ -190,7 +190,7 @@ describe("unusable shards", () => {
       )!;
       const entry = Object.values(doc.entries).find((candidate) => candidate.chunks.length > 0)!;
       (tamper as (e: typeof entry) => void)(entry);
-      await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
+      await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 2, ...doc }));
 
       const run = await loadChunks(repo, { cache: {} });
       expect(run.warnings.some((warning) => warning.includes(name))).toBe(true);
@@ -204,7 +204,9 @@ describe("unusable shards", () => {
     await loadChunks(repo, { cache: {} });
     const shards = await readShards(repo);
     const { name, doc } = shards[0]!;
-    for (const entry of Object.values(doc.entries)) {
+    const integrity = await loadIntegrityKey();
+    if (!("key" in integrity)) throw new Error("no integrity key in tests");
+    for (const [entryKey, entry] of Object.entries(doc.entries)) {
       entry.path = "other.ts";
       // Ids recomputed for the new path and content unchanged, so only the path check can reject the entry.
       for (const chunk of entry.chunks) {
@@ -213,8 +215,10 @@ describe("unusable shards", () => {
         typed.id = makeChunkId(typed);
         for (const reference of typed.references) reference.from.file = "other.ts";
       }
+      // The MAC is recomputed under the real key, so only the path check can reject the entry.
+      (entry as { mac?: string }).mac = entryMac(integrity.key, entryKey, entry);
     }
-    await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
+    await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 2, ...doc }));
     const run = await loadChunks(repo, { cache: {} });
     expect(run.analysis!.analyzed).toBe(Object.keys(doc.entries).length);
     expect(run.chunks).toEqual((await loadChunks(repo)).chunks);
@@ -222,106 +226,43 @@ describe("unusable shards", () => {
     expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
   });
 
-  const plant = async (repo: string, change: (chunk: Record<string, unknown>, lines: string[]) => void) => {
-    const shards = await readShards(repo);
-    const { name, doc } = shards.find(({ doc }) => Object.values(doc.entries).some((e) => e.chunks.length > 0))!;
-    const entry = Object.values(doc.entries).find((e) => e.chunks.length > 0)!;
-    const lines = redactSecrets(await readFile(join(repo, entry.path), "utf8")).split("\n");
-    change(entry.chunks[0] as unknown as Record<string, unknown>, lines);
-    await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
-    return entry.path;
+  type Loose = Record<string, unknown> & { references: Record<string, unknown>[] };
+  type Planted = { path: string; chunks: Loose[]; warnings: string[]; mac: string };
+
+  /** Applies `change` to the first stored entry that has a chunk, keeping its old MAC, and writes the shard back. */
+  const plant = async (repo: string, change: (entry: Planted, key: string) => void) => {
+    for (const { name, doc } of await readShards(repo)) {
+      const entries = doc.entries as unknown as Record<string, Planted>;
+      const key = Object.keys(entries).find((k) => entries[k]!.chunks.length > 0);
+      if (!key) continue;
+      change(entries[key]!, key);
+      await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 2, ...doc }));
+      return entries[key]!.path;
+    }
+    throw new Error("no entry with chunks to plant into");
   };
 
-  for (const [label, change] of [
-    ["edited content", (chunk: Record<string, unknown>) => (chunk.content = "INJECTED_CONTENT_4d2a")],
-    ["a wrong id", (chunk: Record<string, unknown>) => (chunk.id = "badbadbadbad")],
-    // The content still matches the lines that exist and the id is recomputed, so only the range bound rejects it.
+  // Every planted change keeps the entry's old MAC, so only the MAC check can reject it.
+  const planted: [string, (entry: Planted) => void][] = [
+    ["edited chunk content", (entry) => (entry.chunks[0]!.content = "injectedmarkerzq")],
     [
-      "an endLine past the source",
-      (chunk: Record<string, unknown>, lines: string[]) => {
-        chunk.endLine = lines.length + 1;
-        chunk.content = lines.slice((chunk.startLine as number) - 1).join("\n");
-        chunk.id = makeChunkId(chunk as unknown as CodeChunk);
+      "a name rebuilt from source words (id recomputed)",
+      (entry) => {
+        entry.chunks[0]!.name = "injectedmarkerzq";
+        entry.chunks[0]!.id = makeChunkId(entry.chunks[0] as unknown as CodeChunk);
       },
     ],
-    ["a parentId outside the entry", (chunk: Record<string, unknown>) => (chunk.parentId = "nosuchparent")],
-  ] as const) {
-    test(`a shape-valid entry with ${label} is a miss, replaced and then reused`, async () => {
-      const repo = await copyFixture("webhook-service");
-      const plain = await loadChunks(repo);
-      await loadChunks(repo, { cache: {} });
-      await plant(repo, change);
-      const run = await loadChunks(repo, { cache: {} });
-      expect(run.analysis!.analyzed).toBe(1);
-      expect(run.chunks).toEqual(plain.chunks);
-      expect(run.warnings).toEqual(plain.warnings);
-      expect(JSON.stringify(await readShards(repo))).not.toContain("INJECTED_CONTENT_4d2a");
-      expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
-    });
-  }
-
-  type Loose = Record<string, unknown> & { references: Record<string, unknown>[] };
-  const metadataCases: [string, (chunk: Loose) => boolean, (chunk: Loose, entry: { warnings: string[] }) => void][] = [
-    [
-      "a name absent from the source (id recomputed)",
-      (chunk) => typeof chunk.name === "string",
-      (chunk) => {
-        chunk.name = "injectedmarkerzq";
-        chunk.id = makeChunkId(chunk as unknown as CodeChunk);
-      },
-    ],
-    [
-      "a reference name absent from the source",
-      (chunk) => chunk.references.length > 0,
-      (chunk) => (chunk.references[0]!.name = "injectedmarkerzq"),
-    ],
-    [
-      "a reference specifier absent from the source",
-      (chunk) => chunk.references.some((reference) => typeof reference.specifier === "string"),
-      (chunk) =>
-        (chunk.references.find((reference) => typeof reference.specifier === "string")!.specifier =
-          "./injectedmarkerzq"),
-    ],
-    [
-      "a reference local absent from the source",
-      (chunk) => chunk.references.some((reference) => typeof reference.local === "string"),
-      (chunk) =>
-        (chunk.references.find((reference) => typeof reference.local === "string")!.local = "injectedmarkerzq"),
-    ],
-    [
-      "a containerName absent from the source",
-      (chunk) => typeof chunk.containerName === "string",
-      (chunk) => (chunk.containerName = "injectedmarkerzq"),
-    ],
-    [
-      "a targetChunkId on a reference",
-      (chunk) => chunk.references.length > 0,
-      (chunk) => (chunk.references[0]!.targetChunkId = chunk.id),
-    ],
-    [
-      "a warning without the path prefix",
-      () => true,
-      (_chunk, entry) => entry.warnings.push("injectedmarkerzq: not from this file"),
-    ],
+    ["its chunks deleted", (entry) => (entry.chunks = [])],
+    ["an added warning with the path prefix", (entry) => entry.warnings.push(`${entry.path}: injectedmarkerzq`)],
   ];
-  for (const [label, wanted, change] of metadataCases) {
-    test(`a shape-valid entry with ${label} is a miss, replaced and then reused`, async () => {
+  for (const [label, change] of planted) {
+    test(`a shape-valid entry with ${label} keeps its old MAC, is a miss, is replaced and then reused`, async () => {
       const repo = await copyFixture("mixed-app");
       const plain = await loadChunks(repo);
-      await loadChunks(repo, { cache: {} });
-      let planted = false;
-      for (const { name, doc } of await readShards(repo)) {
-        const entry = Object.values(doc.entries).find((e) => e.chunks.some((c) => wanted(c as unknown as Loose)));
-        if (!entry) continue;
-        const chunk = entry.chunks.find((c) => wanted(c as unknown as Loose)) as unknown as Loose;
-        change(chunk, entry as unknown as { warnings: string[] });
-        await writeFile(join(storeDir(repo), name), JSON.stringify({ schemaVersion: 1, ...doc }));
-        planted = true;
-        break;
-      }
-      expect(planted).toBe(true);
+      const cold = await loadChunks(repo, { cache: {} });
+      await plant(repo, change);
       const run = await loadChunks(repo, { cache: {} });
-      expect(run.analysis!.analyzed).toBe(1);
+      expect(run.analysis).toEqual({ reused: cold.analysis!.analyzed - 1, analyzed: 1 });
       expect(run.chunks).toEqual(plain.chunks);
       expect(run.warnings).toEqual(plain.warnings);
       expect(JSON.stringify(await readShards(repo))).not.toContain("injectedmarkerzq");
@@ -329,19 +270,56 @@ describe("unusable shards", () => {
     });
   }
 
-  test("synthetic default and preamble names are still reused", async () => {
-    const repo = await copyFixture("mixed-app");
-    await writeFile(
-      join(repo, "web/src/dflt.ts"),
-      "import thing from './thing.ts';\nexport default function () { return thing; }\n",
+  test("an entry whose MAC was computed for another entry key is a miss", async () => {
+    const repo = await copyFixture("webhook-service");
+    await loadChunks(repo, { cache: {} });
+    const path = "src/logger.ts";
+    const oldBytes = await readFile(join(repo, path));
+    const oldKey = analysisKey(path, oldBytes);
+    const oldEntry = (await readShards(repo))
+      .map(({ doc }) => doc.entries[oldKey])
+      .find((entry) => entry !== undefined);
+    expect(oldEntry).toBeDefined();
+    // Edit the file, then store the old, genuinely MACed entry (old content too) in the slot of the new key.
+    await writeFile(join(repo, path), `${oldBytes.toString("utf8")}\n// edited\n`);
+    const newKey = analysisKey(path, await readFile(join(repo, path)));
+    const shardPath = join(storeDir(repo), `analysis-${newKey.slice(0, 2)}.json`);
+    const existing = await readFile(shardPath, "utf8").then(
+      (text) => JSON.parse(text) as { entries: Record<string, unknown> },
+      () => ({ entries: {} as Record<string, unknown> }),
     );
-    await writeFile(join(repo, "docs/pre.md"), "Intro text before any heading.\n\n# Title\n\nBody.\n");
-    const cold = await loadChunks(repo, { cache: {} });
-    const names = cold.chunks.flatMap((c) => [c.name, ...c.references.map((r) => r.name)]);
-    expect(names).toContain("default");
-    expect(names).toContain("preamble");
-    const warm = await loadChunks(repo, { cache: {} });
-    expect(warm.analysis).toEqual({ reused: cold.analysis!.analyzed, analyzed: 0 });
+    existing.entries[newKey] = oldEntry;
+    await writeFile(shardPath, JSON.stringify({ schemaVersion: 2, ...existing }));
+    const plain = await loadChunks(repo);
+    const run = await loadChunks(repo, { cache: {} });
+    expect(run.analysis!.analyzed).toBe(1);
+    expect(run.chunks).toEqual(plain.chunks);
+    expect(run.warnings).toEqual(plain.warnings);
+    expect(JSON.stringify(await readShards(repo))).not.toContain("// edited");
+    expect((await loadChunks(repo, { cache: {} })).analysis!.analyzed).toBe(0);
+  });
+
+  test("a cache built under another user's key is rebuilt, not trusted", async () => {
+    const repo = await copyFixture("mixed-app");
+    const stateX = await mkdtemp(join(tmpdir(), "scope-key-x-"));
+    const stateY = await mkdtemp(join(tmpdir(), "scope-key-y-"));
+    try {
+      const plain = await loadChunks(repo);
+      const underX = await loadChunks(repo, { cache: { integrityEnv: { XDG_STATE_HOME: stateX } } });
+      expect((await loadChunks(repo, { cache: { integrityEnv: { XDG_STATE_HOME: stateX } } })).analysis!.analyzed).toBe(
+        0,
+      );
+      const total = underX.analysis!.analyzed;
+      const underY = await loadChunks(repo, { cache: { integrityEnv: { XDG_STATE_HOME: stateY } } });
+      expect(underY.analysis).toEqual({ reused: 0, analyzed: total });
+      expect(underY.chunks).toEqual(plain.chunks);
+      expect(underY.warnings).toEqual(plain.warnings);
+      const again = await loadChunks(repo, { cache: { integrityEnv: { XDG_STATE_HOME: stateY } } });
+      expect(again.analysis).toEqual({ reused: total, analyzed: 0 });
+    } finally {
+      await rm(stateX, { recursive: true, force: true });
+      await rm(stateY, { recursive: true, force: true });
+    }
   });
 
   test("cached content holding a redacted literal is not reused; the output has the redacted form", async () => {
@@ -489,7 +467,9 @@ describe("isShard", () => {
     references: [{ kind: "call", from: { file: "a.ts", line: 1 }, name: "g" }],
   };
   const shard = (overrides: Record<string, unknown> = {}) => ({
-    entries: { [key]: { path: "a.ts", chunks: [chunk], warnings: [], textOnly: false, ...overrides } },
+    entries: {
+      [key]: { path: "a.ts", chunks: [chunk], warnings: [], textOnly: false, mac: "ab".repeat(32), ...overrides },
+    },
   });
 
   test("accepts a well-formed shard", () => {

@@ -63,7 +63,7 @@ export async function loadChunks(
     detailed?: boolean;
     signal?: AbortSignal;
     /** Turns the analysis cache on; undefined means off. `keys` is a test seam for the version keys. */
-    cache?: { keys?: VersionKeys };
+    cache?: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv };
   } = {},
 ): Promise<{ chunks: CodeChunk[]; warnings: string[]; analysis?: { reused: number; analyzed: number } }> {
   const { root } = resolveRepository(repo);
@@ -73,7 +73,7 @@ export async function loadChunks(
   let analysisCache: AnalysisCache | undefined;
   const openWarnings: string[] = [];
   if (cache) {
-    const opened = await openRepositoryCache(root, { keys: cache.keys });
+    const opened = await openRepositoryCache(root, { keys: cache.keys, integrityEnv: cache.integrityEnv });
     openWarnings.push(...opened.warnings);
     if (opened.cache) analysisCache = new AnalysisCache(opened.cache, opened.warnings);
   }
@@ -92,11 +92,10 @@ export async function loadChunks(
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
     const key = analysisKey(file, bytes);
-    const redacted = redactSecrets(text);
-    let analysis = await analysisCache?.lookup(file, key, redacted);
+    let analysis = await analysisCache?.lookup(file, key);
     if (analysis) reused++;
     else {
-      const result = await analyzeFile({ path: file, source: redacted }, language);
+      const result = await analyzeFile({ path: file, source: redactSecrets(text) }, language);
       analysis = { chunks: result.chunks, warnings: result.warnings, textOnly: result.textOnly === true };
       analysisCache?.record(file, key, analysis);
       analyzed++;

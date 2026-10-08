@@ -120,21 +120,20 @@ one of their commits or a merge of both, never a mix of half-written documents.
 - **Shards.** Results live in up to 256 documents named `analysis-<xx>`, where `xx` is the first two hex characters of
   the key. One document per file would mean up to 10,000 fsync'd writes on a cold run; one document for everything
   would rewrite the whole cache when a single file changes. Each shard is
-  `{ schemaVersion: 1, entries: { [key]: { path, chunks, warnings, textOnly } } }`.
+  `{ schemaVersion: 2, entries: { [key]: { path, chunks, warnings, textOnly, mac } } }`.
 - **What is stored.** Only files that reached `analyzeFile` (files with a language): the chunks exactly as analysis
   returned them from the redacted source, the analyzer's warnings, and the text-only flag. Binary files and files with
   no language are not stored (their check is cheap and they have no analysis). Excluded files (ignored, secret, too
   large) are never read, so they never get here.
-- **Untrusted content.** A strict validator checks every field of every chunk, reference and location, that each
-  chunk's `file` equals its entry's `path`, and that each key belongs to its shard. One bad entry makes the whole
-  shard unusable: the store warns once and the shard is treated as empty, so those files are reanalyzed. A lookup also
-  requires the entry's `path` to equal the path being loaded, and checks the entry against the current redacted source:
-  every chunk's `endLine` is within the line count, its `content` is exactly the text of its lines, its `id` is
-  `makeChunkId` of its fields, any `parentId` names a chunk of the same entry, every word of a chunk's `name` and
-  `containerName` and of a reference's `name`, `specifier` and `local` occurs in the source (case-insensitively, apart
-  from the analyzers' synthetic `default` and `preamble`), no reference has a `targetChunkId` (analysis never resolves
-  references), and every warning starts with the file's path. Any mismatch is a miss: the file is
-  analyzed again and the commit replaces the entry.
+- **Untrusted content.** `.scope/` lives in the project, which is untrusted: a planted or cloned cache must be a miss.
+  A strict validator checks every field of every chunk, reference and location, that each chunk's `file` equals its
+  entry's `path`, that each key belongs to its shard, and that each entry has a `mac`. One bad entry makes the whole
+  shard unusable: the store warns once and the shard is treated as empty, so those files are reanalyzed. A lookup then
+  requires the entry's `path` to equal the path being loaded and its `mac` to verify (HMAC-SHA256, constant-time
+  comparison) under this user's integrity key over the entry key and the whole entry. Content, names, references,
+  warnings or chunks changed after signing, and an entry moved to another key, fail the check. Checking content against
+  the source cannot be made complete, so Scope does not try. Any mismatch is a miss: the file is analyzed again and the
+  commit replaces the entry.
 - **Pruning.** A commit keeps exactly the entries this run used (hits and newly analyzed), rewrites a shard only when
   its key set changed, and removes shards that end up empty. Deleted and changed files drop out, so the cache holds the
   latest scan only. When the version keys changed (a fresh cache), nothing is read and the old shards are removed.
@@ -159,6 +158,22 @@ one of their commits or a merge of both, never a mix of half-written documents.
   same.
 - Version reuse and invalidation tests (#72).
 - Every reuse must equal a cold analysis of the same bytes. The cold-versus-warm equivalence tests prove it.
+
+### Integrity key
+
+Entries are signed with a random per-user key kept outside every project, so a cloned or planted `.scope/` (built
+under another key, or by hand) verifies as nothing.
+
+- **Location.** `$XDG_STATE_HOME/scope/cache-key` when `XDG_STATE_HOME` is set to an absolute path (relative values are
+  ignored); otherwise `$HOME/.local/state/scope/cache-key`. With neither usable the cache is disabled with a warning.
+- **Creation.** On first use Scope creates the directory (mode 0700) and the file (mode 0600, exclusive create) holding
+  32 random bytes as 64 lowercase hex characters, then fsyncs it. If the file already exists it is read, never replaced.
+- **Checks on every load.** It must be a regular file (not a symlink), owned by the current user, with no group or
+  other permission bits, and its trimmed contents must be exactly 64 hex characters. A failing file disables the cache
+  with a `cache disabled:` warning that names the path and the reason; it is never overwritten or deleted.
+- **Never printed.** The key is not logged or put in any warning, output or stored document.
+- **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
+- It is the only file Scope writes outside the project.
 
 ## Retrieval memory (#73 to #78, _planned_)
 

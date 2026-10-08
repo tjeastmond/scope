@@ -107,14 +107,18 @@ try {
   // The packaged CLI's cache on real Node: a cold and a warm run on a scratch copy print the same artifact.
   const cached = join(scratch, "cached-mixed-app");
   cpSync(MIXED_FIXTURE, cached, { recursive: true });
-  const cacheEnv = { ...SAFE_ENV };
+  // The integrity key goes to a scratch state directory, never the real ~/.local/state.
+  const stateHome = join(scratch, "state");
+  const cacheEnv = { ...SAFE_ENV, XDG_STATE_HOME: stateHome };
   delete cacheEnv.SCOPE_CACHE;
   const cacheArgs = [MIXED_TASK, "--repo", cached, "--no-jev"];
   const cold = run("scope --no-jev (cache cold)", scope, cacheArgs, { cwd: projectDir, env: cacheEnv });
   const warm = run("scope --no-jev (cache warm)", scope, cacheArgs, { cwd: projectDir, env: cacheEnv });
   if (cold !== warm) fail("cached cold and warm runs printed different artifacts");
   if (!existsSync(join(cached, ".scope/store-v1/meta.json"))) fail("the cached run wrote no .scope/store-v1/meta.json");
+  if (!existsSync(join(stateHome, "scope/cache-key"))) fail("the cached run wrote no integrity key");
   rmSync(cached, { recursive: true, force: true });
+  rmSync(stateHome, { recursive: true, force: true });
 
   const version = run("node --version", NODE, ["--version"]).trim();
   process.stdout.write(`node ${version}: packaged CLI smoke passed\n`);
