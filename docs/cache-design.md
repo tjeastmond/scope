@@ -231,14 +231,15 @@ under another key, or by hand) verifies as nothing.
 
 - **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
   finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
-  holds `{ record, mac }`; `mac` is an HMAC-SHA256 of the record under the integrity key, and `readHistory` skips a
-  record whose MAC, shape or id (it must match the document name) fails, so a planted or cloned `.scope/` contributes
+  holds `{ record, mac }`; `mac` is an HMAC-SHA256 of the record and the repository's real root under the integrity key, and
+  `readHistory` skips a record whose MAC, shape or id (it must match the document name) fails, and any `history-*`
+  name Scope never writes, so a planted or cloned `.scope/`, or history copied from another repository, contributes
   no history. A record holds: record version, run id, time, the redacted task (cut to 4,000 characters, with a
   `truncated` flag) and its normalized terms (each list capped at 200 terms of at most 200 characters), mode, the
   decision configuration (Scope version, installed SDK version, model, question version, retrieval config version),
   bounded request metadata (latency, request count, token totals, only valid non-negative integers) and the
   candidates (at most 1,000, selected chunks first): chunk id, file, kind, name, a SHA-256 fingerprint of the chunk
-  content (the content itself is not stored), origin, Jev relevance and the decision (`selected`, `support` or
+  content (the content itself is not stored), origin, Jev relevance (kept for a support Jev judged) and the decision (`selected`, `support` or
   `skipped`, with `supportFor` for supports).
 - **When a run records.** Only when the cache is on, the mode is `jev` and Jev judged candidates. `--no-jev` runs, runs
   with no candidates, cancelled runs and `previewJevPayload` record nothing: they carry no Jev judgment to learn from,
