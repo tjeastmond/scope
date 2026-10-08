@@ -355,8 +355,14 @@ describe("--file input and the CLI", () => {
     };
     const controller = new AbortController();
     setTimeout(() => controller.abort(), 20);
+    // A read that ignores the signal never settles, so each wait is capped and a hang fails fast instead of stalling.
+    const settle = (read: Promise<string>) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const hung = new Promise<string>((resolve) => (timer = setTimeout(() => resolve("still pending"), 2000)));
+      return Promise.race([read, hung]).finally(() => clearTimeout(timer));
+    };
     const started = Date.now();
-    await expect(readBoundedText(silent, 100, "standard input", controller.signal)).rejects.toBeInstanceOf(
+    await expect(settle(readBoundedText(silent, 100, "standard input", controller.signal))).rejects.toBeInstanceOf(
       CancelledError,
     );
     expect(Date.now() - started).toBeLessThan(1000);
@@ -364,7 +370,7 @@ describe("--file input and the CLI", () => {
 
     const already = new AbortController();
     already.abort();
-    await expect(readBoundedText(silent, 100, "x", already.signal)).rejects.toBeInstanceOf(CancelledError);
+    await expect(settle(readBoundedText(silent, 100, "x", already.signal))).rejects.toBeInstanceOf(CancelledError);
 
     const live = new AbortController();
     let removed = 0;
