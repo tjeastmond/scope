@@ -261,7 +261,8 @@ under another key, or by hand) verifies as nothing.
     optional `runId`; version 1 documents are a miss) only if that run's history record still exists and verifies;
     otherwise the id is omitted, and a reuse never records a new history entry. `--no-jev`, cache-off, empty and cancelled runs have none.
   - **Attribution.** `{ kind: "user" }` by default, `{ kind: "agent", name }` with `--agent` (1 to 100 printable
-    characters). Each record stores its time. List flags are repeat-only (a path can contain a comma).
+    characters; a name that is or contains a credential, including the configured Jev key, is refused without being
+    echoed). Each record stores its time. List flags are repeat-only (a path can contain a comma).
   - **Validation, all-or-nothing.** The run id must name a verified history record. `--useful` and `--irrelevant` ids
     must be candidates of that run. Each chunk is then compared with the current source (the same scan, ignore and
     exclusion rules as a run): if its id is gone or its content's SHA-256 differs from the run's fingerprint it is

@@ -17,7 +17,7 @@ import {
   type FeedbackSource,
 } from "./cache/feedback.ts";
 import { CacheControlError } from "./cache/controls.ts";
-import { isRunId, readHistoryRecord } from "./cache/history.ts";
+import { isRunId, readHistoryRecord, redactCredentials } from "./cache/history.ts";
 import { openRepositoryCache } from "./cache/location.ts";
 import { resolveRetention } from "./cache/retention.ts";
 import type { VersionKeys } from "./cache/versions.ts";
@@ -177,6 +177,10 @@ function validateInput(input: FeedbackInput): Validated {
       throw new UsageError(
         `--agent must be 1 to ${MAX_AGENT_NAME_CHARS} printable characters without control characters.`,
       );
+    }
+    // Refused rather than redacted: attribution is stored as given, and the error does not echo the value.
+    if (redactCredentials(input.agent) !== input.agent) {
+      throw new UsageError("--agent looks like a credential; use a plain agent name.");
     }
     source = { kind: "agent", name: input.agent };
   }

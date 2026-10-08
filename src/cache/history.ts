@@ -187,12 +187,12 @@ export const historyType = (name: string): DocumentType<HistoryDocument> => ({
 });
 
 /**
- * The task with credential shapes redacted, and the configured Jev key removed by value too: its shape is not one the
- * pattern redactor knows, and a task pasted with it must not persist it. Short values are skipped so a stray variable
- * cannot blank ordinary words.
+ * Text with credential shapes redacted, and the configured Jev key removed by value too: its shape is not one the
+ * pattern redactor knows, and text pasted with it must not persist it. Short values are skipped so a stray variable
+ * cannot blank ordinary words. Used for the stored task and to refuse a credential as a feedback agent name (#76).
  */
-function redactTask(task: string): string {
-  const redacted = redactSecrets(task);
+export function redactCredentials(text: string): string {
+  const redacted = redactSecrets(text);
   const key = process.env.TYPESAFE_API_KEY?.trim();
   return key && key.length >= 8 ? redacted.split(key).join("[REDACTED]") : redacted;
 }
@@ -242,7 +242,7 @@ export interface RecordInput {
 /** Builds the record of a run. Pure apart from the random part of the run id and reading the installed versions. */
 export async function buildHistoryRecord(input: RecordInput, versions: { scope: string }): Promise<HistoryRecord> {
   const { result, chunks, jev, time } = input;
-  const redacted = redactTask(input.task);
+  const redacted = redactCredentials(input.task);
   const terms = extractTaskTerms(redacted);
   const cap = (list: string[]) => list.slice(0, MAX_TERMS).map((term) => term.slice(0, MAX_TERM_CHARS));
   const candidates: HistoryCandidate[] = [];

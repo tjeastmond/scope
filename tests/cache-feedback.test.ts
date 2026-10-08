@@ -111,6 +111,7 @@ async function rejected(repo: string, input: Partial<FeedbackInput>, pattern: Re
   expect(error).toBeInstanceOf(UsageError);
   expect((error as Error).message).toMatch(pattern);
   expect(await feedbackNames(repo)).toEqual(before);
+  return error as Error;
 }
 
 function capture(stdin?: string) {
@@ -476,6 +477,19 @@ describe("rejections record nothing", () => {
     for (const agent of ["", "   ", "a".repeat(101), "bad\nname", "bad\u0007name"]) {
       await rejected(repo, { runId, useful: [a], agent }, /--agent/);
     }
+  });
+
+  test("an agent name that is or contains a credential is refused without echoing it", async () => {
+    const { repo, runId, a } = await started();
+    process.env.TYPESAFE_API_KEY = FAKE_KEY;
+    for (const agent of [FAKE_KEY, `bot ${FAKE_KEY}`, "ghp_" + "a".repeat(36), "AKIA" + "B".repeat(16)]) {
+      const error = await rejected(repo, { runId, useful: [a], agent }, /--agent looks like a credential/);
+      expect(error.message).not.toContain(agent);
+    }
+    expect((await give(repo, { runId, useful: [a], agent: "review-bot" })).source).toEqual({
+      kind: "agent",
+      name: "review-bot",
+    });
   });
 
   test("--missing values: outside the repo, absolute, parent paths, ignored, secret-like and binary files", async () => {
