@@ -22,6 +22,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "recall": "bun scripts/recall.ts",
+    "bench:cache": "bun scripts/bench-cache.ts",
     "utility": "bun scripts/utility-sweep.ts",
     "smoke:node": "node scripts/smoke-node.mjs",
     "test:node-matrix": "node scripts/test-node-matrix.mjs",

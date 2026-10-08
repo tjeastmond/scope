@@ -31,6 +31,7 @@ Defined in `package.json`:
 | `bun run check`            | Static checks only: `format:check`, `lint`, `typecheck`.                                                                              |
 | `bun run build`            | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).                                                                           |
 | `bun test`                 | Run tests with `bun:test`.                                                                                                            |
+| `bun run bench:cache`      | M6 cache and memory benchmark (`--live` uses Jev and needs `TYPESAFE_API_KEY`; `--repeats N`; `--out <file>`); not in `validate`.     |
 | `bun run smoke:node`       | Packaged-CLI smoke on real Node without Bun (`SCOPE_NODE=<node>`; needs network for `npm install`; not in `validate`).                |
 | `bun run test:node-matrix` | Runs `tests/cache-robustness.test.ts` under each Node in `SCOPE_NODES` (colon-separated binaries, e.g. 24 and 26); not in `validate`. |
 | `bun run validate`         | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`.                                                             |

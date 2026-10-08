@@ -13,6 +13,23 @@ export interface TaskRecall {
   missed: string[];
 }
 
+/** Splits `labels` into those present among `ids` (any chunk the label resolves to counts) and those missing. */
+export function labelRecall(
+  labels: readonly string[],
+  chunks: readonly CodeChunk[],
+  ids: ReadonlySet<string>,
+  context = "labels",
+): { found: string[]; missed: string[] } {
+  const found: string[] = [];
+  const missed: string[] = [];
+  for (const label of labels) {
+    const resolved = resolve(label, chunks);
+    if (resolved.length === 0) throw new Error(`${context}: label does not match any chunk: ${label}`);
+    (resolved.some((chunk) => ids.has(chunk.id)) ? found : missed).push(label);
+  }
+  return { found, missed };
+}
+
 export const pct = (found: number, total: number) => (total === 0 ? "n/a" : `${((100 * found) / total).toFixed(0)}%`);
 
 /**
@@ -28,12 +45,11 @@ export async function measureRecall(
   for (const task of await loadLabeledTasks(fixture)) {
     if (options.split !== undefined && task.split !== options.split) continue;
     const shortlist = new Set(selectCandidates(task.task, chunks, options.config).candidates.map((chunk) => chunk.id));
-    const result: TaskRecall = { fixture, task, found: [], missed: [] };
-    for (const label of task.required) {
-      const resolved = resolve(label, chunks);
-      if (resolved.length === 0) throw new Error(`${fixture}/${task.id}: label does not match any chunk: ${label}`);
-      (resolved.some((chunk) => shortlist.has(chunk.id)) ? result.found : result.missed).push(label);
-    }
+    const result: TaskRecall = {
+      fixture,
+      task,
+      ...labelRecall(task.required, chunks, shortlist, `${fixture}/${task.id}`),
+    };
     results.push(result);
   }
   return results;
