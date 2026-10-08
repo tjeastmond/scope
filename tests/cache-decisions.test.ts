@@ -215,13 +215,14 @@ describe("misses", () => {
     const path = join(repo, "src/webhooks/retry-long.ts");
     const body = (tail: string) =>
       `export function retryStripeWebhookProcessingLong(): string {\n  const pad = "${"x".repeat(JEV_CANDIDATE_MAX_CHARS + 500)}";\n  return pad + "${tail}";\n}\n`;
-    await writeFile(path, body("first"));
+    await writeFile(path, body("aaaaa"));
     const first = await run(repo, { provider });
     const files = [...first.result.chunks, ...first.result.skipped].map((entry) =>
       "chunk" in entry ? entry.chunk.file : entry.file,
     );
     expect(files).toContain("src/webhooks/retry-long.ts");
-    await writeFile(path, body("second"));
+    // Same length, so even the truncation marker is unchanged: only the content fingerprint tells them apart.
+    await writeFile(path, body("bbbbb"));
     const second = await run(repo, { provider });
     expect(provider.calls).toBe(2);
     expect(second.result.decisionsReusedFrom).toBeUndefined();
