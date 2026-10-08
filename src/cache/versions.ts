@@ -90,3 +90,17 @@ export function currentVersionKeys(): Promise<VersionKeys> {
   });
   return memo;
 }
+
+let sdkMemo: Promise<string> | undefined;
+
+/** The installed version of `@typesafe-ai/sdk`, read from its package.json. Throws if it cannot be read. */
+export function sdkVersion(): Promise<string> {
+  sdkMemo ??= (async () => {
+    const name = "@typesafe-ai/sdk";
+    return packageVersion(dirname(createRequire(import.meta.url).resolve(name)), name);
+  })().catch((error) => {
+    sdkMemo = undefined;
+    throw error;
+  });
+  return sdkMemo;
+}

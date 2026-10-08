@@ -1,7 +1,9 @@
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { AnalysisCache, analysisKey, contentHash, type StatInfo } from "./cache/analysis.ts";
-import { openRepositoryCache } from "./cache/location.ts";
+import { recordHistory } from "./cache/history.ts";
+import { openRepositoryCache, type RepositoryCache } from "./cache/location.ts";
+import { resolveRetention } from "./cache/retention.ts";
 import type { VersionKeys } from "./cache/versions.ts";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
@@ -34,6 +36,18 @@ export interface ScopeOptions {
    * into a repository unless they ask). Output is identical either way; cache problems only add warnings.
    */
   cache?: boolean;
+  /** Test seams for the cache (used only when `cache` is on). */
+  cacheOptions?: {
+    keys?: VersionKeys;
+    integrityEnv?: NodeJS.ProcessEnv;
+    /** Clock for the stat records and the history time. */
+    now?: () => number;
+    racyMarginMs?: number;
+    /** How long a cache commit waits for the lock. */
+    lockWaitMs?: number;
+    /** Where the history retention bounds are read from (default: the process environment). */
+    env?: NodeJS.ProcessEnv;
+  };
 }
 
 export interface ScopeRun {
@@ -66,6 +80,7 @@ export async function loadChunks(
     cache?: {
       keys?: VersionKeys;
       integrityEnv?: NodeJS.ProcessEnv;
+      lockWaitMs?: number;
       /** Test seams for the stat records: the clock and the racy-file margin. */
       now?: () => number;
       racyMarginMs?: number;
@@ -83,16 +98,24 @@ export async function loadChunks(
   analysis?: { reused: number; analyzed: number; statHits: number; renamed: number };
   /** With the cache on: whether this run's commit reached the store (false when it was skipped or failed). */
   cacheCommitted?: boolean;
+  /** With the cache on and openable: the opened repository cache, for the caller's own commits (run history). */
+  repositoryCache?: RepositoryCache;
 }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
   const { files, warnings } = await scanRepository(root, {}, signal);
   let analysisCache: AnalysisCache | undefined;
+  let repositoryCache: RepositoryCache | undefined;
   const openWarnings: string[] = [];
   if (cache) {
-    const opened = await openRepositoryCache(root, { keys: cache.keys, integrityEnv: cache.integrityEnv });
+    const opened = await openRepositoryCache(root, {
+      keys: cache.keys,
+      integrityEnv: cache.integrityEnv,
+      lockWaitMs: cache.lockWaitMs,
+    });
     openWarnings.push(...opened.warnings);
+    repositoryCache = opened.cache;
     if (opened.cache) {
       analysisCache = new AnalysisCache(opened.cache, opened.warnings, {
         now: cache.now,
@@ -166,6 +189,7 @@ export async function loadChunks(
     analysis: { reused, analyzed, statHits, renamed },
     // An unchanged warm run takes no lock and commits nothing (undefined), which is fine; only a failed commit is false.
     cacheCommitted: analysisCache !== undefined && outcome?.committed !== false,
+    repositoryCache,
   };
 }
 
@@ -175,13 +199,13 @@ async function prepareCandidates(
   repo: string,
   detailed: boolean,
   signal: AbortSignal | undefined,
-  cache?: { keys?: VersionKeys },
+  cache?: NonNullable<Parameters<typeof loadChunks>[1]>["cache"],
 ) {
   if (!task.trim()) throw new UsageError("A task description is required.");
-  const { chunks, warnings } = await loadChunks(repo, { detailed, signal, cache });
+  const { chunks, warnings, repositoryCache } = await loadChunks(repo, { detailed, signal, cache });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
-  return { chunks, scanWarnings: warnings, ...selectCandidates(task, chunks) };
+  return { chunks, scanWarnings: warnings, repositoryCache, ...selectCandidates(task, chunks) };
 }
 
 /**
@@ -227,10 +251,11 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const {
     chunks,
     scanWarnings,
+    repositoryCache,
     candidates,
     ranking,
     warning: retrievalWarning,
-  } = await prepareCandidates(task, repo, explain, signal, options.cache ? {} : undefined);
+  } = await prepareCandidates(task, repo, explain, signal, options.cache ? (options.cacheOptions ?? {}) : undefined);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   // With nothing to judge Jev is skipped; selection then returns an empty artifact carrying retrieval's guidance.
@@ -266,5 +291,27 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
     ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
-  return { result: { ...result, ...jevMetrics(decision, explain) }, decision };
+  const metrics = jevMetrics(decision, explain);
+  const cacheWarnings: string[] = [];
+  if (options.cache) cacheWarnings.push(...resolveRetention(options.cacheOptions?.env).warnings);
+  // History is recorded last, so it can never change the selection; only a failure adds a warning. A cancelled run
+  // and a run Jev did not judge (`--no-jev`, no candidates) record nothing.
+  if (repositoryCache && decision && !signal?.aborted) {
+    const outcome = await recordHistory(
+      repositoryCache,
+      {
+        task,
+        result,
+        chunks: new Map(chunks.map((chunk) => [chunk.id, chunk])),
+        jev: jevMetrics(decision, false).jev,
+        time: options.cacheOptions?.now?.() ?? Date.now(),
+      },
+      { env: options.cacheOptions?.env },
+    );
+    if (!outcome.committed) cacheWarnings.push(`history not recorded: ${outcome.warning}`);
+  }
+  return {
+    result: { ...result, warnings: [...result.warnings, ...cacheWarnings], ...metrics },
+    decision,
+  };
 }

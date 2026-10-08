@@ -130,6 +130,16 @@ export function statMac(key: Buffer, versionKeys: object, path: string, fields: 
     .digest("hex");
 }
 
+/**
+ * HMAC-SHA256 (hex) of a domain tag and a record (a run-history record). The tag makes the array a different shape
+ * from the ones `entryMac` and `statMac` sign, so a history MAC can never verify as either of them or the reverse.
+ */
+export function recordMac(key: Buffer, domain: string, record: object): string {
+  return createHmac("sha256", key)
+    .update(canonical([domain, record]))
+    .digest("hex");
+}
+
 /** Constant-time comparison of two hex MACs; false when the lengths differ. */
 export function macEquals(a: string, b: string): boolean {
   const left = Buffer.from(a, "utf8");
