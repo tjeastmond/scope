@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { addMemoryCandidates, memoryEnabled, similarity } from "../src/cache/memory.ts";
@@ -301,6 +301,24 @@ describe("memory off switches", () => {
     const on = await run(repo, T_NOW, { noJev: true });
     expect(on.result.chunks.map((s) => s.chunk.id)).toEqual(off.result.chunks.map((s) => s.chunk.id));
     expect(JSON.stringify(on.result)).not.toContain("memory:");
+  });
+});
+
+describe("unverified documents", () => {
+  test("a tampered feedback document is ignored with one warning in the run", async () => {
+    const repo = await makeRepo();
+    const first = await seed(repo, T_WIDGETS);
+    const runId = first.result.runId!;
+    await give(repo, { runId, missing: ["frobnicateGadgets"] });
+    const store = join(repo, ".scope/store-v1");
+    const name = (await readdir(store)).find((file) => file.startsWith("feedback-"))!;
+    const document = JSON.parse(await readFile(join(store, name), "utf8"));
+    document.mac = "0".repeat(document.mac.length);
+    await writeFile(join(store, name), JSON.stringify(document));
+
+    const { result } = await run(repo, T_NOW);
+    expect(result.warnings.filter((warning) => warning.includes(name))).toHaveLength(1);
+    expect(find(result, "frobnicateGadgets")).toBeUndefined();
   });
 });
 
