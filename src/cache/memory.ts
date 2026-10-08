@@ -14,6 +14,7 @@ import {
   type HistoryRecord,
 } from "./history.ts";
 import type { RepositoryCache } from "./location.ts";
+import { resolveRetention } from "./retention.ts";
 
 /**
  * Retrieval memory (#74): history and feedback as extra candidate signals. Memory only ever adds: the fresh shortlist
@@ -205,19 +206,38 @@ export function addMemoryCandidates(input: MemoryInput): MemoryOutcome {
   };
 }
 
+const DAY_MS = 86_400_000;
+
+/** The newest `max` records no older than `maxDays` at `now`, as pruning would keep them; none when either is 0. */
+function retained<T extends { time: number }>(records: T[], max: number, maxDays: number, now: number): T[] {
+  if (max <= 0 || maxDays <= 0) return [];
+  return records
+    .filter((record) => record.time >= now - maxDays * DAY_MS)
+    .sort((a, b) => b.time - a.time)
+    .slice(0, max);
+}
+
 /**
  * Reads the verified history and feedback and adds memory candidates to the fresh shortlist. Never throws: the readers
  * skip what they cannot trust, and `warnings` say what they skipped. Memory is off for `SCOPE_MEMORY=off`, for a
- * `maxCandidates` of 0, and for a store that is fresh (reset: it holds no usable history).
+ * `maxCandidates` of 0, and for a store that is fresh (reset: it holds no usable history). Only records within the
+ * retention bounds in effect at `now` count, so expired or disabled history and feedback never shape a shortlist,
+ * even before (or without) the next pruning commit.
  */
 export async function withMemory(
   cache: RepositoryCache,
   input: Omit<MemoryInput, "history" | "feedback">,
   env?: NodeJS.ProcessEnv,
+  now: number = Date.now(),
 ): Promise<MemoryOutcome & { warnings: string[] }> {
   const off = !memoryEnabled(env) || input.config.maxCandidates <= 0 || cache.fresh;
   if (off) return { ...addMemoryCandidates({ ...input, history: [], feedback: [] }), warnings: [] };
   const [history, feedback] = await Promise.all([readHistory(cache), readFeedback(cache)]);
-  const outcome = addMemoryCandidates({ ...input, history: history.records, feedback: feedback.records });
+  const { bounds } = resolveRetention(env);
+  const outcome = addMemoryCandidates({
+    ...input,
+    history: retained(history.records, bounds.history.maxRuns, bounds.history.maxDays, now),
+    feedback: retained(feedback.records, bounds.feedback.max, bounds.feedback.maxDays, now),
+  });
   return { ...outcome, warnings: [...new Set([...history.warnings, ...feedback.warnings])] };
 }

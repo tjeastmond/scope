@@ -248,7 +248,11 @@ async function prepareCandidates(
   signal: AbortSignal | undefined,
   cache?: NonNullable<Parameters<typeof loadChunks>[1]>["cache"],
   retrieval?: DeepPartial<RetrievalConfig>,
-  memory?: { env?: NodeJS.ProcessEnv; open?: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv } },
+  memory?: {
+    env?: NodeJS.ProcessEnv;
+    now?: number;
+    open?: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv };
+  },
 ) {
   if (!task.trim()) throw new UsageError("A task description is required.");
   const config = resolveRetrievalConfig(retrieval);
@@ -267,6 +271,7 @@ async function prepareCandidates(
       store,
       { task, chunks, files: new Set(files), fresh, config: config.memory },
       memory.env,
+      memory.now,
     );
     candidates = outcome.candidates;
     ranking = outcome.ranking;
@@ -357,7 +362,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     options.cache ? (options.cacheOptions ?? {}) : undefined,
     options.retrieval,
     // Memory is for Jev runs with the cache on; `--no-jev` stays a pure deterministic baseline.
-    options.cache && !noJev ? { env: options.cacheOptions?.env } : undefined,
+    options.cache && !noJev ? { env: options.cacheOptions?.env, now: options.cacheOptions?.now?.() } : undefined,
   );
   const mode = noJev ? "no-jev" : "jev";
   const clock = () => options.cacheOptions?.now?.() ?? Date.now();

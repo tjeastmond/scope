@@ -306,6 +306,26 @@ describe("memory off switches", () => {
     expect((await run(repo, T_NOW, { cache: false })).rec.names()).toEqual(baseline);
   });
 
+  test("history past its retention age gives the memory-free shortlist, before any pruning", async () => {
+    const { repo, baseline } = await seeded();
+    clock += 91 * 86_400_000;
+    expect((await run(repo, T_NOW)).rec.names()).toEqual(baseline);
+  });
+
+  test("history retention turned off gives the memory-free shortlist", async () => {
+    const { repo, baseline } = await seeded();
+    expect((await run(repo, T_NOW, { env: { SCOPE_HISTORY_MAX_RUNS: "0" } })).rec.names()).toEqual(baseline);
+  });
+
+  test("feedback retention turned off drops what only feedback remembered", async () => {
+    const repo = await makeRepo();
+    const first = await seed(repo, T_WIDGETS);
+    await give(repo, { runId: first.result.runId!, missing: ["frobnicateGadgets"] });
+    const relevance = { ...SEED_RELEVANCE, frobnicateGadgets: 0.9 };
+    const { rec } = await run(repo, T_NOW, { relevance, env: { SCOPE_FEEDBACK_MAX: "0" } });
+    expect(rec.names()).toEqual(["reconcileLedger", "frobnicateWidgets"]);
+  });
+
   test("--no-jev never uses memory", async () => {
     const { repo } = await seeded();
     const off = await run(repo, T_NOW, { noJev: true, cache: false });
