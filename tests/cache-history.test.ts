@@ -434,7 +434,10 @@ describe("failure and neutrality", () => {
   test("recording history does not change the result", async () => {
     const withHistory = await run(await copyFixture());
     const without = await run(await copyFixture(), { env: { SCOPE_HISTORY_MAX_RUNS: "0" } });
-    expect(JSON.stringify(withHistory.result)).toBe(JSON.stringify(without.result));
+    // The run id is the one intended difference: it names the record.
+    expect(withHistory.result.runId).toMatch(/^[0-9]{13}-[0-9a-f]{8}$/);
+    expect(without.result.runId).toBeUndefined();
+    expect(JSON.stringify({ ...withHistory.result, runId: undefined })).toBe(JSON.stringify(without.result));
   });
 });
 

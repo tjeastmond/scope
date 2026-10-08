@@ -227,7 +227,7 @@ under another key, or by hand) verifies as nothing.
 - **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
 - It is the only file Scope writes outside the project.
 
-## Retrieval memory (#73 and #75 implemented; #74, #76 to #78 _planned_)
+## Retrieval memory (#73, #75 and #76 implemented; #74, #77 and #78 _planned_)
 
 - **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
   finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
@@ -252,6 +252,36 @@ under another key, or by hand) verifies as nothing.
   planted name can never take a retention slot. With either bound at 0 nothing is written and all history is removed.
   `scope cache status` counts the documents by name only (it never loads the integrity key); `rebuild` leaves history
   alone on a current cache and `clear` removes it.
+- **Feedback** (#76, `src/cache/feedback.ts`, `src/feedback.ts`) is an attributed observation about the chunks one
+  earlier run selected, recorded with `scope feedback <run-id> [--useful <chunk-id>]... [--irrelevant <chunk-id>]...
+[--missing <path:start-end|path|symbol>]... [--agent <name>] [--file <path|->]`. It is only recorded and counted:
+  nothing in selection, scoring or decision reuse reads it until #77, and recording it changes no output of a run.
+  - **Run id.** A Jev run with the cache on reports the id of its history record (`runId` in JSON, a `Run` line in
+    text and Markdown). A decision-reuse hit reports the original run's id (the decision record, version 2, carries an
+    optional `runId`; version 1 documents are a miss) only if that run's history record still exists and verifies;
+    otherwise the id is omitted, and a reuse never records a new history entry. `--no-jev`, cache-off, empty and cancelled runs have none.
+  - **Attribution.** `{ kind: "user" }` by default, `{ kind: "agent", name }` with `--agent` (1 to 100 printable
+    characters; a name that is or contains a credential, including the configured Jev key, is refused without being
+    echoed). Each record stores its time. List flags are repeat-only (a path can contain a comma).
+  - **Validation, all-or-nothing.** The run id must name a verified history record. `--useful` and `--irrelevant` ids
+    must be candidates of that run. Each chunk is then compared with the current source (the same scan, ignore and
+    exclusion rules as a run): if its id is gone or its content's SHA-256 differs from the run's fingerprint it is
+    recorded with `current: false` and a warning, not rejected, so a later reader knows the observation may describe
+    other code. `--missing` is classified as `path:start-end` (an included file, 1-based inclusive range within its
+    line count), else a repository-relative included file (whole file), else a symbol: the exact `name` of at least one
+    current chunk (its ids are stored, at most 20). Absolute paths, `..`, symlink escapes and files the scan excludes
+    (ignored, binary, secret-like) are rejected without being read. Limits: 200 entries per list, 500 characters per
+    entry, at least one entry, no id both useful and irrelevant; duplicates collapse. Any failure records nothing.
+  - **Errors.** Bad input, `SCOPE_CACHE=off` and a retention bound of 0 are usage errors (exit 2), as for `scope
+cache rebuild`; an unavailable cache or a failed commit is a failure (exit 1).
+  - **Storage.** One document per submission, `feedback-<feedbackId>` (same id shape as a run id, so names sort by
+    time), holding `{ record, mac }`. The MAC is an HMAC under the integrity key, bound to the repository root with
+    the domain `feedback`; `readFeedback` returns verified records newest first and skips (with a warning) anything
+    unreadable, malformed, renamed or signed by another key or root. Pruning is in the same commit as the write, by
+    name time: newest `SCOPE_FEEDBACK_MAX`, none older than `SCOPE_FEEDBACK_MAX_DAYS`; unverified documents take no
+    slot. Feedback stands alone: it survives its run's history being pruned.
+  - **Never stored.** Source code, the task text, raw Jev responses, environment variables or keys. A record holds ids,
+    paths, line ranges, symbol names and booleans.
 - **Evidence classes are kept apart** (#77): Scope's predictions (selected), Jev's judgments, and external feedback.
   Only external feedback counts as confirmed usefulness; repeated selection or a high Jev score never does.
 - **Memory signals** (#74) only add candidates or add a bounded score; they never remove a fresh match, reserved slots
@@ -313,7 +343,7 @@ The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_
 `resolveRetention`). A value must be a non-negative decimal integer, at most 10 times its default; 0 keeps none (the data
 type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
 bounds in effect. History (#73) is recorded under its bounds today and #74 will consume it; decisions (#75) are
-stored and reused under theirs; feedback (#76) is still planned.
+stored and reused under theirs; feedback (#76) is recorded under its bounds and #77 will consume it.
 
 ## What is never stored
 
@@ -336,7 +366,7 @@ the same secret redaction applied to source.
   before anything is deleted. If the lock cannot be taken the command fails and says nothing was deleted.
 - `scope cache rebuild` runs the normal scan with `rebuild: true`: no entry lookup, no stat fast path, no rename reuse,
   then a normal commit. On a current cache it rewrites analysis shards and the `files` document and leaves every other
-  document (later: run history, decisions, feedback) alone, which is why it is not "clear then run". On a stale cache
+  document (run history, decisions, feedback) alone, which is why it is not "clear then run". On a stale cache
   (another root, or other version keys) the commit resets the whole store, as on any run: the other documents were
   recorded under that root or those versions, and keeping them under the new `meta` would pass them off as current.
   It is a usage error under `SCOPE_CACHE=off`.

@@ -48,6 +48,8 @@ export interface JsonPayload {
   jev?: JevMetrics;
   /** ISO 8601 UTC time of the stored Jev decision this run reused; absent when Jev was asked. */
   decisionsReusedFrom?: string;
+  /** Id of the run's history record, the handle for `scope feedback`; absent when the run recorded none. */
+  runId?: string;
   /** Present (true) only under `--explain`. */
   explain?: true;
 }
@@ -124,6 +126,7 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
     ...(result.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: result.jevQuestionVersion }),
     ...(result.jev === undefined ? {} : { jev: toJsonJev(result.jev) }),
     ...(result.decisionsReusedFrom === undefined ? {} : { decisionsReusedFrom: result.decisionsReusedFrom }),
+    ...(result.runId === undefined ? {} : { runId: result.runId }),
     ...(result.explain ? { explain: true as const } : {}),
   };
 }

@@ -119,6 +119,22 @@ Retention bounds for the data features keep are shown by `status` and can be set
 `SCOPE_FEEDBACK_MAX` (2000) and `SCOPE_FEEDBACK_MAX_DAYS` (365). Each takes a whole number from 0 (keep none) up to
 10 times its default; an invalid value is ignored with a warning.
 
+## Feedback
+
+Every Jev result with the cache on shows a `Run <id>` line. Tell Scope what turned out to be useful, irrelevant or
+missing with `scope feedback`; it is recorded (signed, bounded by `SCOPE_FEEDBACK_MAX` and `SCOPE_FEEDBACK_MAX_DAYS`)
+and counted by `scope cache status`, and does not change any result yet:
+
+```bash
+scope feedback 1700000000000-0123abcd --useful <chunk-id> --irrelevant <chunk-id> --missing src/util/retry.ts:1-5
+scope feedback --agent my-agent --file feedback.json    # or --file - for standard input
+# feedback.json: { "runId": "...", "useful": ["..."], "irrelevant": ["..."], "missing": ["path:1-5", "symbol"], "agent": "..." }
+```
+
+Without `--agent` the feedback is attributed to you; with it, to that agent. `--missing` takes `path:start-end`, a
+repository-relative `path`, or a symbol name (a path is tried first). A chunk that changed since the run is recorded
+with a warning. Nothing is stored but ids, paths, ranges and names: no source and no task text.
+
 ## Status
 
 Early development. See [docs/scope-implementation-plan.md](docs/scope-implementation-plan.md).

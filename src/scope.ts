@@ -8,7 +8,7 @@ import {
   recordDecision,
   type DecisionKeyOverrides,
 } from "./cache/decisions.ts";
-import { recordHistory } from "./cache/history.ts";
+import { readHistoryRecord, recordHistory } from "./cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "./cache/location.ts";
 import { resolveRetention } from "./cache/retention.ts";
 import type { VersionKeys } from "./cache/versions.ts";
@@ -122,11 +122,16 @@ export async function loadChunks(
   cacheCommitted?: boolean;
   /** With the cache on and openable: the opened repository cache, for the caller's own commits (run history). */
   repositoryCache?: RepositoryCache;
+  /**
+   * Repository-relative paths of the files the scan included that are text (no NUL byte anywhere), sorted. A text file
+   * in a language without an analyzer is listed even though it yields no chunks; binary files are not.
+   */
+  files: string[];
 }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
-  const { files, warnings } = await scanRepository(root, {}, signal);
+  const { files: scanned, warnings } = await scanRepository(root, {}, signal);
   let analysisCache: AnalysisCache | undefined;
   let repositoryCache: RepositoryCache | undefined;
   const openWarnings: string[] = [];
@@ -155,7 +160,8 @@ export async function loadChunks(
     if (analysis.textOnly) textOnly.push(file);
     else warnings.push(...analysis.warnings);
   };
-  for (const file of files) {
+  const textFiles: string[] = [];
+  for (const file of scanned) {
     if (signal?.aborted) throw new CancelledError();
     // The stat is taken before the file is read, so a write in between leaves a record that no longer matches.
     const statAt = analysisCache?.now() ?? 0;
@@ -167,6 +173,7 @@ export async function loadChunks(
       : undefined;
     const fast = info ? await analysisCache?.fast(file, info) : undefined;
     if (fast) {
+      textFiles.push(file);
       reused++;
       statHits++;
       take(file, fast);
@@ -179,6 +186,7 @@ export async function loadChunks(
       warnings.push(binaryWarning(file));
       continue;
     }
+    textFiles.push(file);
     const text = bytes.toString("utf8");
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
@@ -200,7 +208,7 @@ export async function loadChunks(
   }
   const summary = textOnlySummary(textOnly, detailed);
   if (summary) warnings.push(summary);
-  if (!cache) return { chunks, warnings };
+  if (!cache) return { chunks, warnings, files: textFiles };
   if (signal?.aborted) throw new CancelledError();
   const outcome = await analysisCache?.commit();
   // Cache problems (open, read, commit) come last and once each, so the rest of the warnings match an uncached run.
@@ -212,6 +220,7 @@ export async function loadChunks(
     // An unchanged warm run takes no lock and commits nothing (undefined), which is fine; only a failed commit is false.
     cacheCommitted: analysisCache !== undefined && outcome?.committed !== false,
     repositoryCache,
+    files: textFiles,
   };
 }
 
@@ -293,7 +302,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const decisionCache = repositoryCache && !noJev && candidates.length > 0 && cacheable ? repositoryCache : undefined;
   const keepDecisions = decisionCache !== undefined && decisionsEnabled(cacheEnv);
   let decisionKey: string | undefined;
-  let reused: { judgments: RelevanceJudgment[]; time: number } | undefined;
+  let reused: { judgments: RelevanceJudgment[]; time: number; runId?: string } | undefined;
   if (decisionCache && keepDecisions) {
     try {
       decisionKey = await decisionKeyId(
@@ -348,6 +357,12 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   });
   const metrics = jevMetrics(decision, explain);
   const cacheWarnings: string[] = [];
+  // A reused decision reports the run that made it, but only while that run's history record still exists (retention
+  // may have pruned it); no new record is made for a reuse. A fresh one reports this run's own record, once committed.
+  let runId: string | undefined;
+  if (reused?.runId !== undefined && repositoryCache && (await readHistoryRecord(repositoryCache, reused.runId))) {
+    runId = reused.runId;
+  }
   if (options.cache) cacheWarnings.push(...resolveRetention(cacheEnv).warnings);
   // History is recorded last, so it can never change the selection; only a failure adds a warning. A cancelled run
   // and a run Jev did not judge (`--no-jev`, no candidates) record nothing.
@@ -365,6 +380,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       { env: options.cacheOptions?.env },
     );
     if (!outcome.committed) cacheWarnings.push(`history not recorded: ${outcome.warning}`);
+    else runId = outcome.runId;
   }
   // A fresh decision is stored last too (a reused one is already stored; a cancelled run stores nothing). With reuse
   // switched off by a bound of 0 the same commit removes every stored decision.
@@ -376,6 +392,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
         : {
             keyId: decisionKey,
             judgments: candidates.map((chunk) => ({ chunkId: chunk.id, relevance: relevance.get(chunk.id)! })),
+            ...(runId === undefined ? {} : { runId }),
           },
       { env: cacheEnv, now: clock() },
     );
@@ -387,6 +404,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
       warnings: [...result.warnings, ...cacheWarnings],
       ...metrics,
       ...(reused ? { decisionsReusedFrom: new Date(reused.time).toISOString() } : {}),
+      ...(runId === undefined ? {} : { runId }),
     },
     decision,
   };

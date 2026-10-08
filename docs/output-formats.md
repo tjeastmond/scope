@@ -89,7 +89,7 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
               chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
                          signals?, origin? }] }],
   warnings, skipped: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
-  retrievalConfigVersion?, jevQuestionVersion?, decisionsReusedFrom?,
+  retrievalConfigVersion?, jevQuestionVersion?, decisionsReusedFrom?, runId?,
   jev?: { requestCount?, latencyMs, usage: { inputTokens, outputTokens },
           requests?: [{ latencyMs, inputTokens, outputTokens }] },
   explain? }
@@ -102,6 +102,12 @@ and the top-level `explain`, appear only with `--explain`.
 `decisionsReusedFrom` (ISO 8601 UTC, additive; `schemaVersion` stays 2) is present only when the run reused a stored Jev
 decision instead of asking Jev (identical task, candidates and versions; see docs/cache-design.md). Such a run has no
 `jev` block, since no request was made.
+
+`runId` (additive; `schemaVersion` stays 2) is the id of the run's history record, the handle for `scope feedback`
+(see docs/cache-design.md). It is present when the cache is on and the run's record was committed; a run that reused a
+stored decision reports the id of the run that made it, only while that run's history record still exists. It is absent for `--no-jev`, with the cache off, with no
+candidates, and when the record could not be written. Text and Markdown show it as a summary line:
+`Run <runId> (scope feedback <runId> --useful <chunk-id> ...)`.
 
 `jev` reports Jev's external-service overhead, separately from the selected context. It is present only when Jev was
 called and reported usage (absent with `--no-jev` and when there were no candidates to judge). `latencyMs` is the wall
