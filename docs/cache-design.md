@@ -321,6 +321,9 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
   - **Validation.** A remembered chunk must exist in the current scan with the content fingerprint it was recorded
     with, so deleted or edited code never returns from memory. Predictions and Jev judgments are not confirmation
     (#77): only (a) and (b) earn the full memory signal 1; (c) earns 0.5.
+    Only history and feedback within the retention bounds in effect for the run count (age by the run's clock, then
+    the newest `maxRuns` or `max`; none when a bound is 0), so expired or disabled data never shapes a shortlist, even
+    before the next commit prunes it.
   - **Score and labels.** Memory never changes a fresh candidate's signals, score or origin. A memory candidate gets a
     `memory` signal next to the six retrieval signals (as they were, or 0), and its retrieval total is left as it was:
     memory decides only which chunks are appended and in what order, and Jev's relevance is the score. Its origin is `memory: missing in similar task <runId>` for (a) and
