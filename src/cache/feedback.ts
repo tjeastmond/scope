@@ -8,7 +8,8 @@ import type { CommitOutcome, DocumentType } from "./store.ts";
 /**
  * Feedback (#76): one signed document per submission, `feedback-<feedbackId>`. A submission is an attributed
  * observation by a user or an agent about the chunks one earlier run selected: which were useful, which were
- * irrelevant, and what was missing. It is recorded and counted, and #77 reads it as the only confirmation of usefulness (src/cache/evidence.ts).
+ * irrelevant, and what was missing. It is recorded and counted, and #77 reads it as the only confirmation of usefulness
+ * (src/cache/evidence.ts).
  *
  * A record holds ids, paths, line ranges, symbol names and booleans. Never source code, the task text, raw Jev
  * responses, environment variables or keys.
