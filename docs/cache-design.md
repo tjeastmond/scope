@@ -313,7 +313,7 @@ irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing
   - **Similar tasks.** The task's terms (`extractTaskTerms` after the same credential redaction history applies, the
     `exact` and `words` terms lowercased as one set) are compared with each history record's stored terms by Jaccard
     similarity (shared terms over all terms). A record is similar at `memory.similarityMin` (0.3) or more; an identical
-    task scores 1. Only the newest `memory.maxRuns` (20) similar records count.
+    task scores 1. Only the newest `memory.maxRuns` (20) similar records of other tasks count, and separately the newest 20 runs of the identical task (for their feedback only), so repeating a task never pushes the related runs that shaped its shortlist out of the window.
   - **Sources, strongest first.** (a) chunks named by `--missing` feedback on a similar run (a symbol, or a file or range;
     only the chunks the feedback listed, and only while their content is unchanged); (b) chunks confirmed useful by external feedback; (c) chunks Jev selected in a similar
     run. Within a source: higher similarity first, then file, start line and id. Confirmed-irrelevant chunks (#77) are
