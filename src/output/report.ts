@@ -96,6 +96,7 @@ export function explainBlocks(result: ScopeResult, quote: Quote): ExplainBlock[]
     let source = "not recorded";
     if (supportFor) source = `supporting declaration for ${supportFor.map(label).join(", ")}`;
     else if (origin === "direct") source = "direct (dependency distance 0)";
+    else if (origin?.startsWith("memory:")) source = quote(origin);
     else if (origin?.startsWith("expanded-from:"))
       source = `expanded from ${label(origin.slice("expanded-from:".length))} (dependency distance 1)`;
     return {

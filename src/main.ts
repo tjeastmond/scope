@@ -400,6 +400,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
         task: options.task,
         repo: options.repo,
         signal: io.signal,
+        cache: options.cache,
       });
       if (io.signal?.aborted) throw new CancelledError();
       io.stdout(`${JSON.stringify(requests, null, 2)}\n`);

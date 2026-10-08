@@ -9,7 +9,7 @@ import { fakeProvider } from "./helpers/fake-provider.ts";
 
 describe("DEFAULT_RETRIEVAL_CONFIG", () => {
   test("holds the documented illustrative values and is valid", () => {
-    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v3");
+    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v4");
     expect(DEFAULT_RETRIEVAL_CONFIG.weights).toEqual({
       symbol: 0.3,
       lexical: 0.2,
@@ -87,6 +87,13 @@ describe("resolveRetrievalConfig", () => {
     ["weak threshold above 1", { weakShortlistTotal: 1.5 }, "weakShortlistTotal"],
     ["negative weak threshold", { weakShortlistTotal: -0.1 }, "weakShortlistTotal"],
     ["NaN weak threshold", { weakShortlistTotal: Number.NaN }, "weakShortlistTotal"],
+    ["fractional memory candidates", { memory: { maxCandidates: 1.5 } }, "memory.maxCandidates"],
+    ["negative memory candidates", { memory: { maxCandidates: -1 } }, "memory.maxCandidates"],
+    ["zero memory similarity", { memory: { similarityMin: 0 } }, "memory.similarityMin"],
+    ["memory similarity above 1", { memory: { similarityMin: 1.1 } }, "memory.similarityMin"],
+    ["NaN memory similarity", { memory: { similarityMin: Number.NaN } }, "memory.similarityMin"],
+    ["zero memory runs", { memory: { maxRuns: 0 } }, "memory.maxRuns"],
+    ["fractional memory runs", { memory: { maxRuns: 2.5 } }, "memory.maxRuns"],
   ];
   test.each(invalid)("rejects %s and names the field", (_name, overrides, field) => {
     let error: unknown;
@@ -98,6 +105,12 @@ describe("resolveRetrievalConfig", () => {
     expect(error).toBeInstanceOf(RetrievalConfigError);
     expect((error as RetrievalConfigError).field).toBe(field);
     expect((error as Error).message).toContain(field);
+  });
+
+  test("memory defaults are bounded, and 0 candidates are allowed", () => {
+    expect(DEFAULT_RETRIEVAL_CONFIG.memory).toEqual({ maxCandidates: 5, similarityMin: 0.3, maxRuns: 20 });
+    const config = resolveRetrievalConfig({ memory: { maxCandidates: 0, similarityMin: 1 } });
+    expect(config.memory).toEqual({ maxCandidates: 0, similarityMin: 1, maxRuns: 20 });
   });
 
   test("a single zero weight is allowed", () => {

@@ -10,6 +10,7 @@ import {
 } from "./cache/decisions.ts";
 import { readHistoryRecord, recordHistory } from "./cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "./cache/location.ts";
+import { withMemory, type RankedChunk } from "./cache/memory.ts";
 import { resolveRetention } from "./cache/retention.ts";
 import type { VersionKeys } from "./cache/versions.ts";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
@@ -23,7 +24,12 @@ import { classifyFile } from "./repository/language.ts";
 import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
-import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
+import {
+  DEFAULT_RETRIEVAL_CONFIG,
+  resolveRetrievalConfig,
+  type DeepPartial,
+  type RetrievalConfig,
+} from "./retrieval/config.ts";
 import type {
   CodeChunk,
   DecisionProvider,
@@ -56,6 +62,11 @@ export interface ScopeOptions {
    * Jev again; the new decision is still cached.
    */
   reuseDecisions?: boolean;
+  /**
+   * Retrieval configuration overrides (shortlist size, memory bounds) for tests and the evaluation harness; not a CLI
+   * option. The config version recorded in history and decision keys stays the default's.
+   */
+  retrieval?: DeepPartial<RetrievalConfig>;
   /** Test seams for the cache (used only when `cache` is on). */
   cacheOptions?: {
     keys?: VersionKeys;
@@ -224,32 +235,96 @@ export async function loadChunks(
   };
 }
 
-/** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */
+/**
+ * Scans the repository and shortlists candidates; shared by the real run and the payload preview. The fresh shortlist
+ * comes first, exactly as without a cache; with `memory` (a Jev run with the cache on) a few remembered candidates from
+ * similar prior runs are appended (#74). `memory.open` makes the preview open the cache itself, read-only, since it
+ * scans without one.
+ */
 async function prepareCandidates(
   task: string,
   repo: string,
   detailed: boolean,
   signal: AbortSignal | undefined,
   cache?: NonNullable<Parameters<typeof loadChunks>[1]>["cache"],
+  retrieval?: DeepPartial<RetrievalConfig>,
+  memory?: {
+    env?: NodeJS.ProcessEnv;
+    now?: number;
+    open?: { keys?: VersionKeys; integrityEnv?: NodeJS.ProcessEnv };
+  },
 ) {
   if (!task.trim()) throw new UsageError("A task description is required.");
-  const { chunks, warnings, repositoryCache } = await loadChunks(repo, { detailed, signal, cache });
+  const config = resolveRetrievalConfig(retrieval);
+  const { chunks, warnings, repositoryCache, files } = await loadChunks(repo, { detailed, signal, cache });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
-  return { chunks, scanWarnings: warnings, repositoryCache, ...selectCandidates(task, chunks) };
+  const fresh = selectCandidates(task, chunks, config);
+  let candidates = fresh.candidates;
+  let ranking: ReadonlyMap<string, RankedChunk> = fresh.ranking;
+  let memoryWarnings: string[] = [];
+  const store = memory?.open
+    ? (await openRepositoryCache(resolveRepository(repo).root, { ...memory.open, readOnly: true })).cache
+    : repositoryCache;
+  if (memory && store) {
+    const outcome = await withMemory(
+      store,
+      { task, chunks, files: new Set(files), fresh, config: config.memory },
+      memory.env,
+      memory.now,
+    );
+    candidates = outcome.candidates;
+    ranking = outcome.ranking;
+    memoryWarnings = outcome.warnings;
+  }
+  // The cache and memory reads are asynchronous too, so a Ctrl-C during them still stops the run here.
+  if (signal?.aborted) throw new CancelledError();
+  // Fresh retrieval found nothing, yet memory has candidates for Jev to judge: say that instead of "nothing to judge".
+  const remembered = candidates.length === 1 ? "1 remembered candidate" : `${candidates.length} remembered candidates`;
+  const warning =
+    fresh.candidates.length === 0 && candidates.length > 0
+      ? `No chunk matched the task; Jev judges only the ${remembered} from similar tasks, so the result may be poor`
+      : fresh.warning;
+  return {
+    chunks,
+    scanWarnings: warnings,
+    repositoryCache,
+    candidates,
+    ranking,
+    memoryWarnings,
+    ...(warning === undefined ? {} : { warning }),
+  };
 }
 
 /**
  * Scans and shortlists exactly like `runScope`, then returns the request bodies the Jev path would send, without
- * constructing a client or sending anything.
+ * constructing a client or sending anything. With `cache` on it applies the same read-only memory step as a run (it
+ * never writes history, feedback or decisions).
  */
 export async function previewJevPayload(options: {
   task: string;
   repo?: string;
   signal?: AbortSignal;
+  /** Apply retrieval memory from the cache, as a run with the cache on would. */
+  cache?: boolean;
+  retrieval?: DeepPartial<RetrievalConfig>;
+  cacheOptions?: Pick<NonNullable<ScopeOptions["cacheOptions"]>, "keys" | "integrityEnv" | "env">;
 }): Promise<{ requests: JevRequest[]; candidateCount: number }> {
   const { task, repo = ".", signal } = options;
-  const { candidates } = await prepareCandidates(task, repo, false, signal);
+  const { candidates } = await prepareCandidates(
+    task,
+    repo,
+    false,
+    signal,
+    undefined,
+    options.retrieval,
+    options.cache
+      ? {
+          env: options.cacheOptions?.env,
+          open: { keys: options.cacheOptions?.keys, integrityEnv: options.cacheOptions?.integrityEnv },
+        }
+      : undefined,
+  );
   return { requests: planJevRequests(task, candidates), candidateCount: candidates.length };
 }
 
@@ -285,8 +360,18 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     repositoryCache,
     candidates,
     ranking,
+    memoryWarnings,
     warning: retrievalWarning,
-  } = await prepareCandidates(task, repo, explain, signal, options.cache ? (options.cacheOptions ?? {}) : undefined);
+  } = await prepareCandidates(
+    task,
+    repo,
+    explain,
+    signal,
+    options.cache ? (options.cacheOptions ?? {}) : undefined,
+    options.retrieval,
+    // Memory is for Jev runs with the cache on; `--no-jev` stays a pure deterministic baseline.
+    options.cache && !noJev ? { env: options.cacheOptions?.env, now: options.cacheOptions?.now?.() } : undefined,
+  );
   const mode = noJev ? "no-jev" : "jev";
   const clock = () => options.cacheOptions?.now?.() ?? Date.now();
   const cacheEnv = options.cacheOptions?.env;
@@ -364,6 +449,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     runId = reused.runId;
   }
   if (options.cache) cacheWarnings.push(...resolveRetention(cacheEnv).warnings);
+  cacheWarnings.push(...memoryWarnings);
   // History is recorded last, so it can never change the selection; only a failure adds a warning. A cancelled run
   // and a run Jev did not judge (`--no-jev`, no candidates) record nothing.
   if (repositoryCache && decision && !signal?.aborted) {

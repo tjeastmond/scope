@@ -69,7 +69,7 @@ function feedbackRecord(
   source: FeedbackSource = { kind: "user" },
 ): FeedbackRecord {
   return {
-    recordVersion: 2,
+    recordVersion: 3,
     feedbackId: id(n),
     runId: id(1),
     time: n,
@@ -237,9 +237,17 @@ describe("collectEvidence", () => {
   test("path-level missing entries are kept for included files and dropped, as stale, for others", () => {
     const feedback = [
       feedbackRecord(1, {
-        missing: [{ path: "src/a.ts", startLine: 1, endLine: 3 }, { path: "src/gone.ts" }],
+        missing: [
+          { path: "src/a.ts", startLine: 1, endLine: 3, chunks: [] },
+          { path: "src/gone.ts", chunks: [] },
+        ],
       }),
-      feedbackRecord(2, { missing: [{ path: "src/a.ts", startLine: 1, endLine: 3 }, { path: "src/a.ts" }] }),
+      feedbackRecord(2, {
+        missing: [
+          { path: "src/a.ts", startLine: 1, endLine: 3, chunks: [] },
+          { path: "src/a.ts", chunks: [] },
+        ],
+      }),
     ];
     const { missingLocations, stale } = collectEvidence([], feedback, now, new Set(["src/a.ts"]));
     expect(missingLocations).toEqual([
@@ -250,6 +258,22 @@ describe("collectEvidence", () => {
     expect(collectEvidence([], feedback, now).missingLocations).toEqual([]);
   });
 
+  test("a path-level missing entry counts for each chunk it listed while that chunk's content is unchanged", () => {
+    const feedback = [
+      feedbackRecord(1, {
+        missing: [{ path: "src/a.ts", chunks: [{ chunkId: A, fingerprint: FP_A }] }],
+      }),
+      feedbackRecord(2, {
+        missing: [
+          { path: "src/b.ts", startLine: 1, endLine: 3, chunks: [{ chunkId: B, fingerprint: "e".repeat(64) }] },
+        ],
+      }),
+    ];
+    const { chunks } = collectEvidence([], feedback, now, new Set(["src/a.ts", "src/b.ts"]));
+    expect(chunks.get(A)!.feedback.missing).toBe(1);
+    expect(chunks.get(B)).toBeUndefined();
+  });
+
   test("the result does not depend on the order of the inputs", () => {
     const history = [
       historyRecord(1, [candidate(A, FP_A, { relevance: 0.1 }), candidate(B, FP_B, { relevance: 0.7 })]),
@@ -257,7 +281,11 @@ describe("collectEvidence", () => {
       historyRecord(3, [candidate(A, FP_A, { relevance: 0.3 })]),
     ];
     const feedback = [
-      feedbackRecord(4, { useful: [ref(A, FP_A)], missing: [{ path: "src/a.ts" }] }, { kind: "agent", name: "x" }),
+      feedbackRecord(
+        4,
+        { useful: [ref(A, FP_A)], missing: [{ path: "src/a.ts", chunks: [] }] },
+        { kind: "agent", name: "x" },
+      ),
       feedbackRecord(5, { irrelevant: [ref(B, FP_B)] }),
       feedbackRecord(6, { missing: [{ symbol: "b", chunks: [{ chunkId: B, fingerprint: FP_B }] }] }),
     ];

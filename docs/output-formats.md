@@ -34,7 +34,10 @@ Selection is relevance-only and the same for every format; there is no size limi
 For every chunk in the result, including supporting declarations pulled in for coherence, the evidence is: the
 deterministic retrieval signals (names sorted), Jev's relevance (or `not judged`), the ranking score, its origin and
 the reason it was included. Origin is `direct` (dependency distance 0),
-`expanded from <location>` (a graph neighbour of that chunk, distance 1) or `supporting declaration for <locations>`.
+`expanded from <location>` (a graph neighbour of that chunk, distance 1), `supporting declaration for <locations>`, or
+a memory form (#74): `memory: similar task <runId>` (a chunk confirmed useful in, or selected by, a similar earlier
+run) or `memory: missing in similar task <runId>` (reported missing for one). Memory chunks also carry a `memory`
+signal (1, or 0.5 when only Jev selected them).
 Under `--explain` the below-threshold candidates are also listed, most relevant first; without it they are only
 counted.
 

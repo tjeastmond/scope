@@ -214,11 +214,22 @@ describe("recording feedback", () => {
       createHash("sha256")
         .update(chunksNow.find((chunk) => chunk.id === id)!.content)
         .digest("hex");
-    expect(record!.recordVersion).toBe(2);
+    expect(record!.recordVersion).toBe(3);
     expect(record!.useful).toEqual([{ chunkId: a, fingerprint: fingerprint(a), current: true }]);
     expect(record!.irrelevant).toEqual([{ chunkId: skipped, fingerprint: fingerprint(skipped), current: true }]);
-    expect(record!.missing[0]).toEqual({ path: "src/stripe/handler.ts", startLine: 1, endLine: 3 });
-    expect(record!.missing[1]).toEqual({ path: "src/logger.ts" });
+    const covering = (path: string, startLine = 0, endLine = Infinity) =>
+      chunksNow
+        .filter((chunk) => chunk.file === path && chunk.startLine <= endLine && chunk.endLine >= startLine)
+        .sort((x, y) => x.startLine - y.startLine)
+        .map((chunk) => ({ chunkId: chunk.id, fingerprint: fingerprint(chunk.id) }));
+    expect(covering("src/logger.ts").length).toBeGreaterThan(0);
+    expect(record!.missing[0]).toEqual({
+      path: "src/stripe/handler.ts",
+      startLine: 1,
+      endLine: 3,
+      chunks: covering("src/stripe/handler.ts", 1, 3),
+    });
+    expect(record!.missing[1]).toEqual({ path: "src/logger.ts", chunks: covering("src/logger.ts") });
     const symbol = record!.missing[2] as { symbol: string; chunks: { chunkId: string; fingerprint: string }[] };
     expect(symbol.symbol).toBe("processEvent");
     expect(symbol.chunks.length).toBeGreaterThan(0);
@@ -584,6 +595,16 @@ describe("integrity", () => {
     expect(warnings).toEqual([`${s.name}: not signed by this user; ignoring it`]);
   });
 
+  test("a signed version 2 document (path entries without chunks) is skipped", async () => {
+    const s = await seeded();
+    const record = { ...s.doc.record, recordVersion: 2 };
+    const cache = await open(s.repo);
+    await writeFile(s.path, JSON.stringify({ ...s.doc, record, mac: feedbackMac(cache, record) }));
+    const { records, warnings } = await readFeedback(cache);
+    expect(records).toEqual([]);
+    expect(warnings).toHaveLength(1);
+  });
+
   test("a record under another name, signed under another key, or copied from another repository is skipped", async () => {
     const s = await seeded();
     const text = await readFile(s.path, "utf8");
@@ -702,7 +723,7 @@ describe("retention", () => {
     await give(repo, { runId, useful: [a] });
     const cache = await open(repo);
     const record: FeedbackRecord = {
-      recordVersion: 2,
+      recordVersion: 3,
       feedbackId: "9999999999999-00000000",
       runId,
       time: 9_999_999_999_999,
