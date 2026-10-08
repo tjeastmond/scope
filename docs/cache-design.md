@@ -227,7 +227,7 @@ under another key, or by hand) verifies as nothing.
 - **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
 - It is the only file Scope writes outside the project.
 
-## Retrieval memory (#73, #75 and #76 implemented; #74, #77 and #78 _planned_)
+## Retrieval memory (#73, #75, #76 and #77 implemented; #74 and #78 _planned_)
 
 - **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
   finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
@@ -255,7 +255,8 @@ under another key, or by hand) verifies as nothing.
 - **Feedback** (#76, `src/cache/feedback.ts`, `src/feedback.ts`) is an attributed observation about the chunks one
   earlier run selected, recorded with `scope feedback <run-id> [--useful <chunk-id>]... [--irrelevant <chunk-id>]...
 [--missing <path:start-end|path|symbol>]... [--agent <name>] [--file <path|->]`. It is only recorded and counted:
-  nothing in selection, scoring or decision reuse reads it until #77, and recording it changes no output of a run.
+  nothing in selection, scoring or decision reuse reads it (#77 turns it into evidence, and #74 will consume that),
+  and recording it changes no output of a run.
   - **Run id.** A Jev run with the cache on reports the id of its history record (`runId` in JSON, a `Run` line in
     text and Markdown). A decision-reuse hit reports the original run's id (the decision record, version 2, carries an
     optional `runId`; version 1 documents are a miss) only if that run's history record still exists and verifies;
@@ -267,23 +268,44 @@ under another key, or by hand) verifies as nothing.
     must be candidates of that run. Each chunk is then compared with the current source (the same scan, ignore and
     exclusion rules as a run): if its id is gone or its content's SHA-256 differs from the run's fingerprint it is
     recorded with `current: false` and a warning, not rejected, so a later reader knows the observation may describe
-    other code. `--missing` is classified as `path:start-end` (an included file, 1-based inclusive range within its
+    other code. Chunk ids are not content-addressed, so every reference also stores the fingerprint of the content it
+    was about (#77): for `--useful` and `--irrelevant`, the fingerprint in the run's history record. `--missing` is classified as `path:start-end` (an included file, 1-based inclusive range within its
     line count), else a repository-relative included file (whole file), else a symbol: the exact `name` of at least one
-    current chunk (its ids are stored, at most 20). Absolute paths, `..`, symlink escapes and files the scan excludes
+    current chunk (its ids and their current content fingerprints are stored, at most 20). Absolute paths, `..`, symlink escapes and files the scan excludes
     (ignored, binary, secret-like) are rejected without being read. Limits: 200 entries per list, 500 characters per
     entry, at least one entry, no id both useful and irrelevant; duplicates collapse. Any failure records nothing.
   - **Errors.** Bad input, `SCOPE_CACHE=off` and a retention bound of 0 are usage errors (exit 2), as for `scope
 cache rebuild`; an unavailable cache or a failed commit is a failure (exit 1).
   - **Storage.** One document per submission, `feedback-<feedbackId>` (same id shape as a run id, so names sort by
-    time), holding `{ record, mac }`. The MAC is an HMAC under the integrity key, bound to the repository root with
+    time), holding `{ record, mac }` (record version 2, which adds the fingerprints; #76 had merged the same day, so version 1
+    needed no migration, and a version 1 document fails verification, is skipped by `readFeedback` and is pruned at the
+    next write like any unverified document). The MAC is an HMAC under the integrity key, bound to the repository root with
     the domain `feedback`; `readFeedback` returns verified records newest first and skips (with a warning) anything
     unreadable, malformed, renamed or signed by another key or root. Pruning is in the same commit as the write, by
     name time: newest `SCOPE_FEEDBACK_MAX`, none older than `SCOPE_FEEDBACK_MAX_DAYS`; unverified documents take no
     slot. Feedback stands alone: it survives its run's history being pruned.
   - **Never stored.** Source code, the task text, raw Jev responses, environment variables or keys. A record holds ids,
-    paths, line ranges, symbol names and booleans.
-- **Evidence classes are kept apart** (#77): Scope's predictions (selected), Jev's judgments, and external feedback.
-  Only external feedback counts as confirmed usefulness; repeated selection or a high Jev score never does.
+    paths, line ranges, symbol names, fingerprints and booleans.
+- **Evidence classes are kept apart** (#77, `src/cache/evidence.ts`). `collectEvidence` turns the bounded history and
+  feedback into a per-chunk summary with three classes in separate fields, so no code can mistake one for another:
+  - **Predictions** come from history candidates' `decision`: counts of `selected`, `support` and `skipped`. This is
+    Scope's own output.
+  - **Jev judgments** come from history candidates' `relevance`: how many runs judged the chunk, and the mean and
+    maximum relevance. This is a model's opinion.
+  - **External feedback** comes from feedback records: counts of `useful`, `irrelevant` and `missing` (a symbol
+    `--missing` counts once for each chunk it lists), the time of the latest feedback and the number of distinct
+    sources (the user, and each agent name). Path-level `--missing` entries are kept separately as locations, for
+    files that are still included.
+  - **Fingerprint validation.** Ids are not content-addressed, so an observation counts only when its chunk id exists
+    now and its recorded fingerprint equals the current content fingerprint. Deleted or edited code carries no
+    evidence; the dropped observations are only counted (`stale`). Feedback given with `current: false` (the code had
+    already changed) never counts either.
+  - **Confirmation.** `isConfirmedUseful` takes only the feedback counts and is true when `useful + missing >
+irrelevant`; `isConfirmedIrrelevant` is true when `irrelevant > useful + missing`. A tie is neither. Predictions
+    and Jev scores never confirm usefulness and must not be amplified into it: repeated selection or a high Jev
+    score alone is not proof.
+  - **Scope.** The summary is deterministic regardless of input order and adds no storage; `loadEvidence` reads and
+    validates it against the current chunks. Nothing in selection uses it until #74.
 - **Memory signals** (#74) only add candidates or add a bounded score; they never remove a fresh match, reserved slots
   keep fresh-only candidates discoverable, every remembered chunk is validated against current content fingerprints,
   and memory-found candidates carry an explicit reason.
@@ -343,7 +365,7 @@ The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_
 `resolveRetention`). A value must be a non-negative decimal integer, at most 10 times its default; 0 keeps none (the data
 type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
 bounds in effect. History (#73) is recorded under its bounds today and #74 will consume it; decisions (#75) are
-stored and reused under theirs; feedback (#76) is recorded under its bounds and #77 will consume it.
+stored and reused under theirs; feedback (#76) is recorded under its bounds and read as evidence by #77 (and #74 next).
 
 ## What is never stored
 

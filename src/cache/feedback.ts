@@ -8,7 +8,8 @@ import type { CommitOutcome, DocumentType } from "./store.ts";
 /**
  * Feedback (#76): one signed document per submission, `feedback-<feedbackId>`. A submission is an attributed
  * observation by a user or an agent about the chunks one earlier run selected: which were useful, which were
- * irrelevant, and what was missing. It is only recorded and counted; nothing in selection reads it before #77.
+ * irrelevant, and what was missing. It is recorded and counted, and #77 reads it as the only confirmation of usefulness
+ * (src/cache/evidence.ts).
  *
  * A record holds ids, paths, line ranges, symbol names and booleans. Never source code, the task text, raw Jev
  * responses, environment variables or keys.
@@ -16,7 +17,7 @@ import type { CommitOutcome, DocumentType } from "./store.ts";
 
 export const FEEDBACK_PREFIX = "feedback-";
 /** Version of the record shape; a record of another version is ignored. */
-export const FEEDBACK_RECORD_VERSION = 1;
+export const FEEDBACK_RECORD_VERSION = 2;
 /** Entries per list (useful, irrelevant, missing). */
 export const MAX_FEEDBACK_ENTRIES = 200;
 /** Characters per entry (chunk id, path, symbol name). */
@@ -34,17 +35,28 @@ export type FeedbackSource = { kind: "user" } | { kind: "agent"; name: string };
 export interface FeedbackChunkRef {
   chunkId: string;
   /**
+   * Fingerprint (64 lowercase hex) of the content the observation was about: the chunk as the run showed it. Chunk
+   * ids are not content-addressed, so this is what lets a reader tell whether the code is still the same.
+   */
+  fingerprint: string;
+  /**
    * Whether the chunk's current content was identical to the content of the run when the feedback was given. False
    * means the chunk changed (or is gone) since the run, so the observation may describe other code.
    */
   current: boolean;
 }
 
+/** A current chunk a `--missing` symbol resolved to, with the fingerprint of its content at that time. */
+export interface SymbolChunkRef {
+  chunkId: string;
+  fingerprint: string;
+}
+
 export type FeedbackMissing =
-  { path: string; startLine?: number; endLine?: number } | { symbol: string; chunkIds: string[] };
+  { path: string; startLine?: number; endLine?: number } | { symbol: string; chunks: SymbolChunkRef[] };
 
 export interface FeedbackRecord {
-  recordVersion: 1;
+  recordVersion: 2;
   /** `<time as 13 digits>-<8 hex>`, the document name without its prefix. */
   feedbackId: string;
   /** The run the feedback is about (its history record id). */
@@ -73,20 +85,29 @@ const isLine = (value: unknown): value is number => typeof value === "number" &&
 const list = (value: unknown, max: number, check: (item: unknown) => boolean): boolean =>
   Array.isArray(value) && value.length <= max && value.every(check);
 
+const isFingerprint = (value: unknown): value is string => typeof value === "string" && KEY_PATTERN.test(value);
+
 const isChunkRef = (value: unknown): value is FeedbackChunkRef =>
   isObject(value) &&
-  onlyKeys(value, ["chunkId", "current"]) &&
+  onlyKeys(value, ["chunkId", "fingerprint", "current"]) &&
   isEntry(value.chunkId) &&
+  isFingerprint(value.fingerprint) &&
   typeof value.current === "boolean";
+
+const isSymbolChunk = (value: unknown): value is SymbolChunkRef =>
+  isObject(value) &&
+  onlyKeys(value, ["chunkId", "fingerprint"]) &&
+  isEntry(value.chunkId) &&
+  isFingerprint(value.fingerprint);
 
 function isMissing(value: unknown): value is FeedbackMissing {
   if (!isObject(value)) return false;
   if ("symbol" in value) {
     return (
-      onlyKeys(value, ["symbol", "chunkIds"]) &&
+      onlyKeys(value, ["symbol", "chunks"]) &&
       isEntry(value.symbol) &&
-      list(value.chunkIds, MAX_SYMBOL_CHUNKS, isEntry) &&
-      (value.chunkIds as unknown[]).length > 0
+      list(value.chunks, MAX_SYMBOL_CHUNKS, isSymbolChunk) &&
+      (value.chunks as unknown[]).length > 0
     );
   }
   if (!onlyKeys(value, ["path", "startLine", "endLine"]) || !isEntry(value.path)) return false;

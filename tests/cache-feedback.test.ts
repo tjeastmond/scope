@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -202,6 +202,7 @@ describe("recording feedback", () => {
     expect(result.counts).toEqual({ useful: 1, irrelevant: 1, missing: 3 });
     expect(result.warnings).toEqual([]);
     const { records, warnings } = await readFeedback(await open(repo));
+    const chunksNow = (await loadChunks(repo)).chunks;
     expect(warnings).toEqual([]);
     expect(records).toHaveLength(1);
     const [record] = records;
@@ -209,16 +210,21 @@ describe("recording feedback", () => {
     expect(record!.runId).toBe(runId);
     expect(record!.time).toBe(now);
     expect(record!.source).toEqual({ kind: "user" });
-    expect(record!.useful).toEqual([{ chunkId: a, current: true }]);
-    expect(record!.irrelevant).toEqual([{ chunkId: skipped, current: true }]);
+    const fingerprint = (id: string) =>
+      createHash("sha256")
+        .update(chunksNow.find((chunk) => chunk.id === id)!.content)
+        .digest("hex");
+    expect(record!.recordVersion).toBe(2);
+    expect(record!.useful).toEqual([{ chunkId: a, fingerprint: fingerprint(a), current: true }]);
+    expect(record!.irrelevant).toEqual([{ chunkId: skipped, fingerprint: fingerprint(skipped), current: true }]);
     expect(record!.missing[0]).toEqual({ path: "src/stripe/handler.ts", startLine: 1, endLine: 3 });
     expect(record!.missing[1]).toEqual({ path: "src/logger.ts" });
-    const symbol = record!.missing[2] as { symbol: string; chunkIds: string[] };
+    const symbol = record!.missing[2] as { symbol: string; chunks: { chunkId: string; fingerprint: string }[] };
     expect(symbol.symbol).toBe("processEvent");
-    expect(symbol.chunkIds.length).toBeGreaterThan(0);
-    const { chunks } = await loadChunks(repo);
-    const named = chunks.filter((chunk) => chunk.name === "processEvent").map((chunk) => chunk.id);
-    expect(symbol.chunkIds.slice().sort()).toEqual(named.slice(0, 20).sort());
+    expect(symbol.chunks.length).toBeGreaterThan(0);
+    const named = chunksNow.filter((chunk) => chunk.name === "processEvent").slice(0, 20);
+    expect(symbol.chunks.map((ref) => ref.chunkId).sort()).toEqual(named.map((chunk) => chunk.id).sort());
+    for (const ref of symbol.chunks) expect(ref.fingerprint).toBe(fingerprint(ref.chunkId));
     expect(b).toBeDefined();
   });
 
@@ -241,7 +247,9 @@ describe("recording feedback", () => {
     await writeFile(path, lines.join("\n"));
     const fed = await give(repo, { runId, useful: [target.id] }, () => Date.now() + 2 * HOUR);
     const [record] = (await readFeedback(await open(repo))).records;
-    expect(record!.useful).toEqual([{ chunkId: target.id, current: false }]);
+    expect(record!.useful).toEqual([
+      { chunkId: target.id, fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/), current: false },
+    ]);
     expect(fed.warnings).toContain(`chunk ${target.id} changed since run ${runId}`);
   });
 });
@@ -694,12 +702,12 @@ describe("retention", () => {
     await give(repo, { runId, useful: [a] });
     const cache = await open(repo);
     const record: FeedbackRecord = {
-      recordVersion: 1,
+      recordVersion: 2,
       feedbackId: "9999999999999-00000000",
       runId,
       time: 9_999_999_999_999,
       source: { kind: "user" },
-      useful: [{ chunkId: a, current: true }],
+      useful: [{ chunkId: a, fingerprint: "a".repeat(64), current: true }],
       irrelevant: [],
       missing: [],
     };
