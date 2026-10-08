@@ -46,6 +46,8 @@ export interface JsonPayload {
    * is the wall clock of the whole decision (requests overlap); tokens are as reported by Jev. No cost is reported.
    */
   jev?: JevMetrics;
+  /** ISO 8601 UTC time of the stored Jev decision this run reused; absent when Jev was asked. */
+  decisionsReusedFrom?: string;
   /** Present (true) only under `--explain`. */
   explain?: true;
 }
@@ -121,6 +123,7 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
     ...(result.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: result.jevQuestionVersion }),
     ...(result.jev === undefined ? {} : { jev: toJsonJev(result.jev) }),
+    ...(result.decisionsReusedFrom === undefined ? {} : { decisionsReusedFrom: result.decisionsReusedFrom }),
     ...(result.explain ? { explain: true as const } : {}),
   };
 }

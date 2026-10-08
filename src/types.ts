@@ -219,6 +219,8 @@ export interface ScopeResult {
   jevQuestionVersion?: string;
   /** Jev's latency and token usage; absent in `no-jev` mode and when Jev was not called. */
   jev?: JevMetrics;
+  /** ISO 8601 UTC time of the stored Jev decision this run reused (identical task, candidates and versions); absent on a fresh decision. */
+  decisionsReusedFrom?: string;
   /** Set by `--explain`: renderers add the selection evidence. */
   explain?: true;
 }

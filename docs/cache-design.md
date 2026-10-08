@@ -227,7 +227,7 @@ under another key, or by hand) verifies as nothing.
 - **Deleting it** only costs a cold run: every entry then fails verification and is reanalyzed and re-signed.
 - It is the only file Scope writes outside the project.
 
-## Retrieval memory (#73 implemented; #74 to #78 _planned_)
+## Retrieval memory (#73 and #75 implemented; #74, #76 to #78 _planned_)
 
 - **History** (#73, `src/cache/history.ts`) records one document per run, `history-<runId>`, where `runId` is the run's
   finish time as 13 zero-padded decimal digits, `-`, and 8 random hex characters (so names sort by time). The store
@@ -257,9 +257,39 @@ under another key, or by hand) verifies as nothing.
 - **Memory signals** (#74) only add candidates or add a bounded score; they never remove a fresh match, reserved slots
   keep fresh-only candidates discoverable, every remembered chunk is validated against current content fingerprints,
   and memory-found candidates carry an explicit reason.
-- **Decision reuse** (#75) is separate from analysis reuse: only an exact match of task text, candidate payload,
-  source fingerprints, SDK and model configuration, and question version reuses a Jev decision, within an expiry, and
-  the output discloses it.
+- **Decision reuse** (#75, `src/cache/decisions.ts`) is separate from analysis reuse: a similar task always gets a
+  fresh Jev review, and a Jev decision is reused only on an exact key match within its expiry.
+  - **Key.** `keyId` is HMAC-SHA256, under the integrity key and bound to the repository's real root, of: the exact task
+    text; a SHA-256 of the canonical JSON of the exact request payload (`planJevRequests`, which includes the model);
+    each candidate's id and a SHA-256 of its full content, in candidate order (the payload truncates long candidates);
+    the installed SDK version, model, question version, retrieval config version and Scope version. The key is keyed
+    so that the document names do not let anyone who can read `.scope/` test guesses of a task's text.
+  - **Storage.** One document per decision, `decision-<13-digit time>-<keyId>`, holding `{ record, mac }` with
+    `record = { recordVersion, keyId, time, judgments: [{ chunkId, relevance }] }` (the validated relevance of each
+    candidate, in candidate order). The task text, source code, raw Jev answers, usage and environment are never stored.
+  - **Lookup.** A run looks up a decision when the cache is on and opened, the mode is `jev`, there are candidates,
+    `--fresh` is not given and the decision bounds are not 0. It lists names, keeps those ending in `-<keyId>`
+    within the expiry and reads the newest. The document must have a valid strict shape, the key id and time of its
+    name, a valid MAC (same domain-tagged construction as history, bound to the root), a time not in the future, and
+    judgments covering exactly the current candidates. Anything else, including a corrupt or planted document, is a
+    miss and Jev is asked. On a hit the provider is never constructed (no credentials needed) and selection runs as for
+    a fresh decision, so the selected chunks, regions and skipped entries equal those of the original run.
+  - **Expiry and retention.** A decision older than `SCOPE_DECISIONS_MAX_DAYS` (default 7 days) is never reused. After
+    a fresh decision the same commit that writes it prunes: names that do not parse, expired and unverified documents,
+    older documents of the same key, and everything beyond the newest `SCOPE_DECISIONS_MAX` (default 500) are removed;
+    a document takes a retention slot only once verified. With either bound at 0 nothing is looked up or written, and
+    that commit removes every decision. Retention warnings are the ones already added once per run.
+  - **Disclosure.** `ScopeResult.decisionsReusedFrom` (ISO 8601 UTC time of the stored decision) is set only on a hit.
+    JSON carries `decisionsReusedFrom`; text and Markdown always show `Decisions reused from <time> (identical task,
+candidates and versions; run with --fresh to ask Jev again)`. A hit has no `jev` metrics block, since no request was
+    made, and the per-chunk reason stays `Jev relevance <value>` because it is still Jev's judgment.
+  - **`--fresh`** asks Jev again even when a match is stored and caches the new decision, which replaces the older
+    one for the same key.
+  - **History.** A hit records no run history: the original Jev run is already in history, and recording reused
+    decisions would count one Jev judgment twice when #74 learns from history. A `--fresh` run records history as usual.
+  - **Failure.** A decision is stored after the selection is built, in its own commit. If that fails the run still
+    succeeds and gains one warning, `decision not cached: <reason>`, after the other cache warnings. `--no-jev` runs,
+    runs with no candidates, cancelled runs and `previewJevPayload` neither read nor write decisions.
 - **Adaptive weights** (#78) are versioned, bounded around the baseline, promoted only after held-out evaluation, and
   can be reset to the baseline.
 
@@ -277,8 +307,8 @@ The history, decision and feedback bounds can be overridden with `SCOPE_HISTORY_
 `SCOPE_DECISIONS_MAX`, `SCOPE_DECISIONS_MAX_DAYS`, `SCOPE_FEEDBACK_MAX` and `SCOPE_FEEDBACK_MAX_DAYS` (`src/cache/retention.ts`,
 `resolveRetention`). A value must be a non-negative decimal integer, at most 10 times its default; 0 keeps none (the data
 type is disabled). An invalid value is ignored with a warning and the default applies. `scope cache status` shows the
-bounds in effect. History (#73) is recorded under its bounds today and #74 will consume it; decisions (#75) and
-feedback (#76) are still planned.
+bounds in effect. History (#73) is recorded under its bounds today and #74 will consume it; decisions (#75) are
+stored and reused under theirs; feedback (#76) is still planned.
 
 ## What is never stored
 

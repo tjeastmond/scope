@@ -1,6 +1,13 @@
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { AnalysisCache, analysisKey, contentHash, type StatInfo } from "./cache/analysis.ts";
+import {
+  decisionKeyId,
+  decisionsEnabled,
+  lookupDecision,
+  recordDecision,
+  type DecisionKeyOverrides,
+} from "./cache/decisions.ts";
 import { recordHistory } from "./cache/history.ts";
 import { openRepositoryCache, type RepositoryCache } from "./cache/location.ts";
 import { resolveRetention } from "./cache/retention.ts";
@@ -17,7 +24,15 @@ import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
-import type { CodeChunk, DecisionProvider, DecisionResult, JevMetrics, ScopeResult, SelectedChunk } from "./types.ts";
+import type {
+  CodeChunk,
+  DecisionProvider,
+  DecisionResult,
+  JevMetrics,
+  RelevanceJudgment,
+  ScopeResult,
+  SelectedChunk,
+} from "./types.ts";
 
 export interface ScopeOptions {
   task: string;
@@ -36,6 +51,11 @@ export interface ScopeOptions {
    * into a repository unless they ask). Output is identical either way; cache problems only add warnings.
    */
   cache?: boolean;
+  /**
+   * Reuse an identical earlier Jev decision when the cache holds one (default: true). False (`--fresh`) always asks
+   * Jev again; the new decision is still cached.
+   */
+  reuseDecisions?: boolean;
   /** Test seams for the cache (used only when `cache` is on). */
   cacheOptions?: {
     keys?: VersionKeys;
@@ -47,6 +67,8 @@ export interface ScopeOptions {
     lockWaitMs?: number;
     /** Where the history retention bounds are read from (default: the process environment). */
     env?: NodeJS.ProcessEnv;
+    /** Replaces parts of the decision key material, so tests can show that each part is part of the key. */
+    decisionKeyOverrides?: DecisionKeyOverrides;
   };
 }
 
@@ -257,14 +279,33 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     warning: retrievalWarning,
   } = await prepareCandidates(task, repo, explain, signal, options.cache ? (options.cacheOptions ?? {}) : undefined);
   const mode = noJev ? "no-jev" : "jev";
-  // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
-  // With nothing to judge Jev is skipped; selection then returns an empty artifact carrying retrieval's guidance.
+  const clock = () => options.cacheOptions?.now?.() ?? Date.now();
+  const cacheEnv = options.cacheOptions?.env;
+  // Decision reuse needs an opened cache and a Jev path with candidates; a bound of 0 turns it off.
+  const decisionCache = repositoryCache && !noJev && candidates.length > 0 ? repositoryCache : undefined;
+  const keepDecisions = decisionCache !== undefined && decisionsEnabled(cacheEnv);
+  let decisionKey: string | undefined;
+  let reused: { judgments: RelevanceJudgment[]; time: number } | undefined;
+  if (decisionCache && keepDecisions) {
+    try {
+      decisionKey = await decisionKeyId(decisionCache, task, candidates, options.cacheOptions?.decisionKeyOverrides);
+      if (options.reuseDecisions !== false) {
+        reused = await lookupDecision(decisionCache, decisionKey, candidates, { env: cacheEnv, now: clock() });
+      }
+    } catch {
+      decisionKey = undefined;
+    }
+  }
+  // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path, and not at all
+  // when an identical decision is reused. With nothing to judge Jev is skipped; selection then returns an empty
+  // artifact carrying retrieval's guidance.
   const decision =
-    noJev || candidates.length === 0
+    noJev || candidates.length === 0 || reused
       ? undefined
       : await (options.provider ?? new JevDecisionProvider()).decide({ task, candidates, signal });
 
-  const relevance = decision ? validateJudgments(candidates, decision.judgments) : new Map<string, number>();
+  const judgments = reused?.judgments ?? decision?.judgments;
+  const relevance = judgments ? validateJudgments(candidates, judgments) : new Map<string, number>();
   const scored: SelectedChunk[] = candidates.map((chunk) => {
     const value = relevance.get(chunk.id);
     const found = ranking.get(chunk.id);
@@ -293,7 +334,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   });
   const metrics = jevMetrics(decision, explain);
   const cacheWarnings: string[] = [];
-  if (options.cache) cacheWarnings.push(...resolveRetention(options.cacheOptions?.env).warnings);
+  if (options.cache) cacheWarnings.push(...resolveRetention(cacheEnv).warnings);
   // History is recorded last, so it can never change the selection; only a failure adds a warning. A cancelled run
   // and a run Jev did not judge (`--no-jev`, no candidates) record nothing.
   if (repositoryCache && decision && !signal?.aborted) {
@@ -311,8 +352,28 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     );
     if (!outcome.committed) cacheWarnings.push(`history not recorded: ${outcome.warning}`);
   }
+  // A fresh decision is stored last too (a reused one is already stored; a cancelled run stores nothing). With reuse
+  // switched off by a bound of 0 the same commit removes every stored decision.
+  if (decisionCache && decision && !signal?.aborted && (decisionKey !== undefined || !keepDecisions)) {
+    const outcome = await recordDecision(
+      decisionCache,
+      decisionKey === undefined
+        ? undefined
+        : {
+            keyId: decisionKey,
+            judgments: candidates.map((chunk) => ({ chunkId: chunk.id, relevance: relevance.get(chunk.id)! })),
+          },
+      { env: cacheEnv, now: clock() },
+    );
+    if (!outcome.committed) cacheWarnings.push(`decision not cached: ${outcome.warning}`);
+  }
   return {
-    result: { ...result, warnings: [...result.warnings, ...cacheWarnings], ...metrics },
+    result: {
+      ...result,
+      warnings: [...result.warnings, ...cacheWarnings],
+      ...metrics,
+      ...(reused ? { decisionsReusedFrom: new Date(reused.time).toISOString() } : {}),
+    },
     decision,
   };
 }

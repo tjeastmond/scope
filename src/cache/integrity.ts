@@ -78,7 +78,7 @@ export function loadIntegrityKey(env: NodeJS.ProcessEnv = process.env): Promise<
 }
 
 /** JSON with object keys sorted recursively and `undefined` members omitted, so field order never matters. */
-function canonical(value: unknown): string {
+export function canonical(value: unknown): string {
   if (Array.isArray(value))
     return `[${value.map((item) => (item === undefined ? "null" : canonical(item))).join(",")}]`;
   if (typeof value === "object" && value !== null) {

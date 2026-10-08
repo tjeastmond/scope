@@ -15,6 +15,7 @@
     "retrievalConfigVersion": { "type": "string" },
     "jevQuestionVersion": { "type": "string" },
     "jev": { "$ref": "#/$defs/jev" },
+    "decisionsReusedFrom": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z$" },
     "explain": { "const": true }
   },
   "$defs": {

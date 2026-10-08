@@ -75,6 +75,8 @@ const run = (repo: string, options: RunOptions = {}) =>
     provider: options.provider ?? fakeProvider({ relevance: RELEVANCE, fallback: 0.05 }),
     noJev: options.noJev,
     cache: options.cache ?? true,
+    // These tests repeat identical runs to fill the history; each must ask Jev (decision reuse is tested elsewhere).
+    reuseDecisions: false,
     signal: options.signal,
     explain: true,
     cacheOptions: { now: options.now ?? later, env: options.env ?? {}, lockWaitMs: options.lockWaitMs },
@@ -422,10 +424,10 @@ describe("failure and neutrality", () => {
     const failed = await run(repo, { lockWaitMs: 100 });
     const notes = failed.result.warnings.filter((w) => w.startsWith("history not recorded: "));
     expect(notes).toHaveLength(1);
-    expect(failed.result.warnings.at(-1)).toBe(notes[0]!);
-    expect({ ...failed.result, warnings: failed.result.warnings.filter((w) => w !== notes[0]) }).toEqual(
-      baseline.result,
-    );
+    // The decision cache (#75) is committed after history and fails on the same lock.
+    const rest = failed.result.warnings.filter((w) => !w.startsWith("decision not cached: "));
+    expect(rest.at(-1)).toBe(notes[0]!);
+    expect({ ...failed.result, warnings: rest.filter((w) => w !== notes[0]) }).toEqual(baseline.result);
     expect(await historyNames(repo)).toEqual([]);
   });
 

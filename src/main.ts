@@ -26,7 +26,7 @@ import { previewJevPayload, runScope } from "./scope.ts";
 import type { DecisionProvider } from "./types.ts";
 
 const HELP = `Usage: scope "<task>" [--repo <path>] [--format text|markdown|json]
-             [--output <path>] [--no-jev] [--explain] [--no-cache]
+             [--output <path>] [--no-jev] [--explain] [--fresh] [--no-cache]
 
 Select the smallest useful code context for a task.
 
@@ -36,6 +36,7 @@ Options:
   --output <path>    Write the artifact to a file instead of stdout (default: stdout)
   --explain          Add selection evidence for every chunk (default: off)
   --no-jev           Skip Jev and use the offline baseline (no credentials or network)
+  --fresh            Ask Jev again instead of reusing an identical earlier decision; the new decision is cached
   --no-cache         Do not read or write the local analysis cache in .scope/
   -h, --help         Show this help
 
@@ -117,6 +118,8 @@ export interface RunCliOptions {
   output?: string;
   noJev: boolean;
   explain: boolean;
+  /** Ask Jev again instead of reusing an identical earlier decision from the cache. */
+  fresh: boolean;
   /** Use the local analysis cache in `.scope/`. Off with `--no-cache` or `SCOPE_CACHE=off`. */
   cache: boolean;
 }
@@ -127,6 +130,7 @@ const OPTIONS = {
   output: { type: "string" },
   explain: { type: "boolean" },
   "no-jev": { type: "boolean" },
+  fresh: { type: "boolean" },
   "no-cache": { type: "boolean" },
   yes: { type: "boolean" },
   help: { type: "boolean", short: "h" },
@@ -149,7 +153,7 @@ function parseOptions(argv: string[]) {
   }
 }
 
-const CACHE_TASK_FLAGS = ["format", "output", "explain", "no-jev", "no-cache"] as const;
+const CACHE_TASK_FLAGS = ["format", "output", "explain", "no-jev", "fresh", "no-cache"] as const;
 
 /** `scope cache <action> ...`: the arguments after `cache`. */
 function parseCacheCli(args: string[]): CacheCliOptions {
@@ -193,6 +197,7 @@ export function parseCli(argv: string[]): CliOptions {
   const base = {
     noJev: values["no-jev"] ?? false,
     explain: values.explain ?? false,
+    fresh: values.fresh ?? false,
     // Any SCOPE_CACHE value other than "off" leaves the cache on.
     cache: !(values["no-cache"] ?? false) && process.env.SCOPE_CACHE !== "off",
   };
@@ -340,6 +345,7 @@ async function run(options: RunCliOptions, io: Io, output: PreparedOutput | unde
     explain: options.explain,
     noJev: options.noJev,
     cache: options.cache,
+    reuseDecisions: !options.fresh,
     provider: io.provider,
     signal: io.signal,
   });

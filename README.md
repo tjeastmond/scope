@@ -108,6 +108,12 @@ scores and the selection, signed with the same per-user key; never source code o
 recorded. Bound it with `SCOPE_HISTORY_MAX_RUNS` and `SCOPE_HISTORY_MAX_DAYS`, or turn it off with
 `SCOPE_HISTORY_MAX_RUNS=0`.
 
+Scope also reuses a Jev decision, but only when the task text, the candidates and their full contents, the SDK, model
+and question versions all match an earlier run within `SCOPE_DECISIONS_MAX_DAYS` (default 7 days). A similar task always
+gets a fresh Jev review. A reused decision is never silent: the output says `Decisions reused from <time>` (JSON:
+`decisionsReusedFrom`). Run with `--fresh` to ask Jev again, or set `SCOPE_DECISIONS_MAX=0` to turn reuse off. A
+reused decision makes no Jev request, so it needs no credentials and records no history run.
+
 Retention bounds for the data features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`
 (default 200), `SCOPE_HISTORY_MAX_DAYS` (90), `SCOPE_DECISIONS_MAX` (500), `SCOPE_DECISIONS_MAX_DAYS` (7),
 `SCOPE_FEEDBACK_MAX` (2000) and `SCOPE_FEEDBACK_MAX_DAYS` (365). Each takes a whole number from 0 (keep none) up to
