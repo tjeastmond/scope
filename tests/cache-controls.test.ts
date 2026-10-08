@@ -198,6 +198,24 @@ describe("status", () => {
     expect((await cli("cache", "status", "--repo", repo)).code).toBe(0);
   });
 
+  test("a document that is a symlink or a directory is reported as unreadable and never followed", async () => {
+    const repo = await copyFixture();
+    await warm(repo);
+    const [shard] = await shardNames(repo);
+    const outside = join(tmp, "outside.json");
+    await cp(join(storeDir(repo), shard!), outside);
+    const outsideBefore = await readFile(outside, "utf8");
+    await rm(join(storeDir(repo), shard!));
+    await symlink(outside, join(storeDir(repo), shard!));
+    await rm(join(storeDir(repo), "files.json"));
+    await mkdir(join(storeDir(repo), "files.json"));
+    const status = await cacheStatus(repo);
+    expect(status.documents.unreadable.sort()).toEqual(["files", shard!.replace(".json", "")].sort());
+    expect(status.documents.statRecords).toBe(0);
+    expect(await readFile(outside, "utf8")).toBe(outsideBefore);
+    expect((await cli("cache", "status", "--repo", repo)).code).toBe(0);
+  });
+
   test("a corrupt meta is reported as unreadable, with no version state", async () => {
     const repo = await copyFixture();
     await warm(repo);

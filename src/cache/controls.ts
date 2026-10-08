@@ -154,9 +154,11 @@ export async function cacheStatus(repo: string, env: NodeJS.ProcessEnv = process
   status.sizeBytes = await directoryBytes(store);
   status.size = formatBytes(status.sizeBytes);
   const documents = new DocumentStore(store);
-  const names = (await readdir(store, { withFileTypes: true }))
-    .filter((entry) => entry.isFile() && DOCUMENT_FILE.test(entry.name))
-    .map((entry) => entry.name.slice(0, -".json".length))
+  // Any file type: a link, directory or FIFO under a document's name is rejected by the store's read (which never
+  // follows links) and so reported as unreadable rather than silently skipped.
+  const names = (await readdir(store))
+    .filter((entry) => DOCUMENT_FILE.test(entry))
+    .map((entry) => entry.slice(0, -".json".length))
     .sort();
   status.documents.total = names.length;
   const unreadable = (documentName: string) => status.documents.unreadable.push(documentName);
