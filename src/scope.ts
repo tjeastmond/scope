@@ -16,7 +16,7 @@ import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.t
 import { CancelledError, UsageError } from "./errors.ts";
 import { JEV_QUESTION_VERSION } from "./config.ts";
 import { selectByRelevance } from "./context/select.ts";
-import { JevDecisionProvider, planJevRequests, type JevRequest } from "./jev/provider.ts";
+import { defaultDecisionCacheKey, JevDecisionProvider, planJevRequests, type JevRequest } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
 import { classifyFile } from "./repository/language.ts";
@@ -282,13 +282,27 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const clock = () => options.cacheOptions?.now?.() ?? Date.now();
   const cacheEnv = options.cacheOptions?.env;
   // Decision reuse needs an opened cache and a Jev path with candidates; a bound of 0 turns it off.
-  const decisionCache = repositoryCache && !noJev && candidates.length > 0 ? repositoryCache : undefined;
+  // A provider that does not identify its payload (`decisionCacheKey`) never reads or writes decisions.
+  let providerKey: unknown;
+  try {
+    providerKey = options.provider?.decisionCacheKey?.(task, candidates);
+  } catch {
+    providerKey = undefined;
+  }
+  const cacheable = options.provider === undefined || providerKey !== undefined;
+  const decisionCache = repositoryCache && !noJev && candidates.length > 0 && cacheable ? repositoryCache : undefined;
   const keepDecisions = decisionCache !== undefined && decisionsEnabled(cacheEnv);
   let decisionKey: string | undefined;
   let reused: { judgments: RelevanceJudgment[]; time: number } | undefined;
   if (decisionCache && keepDecisions) {
     try {
-      decisionKey = await decisionKeyId(decisionCache, task, candidates, options.cacheOptions?.decisionKeyOverrides);
+      decisionKey = await decisionKeyId(
+        decisionCache,
+        task,
+        candidates,
+        options.provider ? providerKey : defaultDecisionCacheKey(task, candidates),
+        options.cacheOptions?.decisionKeyOverrides,
+      );
       if (options.reuseDecisions !== false) {
         reused = await lookupDecision(decisionCache, decisionKey, candidates, { env: cacheEnv, now: clock() });
       }

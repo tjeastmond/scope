@@ -1,4 +1,5 @@
 import { JevUnavailableError } from "../../src/jev/errors.ts";
+import { planJevRequests } from "../../src/jev/provider.ts";
 import type { CodeChunk, DecisionProvider } from "../../src/types.ts";
 
 export type Failure = "timeout" | "malformed" | "partial";
@@ -14,6 +15,8 @@ export interface FakeProviderOptions {
 export function fakeProvider({ relevance = {}, fallback = 0.1, failure }: FakeProviderOptions = {}): DecisionProvider {
   const judge = (chunk: CodeChunk) => relevance[chunk.name ?? ""] ?? fallback;
   return {
+    // A distinct identity from the real adapter, so fake judgments are never reused as Jev's.
+    decisionCacheKey: (task, candidates) => ({ provider: "fake", payload: planJevRequests(task, candidates) }),
     async decide({ candidates }) {
       if (failure === "timeout") throw new JevUnavailableError("Jev did not complete: the request timed out.");
       const judgments = candidates.map((chunk) => ({

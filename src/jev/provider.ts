@@ -217,6 +217,19 @@ export function planJevRequests(
   );
 }
 
+/** Request-shaping configuration of a Jev adapter: everything that changes the payload it would send. */
+function decisionCacheKeyFor(task: string, candidates: readonly CodeChunk[], limits: JevRequestLimits): unknown {
+  return { provider: "jev", payload: planJevRequests(task, candidates, limits) };
+}
+
+/**
+ * The decision-cache key material of a default-constructed Jev adapter, computed without a client or credentials. The
+ * class method uses the same helper, so the two cannot drift.
+ */
+export function defaultDecisionCacheKey(task: string, candidates: readonly CodeChunk[]): unknown {
+  return decisionCacheKeyFor(task, candidates, {});
+}
+
 const isTooLarge = (error: BadRequestError) => {
   const detail = (error.body as { detail?: unknown } | null | undefined)?.detail;
   return (detail as { error_type?: unknown } | null | undefined)?.error_type === "max_tokens_exceeded";
@@ -294,6 +307,15 @@ export class JevDecisionProvider implements DecisionProvider {
     this.concurrency = requirePositiveInteger("concurrency", options.concurrency ?? JEV_CONCURRENCY);
     this.candidateMaxChars = options.candidateMaxChars ?? JEV_CANDIDATE_MAX_CHARS;
     this.deadlineMs = options.deadlineMs ?? JEV_DEADLINE_MS;
+  }
+
+  /** Identifies the payload this adapter would send, with its own configured limits (no client or credentials). */
+  decisionCacheKey(task: string, candidates: readonly CodeChunk[]): unknown {
+    return decisionCacheKeyFor(task, candidates, {
+      batchMaxChars: this.batchMaxChars,
+      batchMaxQuestions: this.batchMaxQuestions,
+      candidateMaxChars: this.candidateMaxChars,
+    });
   }
 
   async decide({ task, candidates, signal }: DecisionRequest): Promise<DecisionResult> {

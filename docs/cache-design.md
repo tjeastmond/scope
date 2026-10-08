@@ -267,6 +267,11 @@ under another key, or by hand) verifies as nothing.
   - **Storage.** One document per decision, `decision-<13-digit time>-<keyId>`, holding `{ record, mac }` with
     `record = { recordVersion, keyId, time, judgments: [{ chunkId, relevance }] }` (the validated relevance of each
     candidate, in candidate order). The task text, source code, raw Jev answers, usage and environment are never stored.
+  - **Provider identity.** The key includes the provider's own payload identity (`DecisionProvider.decisionCacheKey`:
+    the request payload built with that provider's own limits, hashed). The default Jev adapter's identity is computed
+    without a client or credentials, so a hit never needs either. An injected provider without `decisionCacheKey` is
+    never cached: it neither reads nor writes decisions, and a different identity (a fake, or an adapter with other
+    limits) never shares a key with the default adapter.
   - **Lookup.** A run looks up a decision when the cache is on and opened, the mode is `jev`, there are candidates,
     `--fresh` is not given and the decision bounds are not 0. It lists names, keeps those ending in `-<keyId>`
     within the expiry and reads the newest. The document must have a valid strict shape, the key id and time of its

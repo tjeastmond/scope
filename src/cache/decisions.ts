@@ -1,7 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { JEV_QUESTION_VERSION } from "../config.ts";
-import { jevModel, planJevRequests } from "../jev/provider.ts";
+import { jevModel } from "../jev/provider.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "../retrieval/config.ts";
 import type { CodeChunk, RelevanceJudgment } from "../types.ts";
 import { canonical, macEquals, recordMac } from "./integrity.ts";
@@ -110,18 +110,20 @@ function parseName(name: string): { time: number; keyId: string } | undefined {
 
 /**
  * The key of a decision: a keyed hash (HMAC-SHA256 under the integrity key, bound to the repository root) of the exact
- * task, the exact request payload, the full content of every candidate and the versions that shape a decision.
+ * task, the provider's own request payload and configuration, the full content of every candidate and the versions that shape a decision.
  * The payload truncates long candidates, so the content fingerprints are part of the key as well.
  */
 export async function decisionKeyId(
   cache: RepositoryCache,
   task: string,
   candidates: readonly CodeChunk[],
+  /** The provider's own payload identity (`DecisionProvider.decisionCacheKey`). */
+  providerKey: unknown,
   overrides: DecisionKeyOverrides = {},
 ): Promise<string> {
   const material = {
     task,
-    payload: sha256(canonical(planJevRequests(task, candidates))),
+    provider: sha256(canonical(providerKey)),
     candidates: candidates.map((chunk) => ({ id: chunk.id, content: sha256(chunk.content) })),
     sdkVersion: overrides.sdkVersion ?? (await sdkVersion()),
     model: overrides.model ?? jevModel(),

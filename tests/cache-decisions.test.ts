@@ -10,11 +10,12 @@ import { recordMac } from "../src/cache/integrity.ts";
 import { openRepositoryCache } from "../src/cache/location.ts";
 import { currentVersionKeys } from "../src/cache/versions.ts";
 import { JEV_CANDIDATE_MAX_CHARS } from "../src/config.ts";
+import { defaultDecisionCacheKey, JevDecisionProvider } from "../src/jev/provider.ts";
 import { UsageError } from "../src/errors.ts";
 import { main, parseCli, type Io } from "../src/main.ts";
 import { renderFormat } from "../src/output/index.ts";
 import { runScope } from "../src/scope.ts";
-import type { DecisionProvider } from "../src/types.ts";
+import type { CodeChunk, DecisionProvider } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
 
 const FIXTURES = join(import.meta.dir, "../fixtures");
@@ -67,6 +68,7 @@ function counting() {
   const inner = fakeProvider({ relevance: RELEVANCE, fallback: 0.05 });
   const provider: DecisionProvider & { calls: number } = {
     calls: 0,
+    decisionCacheKey: inner.decisionCacheKey,
     async decide(request) {
       provider.calls++;
       const decision = await inner.decide(request);
@@ -148,8 +150,14 @@ describe("exact reuse", () => {
 
   test("a hit needs no provider and no credentials", async () => {
     const repo = await copyFixture();
-    const provider = counting();
+    // Stands in for the real adapter: it shares the default adapter's identity, so the real path can reuse its decision.
+    const inner = counting();
+    const provider: DecisionProvider = {
+      decide: (request) => inner.decide(request),
+      decisionCacheKey: defaultDecisionCacheKey,
+    };
     await run(repo, { provider });
+    expect(inner.calls).toBe(1);
     delete process.env.TYPESAFE_API_KEY;
     // No provider is passed, so the real Jev adapter would be built (and fail without a key) on a miss.
     const { result } = await runScope({
@@ -159,6 +167,58 @@ describe("exact reuse", () => {
       cacheOptions: { now: later, env: {} },
     });
     expect(result.decisionsReusedFrom).toBeDefined();
+  });
+
+  test("a provider without decisionCacheKey neither reads nor writes decisions", async () => {
+    const repo = await copyFixture();
+    const inner = counting();
+    const provider: DecisionProvider & { calls: number } = {
+      get calls() {
+        return inner.calls;
+      },
+      decide: (request) => inner.decide(request),
+    };
+    await run(repo, { provider });
+    await run(repo, { provider });
+    expect(inner.calls).toBe(2);
+    expect(await decisionNames(repo)).toHaveLength(0);
+  });
+
+  test("decisions of a different provider identity are not reused, in either direction", async () => {
+    const repo = await copyFixture();
+    const real = counting();
+    const asDefault: DecisionProvider = { decide: (r) => real.decide(r), decisionCacheKey: defaultDecisionCacheKey };
+    await run(repo, { provider: asDefault });
+    const fake = counting();
+    const { result } = await run(repo, { provider: fake });
+    expect(fake.calls).toBe(1);
+    expect(result.decisionsReusedFrom).toBeUndefined();
+    // The fake's own decision is reused by the fake, and the default identity still finds its own.
+    expect((await run(repo, { provider: fake })).result.decisionsReusedFrom).toBeDefined();
+    expect((await run(repo, { provider: asDefault })).result.decisionsReusedFrom).toBeDefined();
+    expect(fake.calls).toBe(1);
+    expect(real.calls).toBe(1);
+  });
+
+  test("a Jev adapter's key follows its own limits, and the default one equals defaultDecisionCacheKey", async () => {
+    const candidates: CodeChunk[] = [
+      {
+        id: "long-chunk",
+        file: "src/long.ts",
+        language: "typescript",
+        kind: "function",
+        name: "long",
+        startLine: 1,
+        endLine: 2,
+        content: "x".repeat(JEV_CANDIDATE_MAX_CHARS + 500),
+        references: [],
+      },
+    ];
+    const client = { systemOne: async () => ({ answers: {}, usage: { input_tokens: 0, output_tokens: 0 } }) };
+    const standard = new JevDecisionProvider({ client });
+    const short = new JevDecisionProvider({ client, candidateMaxChars: 100 });
+    expect(standard.decisionCacheKey(TASK, candidates)).toEqual(defaultDecisionCacheKey(TASK, candidates));
+    expect(short.decisionCacheKey(TASK, candidates)).not.toEqual(standard.decisionCacheKey(TASK, candidates));
   });
 });
 
