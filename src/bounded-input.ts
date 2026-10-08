@@ -6,10 +6,11 @@ const tooLarge = (label: string, maxBytes: number) => new UsageError(`${label} i
 /**
  * Reads a stream to the end as UTF-8 text, giving up as soon as more than `maxBytes` bytes have arrived: the chunk that
  * crosses the limit is the last one consumed, and nothing past it is buffered. An aborted `signal` rejects with
- * `CancelledError` promptly, even while the stream yields nothing, and stops the stream.
+ * `CancelledError` promptly, even while the stream yields nothing, and stops the stream: a readable such as stdin is
+ * destroyed, since ending its iterator waits behind the pending read and would keep the process alive.
  */
 export async function readBoundedText(
-  stream: AsyncIterable<Uint8Array | string>,
+  stream: AsyncIterable<Uint8Array | string> & { destroy?: () => unknown },
   maxBytes: number,
   label: string,
   signal?: AbortSignal,
@@ -43,7 +44,10 @@ export async function readBoundedText(
   } finally {
     if (onAbort) signal!.removeEventListener("abort", onAbort);
     // Stop the source; a pending read on a stream that never yields would block `return()`, so it is not awaited.
-    if (!finished) void Promise.resolve(iterator.return?.()).catch(() => undefined);
+    if (!finished) {
+      void Promise.resolve(iterator.return?.()).catch(() => undefined);
+      stream.destroy?.();
+    }
   }
 }
 

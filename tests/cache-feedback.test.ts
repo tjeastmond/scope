@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { DECISION_PREFIX } from "../src/cache/decisions.ts";
 import {
   FEEDBACK_PREFIX,
@@ -384,6 +385,25 @@ describe("--file input and the CLI", () => {
     })();
     expect(await readBoundedText(data, 10, "x", live.signal)).toBe("ok");
     expect(removed).toBe(1);
+  });
+
+  test("cancelling a pending read on a real stream destroys it, so an open stdin cannot keep the process alive", async () => {
+    const stream = new PassThrough();
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 20);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const hung = new Promise<string>((resolve) => (timer = setTimeout(() => resolve("still pending"), 2000)));
+    await expect(
+      Promise.race([readBoundedText(stream, 100, "standard input", controller.signal), hung]).finally(() =>
+        clearTimeout(timer),
+      ),
+    ).rejects.toBeInstanceOf(CancelledError);
+    expect(stream.destroyed).toBe(true);
+
+    const large = new PassThrough();
+    large.write("x".repeat(11));
+    await expect(readBoundedText(large, 10, "standard input")).rejects.toBeInstanceOf(UsageError);
+    expect(large.destroyed).toBe(true);
   });
 
   test("an unknown key, a wrong type and a run id mismatch are usage errors that record nothing", async () => {
