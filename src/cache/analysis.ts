@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
 import type { ChunkKind, CodeChunk, Language, Reference, ReferenceEvidence, SourceLocation } from "../types.ts";
-import { entryMac, macEquals } from "./integrity.ts";
+import { entryMac, macEquals, statMac, type StatFields } from "./integrity.ts";
 import { commitRepositoryCache, type RepositoryCache } from "./location.ts";
+import { canReuseOnRename, retargetAnalysis } from "./rename.ts";
 import type { CommitOutcome, DocumentType } from "./store.ts";
 
 /** What `analyzeFile` produced for one file, as the loader needs it. */
@@ -34,6 +36,71 @@ const KEY_PATTERN = /^[0-9a-f]{64}$/;
 export function analysisKey(path: string, bytes: Uint8Array): string {
   return createHash("sha256").update(`${path}\0`).update(bytes).digest("hex");
 }
+
+/** Hex SHA-256 of the raw bytes alone: the same content at any path, for rename detection. */
+export function contentHash(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+/**
+ * A file is trusted by its stat only when its modification time is at least this much older than the moment the
+ * record was taken. Inside the margin a later edit could keep the same size and modification time (filesystems tick
+ * coarsely), so the file is read and hashed instead. Git's "racily clean" rule.
+ */
+export const RACY_MARGIN_MS = 2000;
+
+/** The fields of `fs.stat` that identify a file's state (`bigint: false`; sub-millisecond parts are fractions). */
+export interface StatInfo {
+  size: number;
+  mtimeMs: number;
+  ctimeMs: number;
+  ino: number;
+}
+
+/** Clock and margin seams; the defaults are the real clock and {@link RACY_MARGIN_MS}. */
+export interface RefreshOptions {
+  now?: () => number;
+  racyMarginMs?: number;
+}
+
+interface StatRecord extends StatFields {
+  /** HMAC over the version keys, the path and the other fields under the user's integrity key. */
+  mac: string;
+}
+
+interface FilesDocument {
+  files: Record<string, StatRecord>;
+}
+
+const isNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const isStatRecord = (value: unknown): value is StatRecord =>
+  isObject(value) &&
+  onlyKeys(value, ["size", "mtimeMs", "ctimeMs", "ino", "key", "hash", "recordedAt", "mac"]) &&
+  isNumber(value.size) &&
+  Number.isInteger(value.size) &&
+  value.size >= 0 &&
+  isNumber(value.mtimeMs) &&
+  isNumber(value.ctimeMs) &&
+  isNumber(value.ino) &&
+  isNumber(value.recordedAt) &&
+  isString(value.key) &&
+  KEY_PATTERN.test(value.key) &&
+  isString(value.hash) &&
+  KEY_PATTERN.test(value.hash) &&
+  isString(value.mac) &&
+  KEY_PATTERN.test(value.mac);
+
+/** Strict shape check of the `files` document payload. Repository contents are untrusted. */
+export function isFilesDocument(payload: unknown): payload is FilesDocument {
+  return (
+    isObject(payload) &&
+    onlyKeys(payload, ["files"]) &&
+    isObject(payload.files) &&
+    Object.values(payload.files).every(isStatRecord)
+  );
+}
+
+const filesType: DocumentType<FilesDocument> = { name: "files", schemaVersion: 1, validate: isFilesDocument };
 
 const shardName = (key: string) => `${SHARD_PREFIX}${key.slice(0, 2)}`;
 
@@ -202,10 +269,23 @@ export class AnalysisCache {
   readonly #used = new Map<string, Entry>();
   /** Keys recorded this run. A record only happens on a miss, so a stored entry under such a key is stale or absent. */
   readonly #recorded = new Set<string>();
+  /** The stat records to store: one per file that reached analysis this run, whether kept or new. */
+  readonly #seen = new Map<string, StatRecord>();
+  readonly #now: () => number;
+  readonly #margin: number;
+  #stored: Promise<FilesDocument | undefined> | undefined;
+  #byHash: Map<string, string[]> | undefined;
 
-  constructor(cache: RepositoryCache, warnings: readonly string[] = []) {
+  constructor(cache: RepositoryCache, warnings: readonly string[] = [], options: RefreshOptions = {}) {
     this.#cache = cache;
+    this.#now = options.now ?? Date.now;
+    this.#margin = options.racyMarginMs ?? RACY_MARGIN_MS;
     for (const warning of warnings) this.#warn(warning);
+  }
+
+  /** The clock this cache stamps stat records with. Read it before statting a file. */
+  now(): number {
+    return this.#now();
   }
 
   /** Cache problems met so far. Each can arise at most once per run (shard reads are memoized). They never fail a run. */
@@ -229,22 +309,125 @@ export class AnalysisCache {
     return shard;
   }
 
-  /**
-   * The stored analysis for this path and key, or undefined. A fresh cache never reads: every lookup misses. A hit
-   * needs the entry's path to match and its MAC to verify under this user's key and this entry key, so a planted or
-   * cloned entry (the repository is untrusted) is a miss.
-   */
-  async lookup(path: string, key: string): Promise<CachedAnalysis | undefined> {
+  /** The entry stored under `key` when it is for `path` and its MAC verifies; undefined otherwise. */
+  async #verified(path: string, key: string): Promise<Entry | undefined> {
     if (this.#cache.fresh) return undefined;
-    const entry = (await this.#shard(shardName(key)))?.entries[key];
+    const shard = await this.#shard(shardName(key));
+    const entry = shard !== undefined && Object.hasOwn(shard.entries, key) ? shard.entries[key] : undefined;
     if (
       !entry ||
       entry.path !== path ||
       !macEquals(entry.mac, entryMac(this.#cache.integrityKey, this.#cache.keys, key, entry))
     )
       return undefined;
+    return entry;
+  }
+
+  /**
+   * The stored analysis for this path and key, or undefined. A fresh cache never reads: every lookup misses. A hit
+   * needs the entry's path to match and its MAC to verify under this user's key and this entry key, so a planted or
+   * cloned entry (the repository is untrusted) is a miss.
+   */
+  async lookup(path: string, key: string): Promise<CachedAnalysis | undefined> {
+    const entry = await this.#verified(path, key);
+    if (!entry) return undefined;
     this.#used.set(key, entry);
     return { chunks: entry.chunks, warnings: entry.warnings, textOnly: entry.textOnly };
+  }
+
+  /** The stored stat records, read once; undefined when missing or unusable (the store warns) or the cache is fresh. */
+  #records(): Promise<FilesDocument | undefined> {
+    this.#stored ??= this.#cache.fresh
+      ? Promise.resolve(undefined)
+      : this.#cache.store.read(filesType).then(({ value, warning }) => {
+          if (warning) this.#warn(warning);
+          return value;
+        });
+    return this.#stored;
+  }
+
+  /** The stored record for `path` when its MAC verifies under this user's key and the current version keys. */
+  async #trusted(path: string): Promise<StatRecord | undefined> {
+    const files = (await this.#records())?.files;
+    const record = files !== undefined && Object.hasOwn(files, path) ? files[path] : undefined;
+    if (!record) return undefined;
+    return macEquals(record.mac, statMac(this.#cache.integrityKey, this.#cache.keys, path, record))
+      ? record
+      : undefined;
+  }
+
+  #sign(path: string, fields: StatFields): StatRecord {
+    return { ...fields, mac: statMac(this.#cache.integrityKey, this.#cache.keys, path, fields) };
+  }
+
+  /**
+   * The stat fast path: the stored analysis of a file whose stat is unchanged, without reading it. Needs a record
+   * whose MAC verifies, equal size, modification time, change time and inode, a modification time at least the racy
+   * margin older than the record, and a verified analysis entry for the record's key. Anything else is undefined, and
+   * the caller reads and hashes the file, which decides.
+   */
+  async fast(path: string, info: StatInfo): Promise<CachedAnalysis | undefined> {
+    const record = await this.#trusted(path);
+    if (
+      !record ||
+      record.size !== info.size ||
+      record.mtimeMs !== info.mtimeMs ||
+      record.ctimeMs !== info.ctimeMs ||
+      record.ino !== info.ino ||
+      record.recordedAt - info.mtimeMs < this.#margin
+    )
+      return undefined;
+    const analysis = await this.lookup(path, record.key);
+    if (analysis) this.#seen.set(path, record);
+    return analysis;
+  }
+
+  /**
+   * Notes the stat record of a file that was read and hashed (so not a fast hit), taken at `statAt`, the clock before
+   * the file was statted. A file still inside the racy margin keeps its previous record when that describes the same
+   * state, so a warm run changes nothing; a record taken once the margin has passed replaces it, and the file
+   * becomes a fast hit from the next run.
+   */
+  async note(path: string, info: StatInfo, key: string, hash: string, statAt: number): Promise<void> {
+    const previous = await this.#trusted(path);
+    const same =
+      previous !== undefined &&
+      previous.size === info.size &&
+      previous.mtimeMs === info.mtimeMs &&
+      previous.ctimeMs === info.ctimeMs &&
+      previous.ino === info.ino &&
+      previous.key === key &&
+      previous.hash === hash;
+    if (same && statAt - info.mtimeMs < this.#margin) this.#seen.set(path, previous);
+    else this.#seen.set(path, this.#sign(path, { ...info, key, hash, recordedAt: statAt }));
+  }
+
+  /**
+   * The stored analysis of identical bytes recorded under another path, rewritten for `path`, and recorded under
+   * `key`. Needs the same non-empty extension and classification (see `canReuseOnRename`), a stat record and an
+   * analysis entry that both verify. The old entry is not marked used, so it is pruned unless its file still exists.
+   */
+  async renamed(path: string, key: string, hash: string, head: string): Promise<CachedAnalysis | undefined> {
+    const files = (await this.#records())?.files;
+    if (!files) return undefined;
+    if (!this.#byHash) {
+      this.#byHash = new Map();
+      for (const oldPath of Object.keys(files).sort()) {
+        const list = this.#byHash.get(files[oldPath]!.hash) ?? [];
+        list.push(oldPath);
+        this.#byHash.set(files[oldPath]!.hash, list);
+      }
+    }
+    for (const oldPath of this.#byHash.get(hash) ?? []) {
+      if (oldPath === path || !canReuseOnRename(oldPath, path, head)) continue;
+      const record = await this.#trusted(oldPath);
+      const entry = record && record.hash === hash ? await this.#verified(oldPath, record.key) : undefined;
+      if (!entry) continue;
+      const analysis = retargetAnalysis(entry, oldPath, path);
+      this.record(path, key, analysis);
+      return analysis;
+    }
+    return undefined;
   }
 
   /** Notes a result to store at commit. */
@@ -257,6 +440,9 @@ export class AnalysisCache {
   /** Whether the store would change: new results, a stale entry or unusable shard that was read, or an unread shard. */
   async #needsCommit(): Promise<boolean> {
     if (this.#cache.fresh || this.#recorded.size > 0) return true;
+    const stored = await this.#records();
+    const desired = Object.fromEntries(this.#seen);
+    if (stored === undefined ? this.#seen.size > 0 : !isDeepStrictEqual(stored.files, desired)) return true;
     for (const pending of this.#shards.values()) {
       const shard = await pending;
       if (!shard) return true;
@@ -302,6 +488,12 @@ export class AnalysisCache {
         if (!same || [...desired.keys()].some((key) => this.#recorded.has(key)))
           tx.write(type, { entries: Object.fromEntries(desired) });
       }
+      // Stat records are kept for the files of this run only, so deleted and renamed paths drop out.
+      const stored = await tx.read(filesType);
+      const files = Object.fromEntries(this.#seen);
+      if (this.#seen.size === 0) {
+        if (stored !== undefined) tx.remove(filesType);
+      } else if (stored === undefined || !isDeepStrictEqual(stored.files, files)) tx.write(filesType, { files });
     });
     if (!outcome.committed) this.#warn(outcome.warning);
     return outcome;

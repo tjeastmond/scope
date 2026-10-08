@@ -64,7 +64,7 @@ describe("cold/warm equivalence", () => {
       expect(warm.warnings).toEqual(plain.warnings);
       expect(cold.analysis?.reused).toBe(0);
       expect(cold.analysis!.analyzed).toBeGreaterThan(0);
-      expect(warm.analysis).toEqual({ reused: cold.analysis!.analyzed, analyzed: 0 });
+      expect(warm.analysis).toMatchObject({ reused: cold.analysis!.analyzed, analyzed: 0 });
     });
   }
 
@@ -134,7 +134,7 @@ test("a deleted file's entry is pruned", async () => {
   expect(await pathsInShards(repo)).toContain(target);
   await rm(join(repo, target));
   const after = await loadChunks(repo, { cache: {} });
-  expect(after.analysis).toEqual({ reused: first.analysis!.analyzed - 1, analyzed: 0 });
+  expect(after.analysis).toMatchObject({ reused: first.analysis!.analyzed - 1, analyzed: 0 });
   expect(await pathsInShards(repo)).not.toContain(target);
 });
 
@@ -168,7 +168,7 @@ describe("unusable shards", () => {
     expect(() => JSON.parse(rewritten)).not.toThrow();
     const repaired = await loadChunks(repo, { cache: {} });
     expect(repaired.warnings).toEqual(plain.warnings);
-    expect(repaired.analysis).toEqual({ reused: cold.analysis!.analyzed, analyzed: 0 });
+    expect(repaired.analysis).toMatchObject({ reused: cold.analysis!.analyzed, analyzed: 0 });
   });
 
   for (const [label, tamper] of [
@@ -262,7 +262,7 @@ describe("unusable shards", () => {
       const cold = await loadChunks(repo, { cache: {} });
       await plant(repo, change);
       const run = await loadChunks(repo, { cache: {} });
-      expect(run.analysis).toEqual({ reused: cold.analysis!.analyzed - 1, analyzed: 1 });
+      expect(run.analysis).toMatchObject({ reused: cold.analysis!.analyzed - 1, analyzed: 1 });
       expect(run.chunks).toEqual(plain.chunks);
       expect(run.warnings).toEqual(plain.warnings);
       expect(JSON.stringify(await readShards(repo))).not.toContain("injectedmarkerzq");
@@ -311,11 +311,11 @@ describe("unusable shards", () => {
       );
       const total = underX.analysis!.analyzed;
       const underY = await loadChunks(repo, { cache: { integrityEnv: { XDG_STATE_HOME: stateY } } });
-      expect(underY.analysis).toEqual({ reused: 0, analyzed: total });
+      expect(underY.analysis).toMatchObject({ reused: 0, analyzed: total });
       expect(underY.chunks).toEqual(plain.chunks);
       expect(underY.warnings).toEqual(plain.warnings);
       const again = await loadChunks(repo, { cache: { integrityEnv: { XDG_STATE_HOME: stateY } } });
-      expect(again.analysis).toEqual({ reused: total, analyzed: 0 });
+      expect(again.analysis).toMatchObject({ reused: total, analyzed: 0 });
     } finally {
       await rm(stateX, { recursive: true, force: true });
       await rm(stateY, { recursive: true, force: true });
@@ -348,7 +348,7 @@ test("a changed version key rebuilds everything and does not reuse old shards", 
   const changed: VersionKeys = { ...keys, analyzer: "f".repeat(64) };
   const first = await loadChunks(repo, { cache: { keys } });
   const rebuilt = await loadChunks(repo, { cache: { keys: changed } });
-  expect(rebuilt.analysis).toEqual({ reused: 0, analyzed: first.analysis!.analyzed });
+  expect(rebuilt.analysis).toMatchObject({ reused: 0, analyzed: first.analysis!.analyzed });
   expect(rebuilt.chunks).toEqual(first.chunks);
   // The old keys now miss too: the store was rebuilt for the new ones.
   const back = await loadChunks(repo, { cache: { keys } });
@@ -370,7 +370,7 @@ test("shards signed under old version keys are not reused when meta.json is rewr
   // Replay: the shards signed under the old keys come back, while meta.json already names the current keys.
   for (const [name, text] of oldShards) await writeFile(join(storeDir(repo), name), text);
   const replayed = await loadChunks(repo, { cache: { keys } });
-  expect(replayed.analysis).toEqual({ reused: 0, analyzed: current.analysis!.analyzed });
+  expect(replayed.analysis).toMatchObject({ reused: 0, analyzed: current.analysis!.analyzed });
   expect(replayed.chunks).toEqual(current.chunks);
   expect((await loadChunks(repo, { cache: { keys } })).analysis!.analyzed).toBe(0);
 });
