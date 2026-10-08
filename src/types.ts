@@ -229,8 +229,8 @@ export interface ScopeResult {
   decisionsReusedFrom?: string;
   /**
    * Id of the run's history record (#73), the handle for `scope feedback` (#76). On a reused decision it is the id of
-   * the run that made the decision, only while that run's history record still exists. Absent for `--no-jev`, with the cache off, with no candidates, and when no record
-   * was committed.
+   * the run that made the decision, only while that run's history record still exists. Absent for `--no-jev`, with the
+   * cache off, with no candidates, and when no record was committed.
    */
   runId?: string;
   /** Set by `--explain`: renderers add the selection evidence. */
