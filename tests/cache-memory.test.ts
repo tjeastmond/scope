@@ -128,6 +128,15 @@ describe("memory candidates", () => {
     expect(renderFormat("text", result)).toContain(`Origin: memory: similar task ${runId}`);
   });
 
+  test("when only memory supplies candidates, the warning says Jev judges remembered chunks", async () => {
+    const repo = await makeRepo();
+    await seed(repo, T_WIDGETS);
+    const { result, rec } = await run(repo, "nightly batch job");
+    expect(rec.names()).toEqual(["frobnicateWidgets"]);
+    expect(result.warnings.join("\n")).not.toContain("nothing to judge");
+    expect(result.warnings.join("\n")).toContain("Jev judges only the 1 remembered candidate from similar tasks");
+  });
+
   test("fresh candidates keep their order, signals, scores and origin", async () => {
     const repo = await makeRepo();
     await seed(repo, T_WIDGETS);

@@ -277,6 +277,14 @@ async function prepareCandidates(
     ranking = outcome.ranking;
     memoryWarnings = outcome.warnings;
   }
+  // The cache and memory reads are asynchronous too, so a Ctrl-C during them still stops the run here.
+  if (signal?.aborted) throw new CancelledError();
+  // Fresh retrieval found nothing, yet memory has candidates for Jev to judge: say that instead of "nothing to judge".
+  const warning =
+    fresh.candidates.length === 0 && candidates.length > 0
+      ? `No chunk matched the task; Jev judges only the ${candidates.length} remembered candidate${candidates.length === 1 ? "" : "s"} from similar ` +
+        "tasks, so the result may be poor"
+      : fresh.warning;
   return {
     chunks,
     scanWarnings: warnings,
@@ -284,7 +292,7 @@ async function prepareCandidates(
     candidates,
     ranking,
     memoryWarnings,
-    ...(fresh.warning === undefined ? {} : { warning: fresh.warning }),
+    ...(warning === undefined ? {} : { warning }),
   };
 }
 
