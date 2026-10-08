@@ -194,6 +194,16 @@ describe("what a Jev run records", () => {
     expect(record!.task.text).toHaveLength(MAX_TASK_CHARS);
     expect(record!.task.truncated).toBe(true);
   });
+
+  test("a chunk pulled in for coherence is recorded as a support, with the chunks it supports", async () => {
+    const repo = await copyFixture("mixed-app");
+    const { result } = await run(repo, { provider: fakeProvider({ relevance: {}, fallback: 0.9 }) });
+    const supports = result.chunks.filter((s) => s.supportFor);
+    expect(supports.length).toBeGreaterThan(0);
+    const [record] = await history(repo);
+    const recorded = record!.candidates.filter((c) => c.decision === "support");
+    expect(recorded.map((c) => [c.chunkId, c.supportFor])).toEqual(supports.map((s) => [s.chunk.id, s.supportFor]));
+  });
 });
 
 describe("what does not record", () => {
@@ -269,6 +279,14 @@ describe("retention", () => {
     expect(result.warnings.filter((w) => w.includes("history"))).toEqual([]);
   });
 
+  test("SCOPE_HISTORY_MAX_DAYS=0 records nothing and removes existing history", async () => {
+    const repo = await copyFixture();
+    await run(repo);
+    expect(await historyNames(repo)).toHaveLength(1);
+    await run(repo, { env: { SCOPE_HISTORY_MAX_DAYS: "0" } });
+    expect(await historyNames(repo)).toEqual([]);
+  });
+
   test("an invalid bound warns in the run and the default applies", async () => {
     const repo = await copyFixture();
     const { result } = await run(repo, { env: { SCOPE_HISTORY_MAX_RUNS: "lots" } });
@@ -312,6 +330,16 @@ describe("integrity", () => {
     const { result } = await run(repo, { now: () => Date.now() + 4000 });
     expect(result.chunks.length).toBeGreaterThan(0);
     expect((await history(repo)).length).toBe(1);
+  });
+  test("a signed record copied under another run's name is ignored", async () => {
+    const repo = await copyFixture();
+    await run(repo);
+    const [name] = await historyNames(repo);
+    const copy = `${HISTORY_PREFIX}0000000000001-00000000.json`;
+    await writeFile(join(storeDir(repo), copy), await readFile(join(storeDir(repo), name!), "utf8"));
+    const { records, warnings } = await readHistory(await open(repo));
+    expect(records).toHaveLength(1);
+    expect(warnings).toEqual([`${copy}: not signed by this user; ignoring it`]);
   });
 });
 
