@@ -43,9 +43,10 @@ export function contentHash(bytes: Uint8Array): string {
 }
 
 /**
- * A file is trusted by its stat only when its modification time is at least this much older than the moment the
- * record was taken. Inside the margin a later edit could keep the same size and modification time (filesystems tick
- * coarsely), so the file is read and hashed instead. Git's "racily clean" rule.
+ * A file is trusted by its stat only when its modification and change times are both at least this much older than the
+ * moment the record was taken. Inside the margin a later edit could keep the same size and times (filesystems tick
+ * coarsely; an edit can restore an old mtime but lands in the current ctime tick), so the file is read and hashed
+ * instead. Git's "racily clean" rule, applied to ctime as well.
  */
 export const RACY_MARGIN_MS = 2000;
 
@@ -56,6 +57,9 @@ export interface StatInfo {
   ctimeMs: number;
   ino: number;
 }
+
+/** The newer of a file's modification and change times: the racy guard measures the margin from it. */
+const changedAt = (info: StatInfo) => Math.max(info.mtimeMs, info.ctimeMs);
 
 /** Clock and margin seams; the defaults are the real clock and {@link RACY_MARGIN_MS}. */
 export interface RefreshOptions {
@@ -362,8 +366,8 @@ export class AnalysisCache {
 
   /**
    * The stat fast path: the stored analysis of a file whose stat is unchanged, without reading it. Needs a record
-   * whose MAC verifies, equal size, modification time, change time and inode, a modification time at least the racy
-   * margin older than the record, and a verified analysis entry for the record's key. Anything else is undefined, and
+   * whose MAC verifies, equal size, modification time, change time and inode, modification and change times at least
+   * the racy margin older than the record, and a verified analysis entry for the record's key. Anything else is undefined, and
    * the caller reads and hashes the file, which decides.
    */
   async fast(path: string, info: StatInfo): Promise<CachedAnalysis | undefined> {
@@ -374,7 +378,7 @@ export class AnalysisCache {
       record.mtimeMs !== info.mtimeMs ||
       record.ctimeMs !== info.ctimeMs ||
       record.ino !== info.ino ||
-      record.recordedAt - info.mtimeMs < this.#margin
+      record.recordedAt - changedAt(info) < this.#margin
     )
       return undefined;
     const analysis = await this.lookup(path, record.key);
@@ -398,7 +402,7 @@ export class AnalysisCache {
       previous.ino === info.ino &&
       previous.key === key &&
       previous.hash === hash;
-    if (same && statAt - info.mtimeMs < this.#margin) this.#seen.set(path, previous);
+    if (same && statAt - changedAt(info) < this.#margin) this.#seen.set(path, previous);
     else this.#seen.set(path, this.#sign(path, { ...info, key, hash, recordedAt: statAt }));
   }
 

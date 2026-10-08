@@ -159,13 +159,14 @@ one of their commits or a merge of both, never a mix of half-written documents.
 - **Fast path.** A file is not read when the cache is not fresh, its record's MAC verifies, `size`, `mtimeMs`, `ctimeMs`
   and `ino` all match, the racy guard passes, and the analysis entry for `key` exists under that path and verifies.
   It counts as `reused` and as a `statHits`. Anything else is read and hashed, and the hash decides.
-- **Racy guard.** A record is trusted only when `recordedAt - mtimeMs >= RACY_MARGIN_MS` (2000 ms), as in git's index:
-  a file modified within the margin of the recording could be edited again without its mtime changing. Such a record is
+- **Racy guard.** A record is trusted only when `recordedAt - max(mtimeMs, ctimeMs) >= RACY_MARGIN_MS` (2000 ms), as in
+  git's index: a file modified within the margin of the recording could be edited again without its times changing.
+  ctime counts too, because an edit that restores an old mtime still lands in the current ctime tick. Such a record is
   kept as is while the file is still racy, so a no-change run writes nothing; once the file has aged, the next run
   re-hashes it once and records it as trusted.
 - **Residual risk.** `touch -d`, `cp -p` and `rsync -t` can restore size and mtime but not ctime, which is why ctime and
-  `ino` are compared. An edit that keeps the size and happens within the same ctime tick as the recording is caught only
-  by the racy margin. A tool that sets ctime (restoring the clock, or writing the inode directly) defeats the check;
+  `ino` are compared. An edit that keeps the size and happens within the same ctime tick as the recording is caught by the
+  racy margin, which is measured from the newer of mtime and ctime. A tool that sets ctime (restoring the clock, or writing the inode directly) defeats the check;
   that needs write access to the repository, which already allows planting any source.
 - **Commit.** The `files` document keeps only paths seen in this run (so deleted files drop out and retention is
   bounded). It is written only when its content changes, removed when no path is left, and the no-op short-circuit

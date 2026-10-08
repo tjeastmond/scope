@@ -349,6 +349,29 @@ describe("planted and altered stat records are not trusted", () => {
     expect((await warm(repo)).analysis).toMatchObject({ analyzed: 0, statHits: total });
   });
 
+  /** Backdates the target's mtime by an hour, which moves its ctime to now, and returns the fresh stat fields. */
+  async function backdated(repo: string) {
+    const old = new Date(Date.now() - HOUR);
+    await utimes(join(repo, TARGET), old, old);
+    const info = await stat(join(repo, TARGET));
+    expect(info.ctimeMs - info.mtimeMs).toBeGreaterThan(RACY_MARGIN_MS);
+    return { size: info.size, mtimeMs: info.mtimeMs, ctimeMs: info.ctimeMs, ino: info.ino };
+  }
+
+  test("a record taken less than the racy margin after the change time is not a stat hit, even with an old mtime", async () => {
+    const { repo, total, staleFields, sign, plant } = await stale();
+    const fields = await backdated(repo);
+    await plant(sign({ ...fields, ...staleFields, recordedAt: fields.ctimeMs + RACY_MARGIN_MS - 1 }));
+    await expectRejected(repo, total);
+  });
+
+  test("a record taken the racy margin after the change time of a backdated file is trusted", async () => {
+    const { repo, total, staleFields, sign, plant } = await stale();
+    const fields = await backdated(repo);
+    await plant(sign({ ...fields, ...staleFields, recordedAt: fields.ctimeMs + RACY_MARGIN_MS }));
+    expect((await warm(repo)).analysis).toMatchObject({ analyzed: 0, statHits: total });
+  });
+
   test("a record with the old MAC and recomputed fields is rejected", async () => {
     const { repo, total, actual, staleFields, originalRecord, plant } = await stale();
     await plant({ ...actual, ...staleFields, mac: originalRecord.mac });
