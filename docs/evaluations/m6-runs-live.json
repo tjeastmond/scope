@@ -1,0 +1,1625 @@
+{
+  "mode": "live",
+  "repeats": 2,
+  "date": "2026-10-09",
+  "machine": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M3 Max",
+    "cores": 14,
+    "bun": "1.3.14",
+    "node": "24.3.0"
+  },
+  "parse": [
+    {
+      "repo": "mixed-app",
+      "chunks": 125,
+      "files": 41,
+      "offMs": [11.940832999999998, 9.647874999999999],
+      "coldMs": [31.991208, 20.621916999999996],
+      "warmMs": [10.533000000000015, 8.560375000000022],
+      "editMs": [11.86541699999998, 11.704875000000015],
+      "cold": [
+        {
+          "reused": 0,
+          "analyzed": 41
+        },
+        {
+          "reused": 0,
+          "analyzed": 41
+        }
+      ],
+      "warm": [
+        {
+          "reused": 41,
+          "analyzed": 0,
+          "statHits": 0
+        },
+        {
+          "reused": 41,
+          "analyzed": 0,
+          "statHits": 0
+        }
+      ],
+      "edit": [
+        {
+          "reused": 40,
+          "analyzed": 1,
+          "statHits": 0
+        },
+        {
+          "reused": 40,
+          "analyzed": 1,
+          "statHits": 0
+        }
+      ],
+      "equal": true
+    },
+    {
+      "repo": "scope src/",
+      "chunks": 719,
+      "files": 66,
+      "offMs": [74.26499999999999, 76.85229200000003],
+      "coldMs": [107.14083399999998, 111.34279100000003],
+      "warmMs": [30.650958000000003, 31.199040999999966],
+      "editMs": [41.25179099999997, 43.11508300000003],
+      "cold": [
+        {
+          "reused": 0,
+          "analyzed": 66
+        },
+        {
+          "reused": 0,
+          "analyzed": 66
+        }
+      ],
+      "warm": [
+        {
+          "reused": 66,
+          "analyzed": 0,
+          "statHits": 0
+        },
+        {
+          "reused": 66,
+          "analyzed": 0,
+          "statHits": 0
+        }
+      ],
+      "edit": [
+        {
+          "reused": 65,
+          "analyzed": 1,
+          "statHits": 0
+        },
+        {
+          "reused": 65,
+          "analyzed": 1,
+          "statHits": 0
+        }
+      ],
+      "equal": true
+    }
+  ],
+  "repeat": [
+    {
+      "fixture": "mixed-app",
+      "task": "due-date-column",
+      "uncached": [
+        {
+          "ms": 259.33391699999993,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 7108,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"]
+        },
+        {
+          "ms": 202.55370799999992,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 7108,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"]
+        }
+      ],
+      "first": [
+        {
+          "ms": 193.84562499999993,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 7108,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 41,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"],
+          "runId": "1791560433205-b0c67abf"
+        },
+        {
+          "ms": 234.94070799999986,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 7108,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 41,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"],
+          "runId": "1791560433927-f6bed45c"
+        }
+      ],
+      "second": [
+        {
+          "ms": 15.998000000000047,
+          "providerCalls": 0,
+          "jevRequests": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reusedDecision": true,
+          "decisionsReusedFrom": "2026-10-09T15:40:33.212Z",
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"],
+          "runId": "1791560433205-b0c67abf"
+        },
+        {
+          "ms": 19.565458000000035,
+          "providerCalls": 0,
+          "jevRequests": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reusedDecision": true,
+          "decisionsReusedFrom": "2026-10-09T15:40:33.934Z",
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"],
+          "runId": "1791560433927-f6bed45c"
+        }
+      ],
+      "forced": [
+        {
+          "ms": 192.09787499999993,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 7108,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"],
+          "runId": "1791560433436-9d371c80"
+        },
+        {
+          "ms": 184.3936249999997,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 7108,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "d1f06f3980ca",
+            "cbf263447c96",
+            "f9f834866fec",
+            "d47e52a4e656",
+            "d25dd5f39977",
+            "5cc408734908",
+            "f136926c6ca3",
+            "66b5dc2b692b",
+            "24a839e6abba",
+            "e976f1439f69",
+            "6582e9db8b05",
+            "756f6f04c956",
+            "3ee66ff74cae",
+            "ccdf3c712735",
+            "75a9e2909acd",
+            "a8b4b9fe45e2",
+            "31a2e4bfb254",
+            "95fc08ae89dd",
+            "e7395a487977",
+            "fcfff666ba6f",
+            "88803b81dbf5",
+            "4205b4923a44",
+            "f9f81da691af",
+            "3fced31f4f33",
+            "2b24a2988c3b",
+            "569f16fb0075",
+            "c9c98b3ef277",
+            "b04233fb7927",
+            "18eff2571885",
+            "667f177f8155"
+          ],
+          "selected": ["65c24047fe3f", "d1f06f3980ca", "cbf263447c96", "f9f834866fec", "d47e52a4e656", "d25dd5f39977"],
+          "runId": "1791560434158-70cc6d00"
+        }
+      ],
+      "sameSelection": true
+    },
+    {
+      "fixture": "mixed-app",
+      "task": "configurable-reminder-retries",
+      "uncached": [
+        {
+          "ms": 152.76441699999987,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 6251,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "a4edc5ade08c", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"]
+        },
+        {
+          "ms": 181.05179099999987,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 6251,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "b3e67b6e470a",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": [
+            "6e7a44594f54",
+            "b3e67b6e470a",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843"
+          ]
+        }
+      ],
+      "first": [
+        {
+          "ms": 190.51704199999995,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 6251,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 41,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "a4edc5ade08c",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"],
+          "runId": "1791560434551-bcd14c78"
+        },
+        {
+          "ms": 204.10825000000023,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 6251,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 0,
+          "filesRefreshed": 41,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "a4edc5ade08c", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"],
+          "runId": "1791560435163-786f738a"
+        }
+      ],
+      "second": [
+        {
+          "ms": 14.164582999999766,
+          "providerCalls": 0,
+          "jevRequests": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reusedDecision": true,
+          "decisionsReusedFrom": "2026-10-09T15:40:34.561Z",
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "a4edc5ade08c",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"],
+          "runId": "1791560434551-bcd14c78"
+        },
+        {
+          "ms": 17.804499999999734,
+          "providerCalls": 0,
+          "jevRequests": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "reusedDecision": true,
+          "decisionsReusedFrom": "2026-10-09T15:40:35.170Z",
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "a4edc5ade08c", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"],
+          "runId": "1791560435163-786f738a"
+        }
+      ],
+      "forced": [
+        {
+          "ms": 155.50745800000004,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 6251,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "a4edc5ade08c", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"],
+          "runId": "1791560434748-f55613ac"
+        },
+        {
+          "ms": 157.53200000000015,
+          "providerCalls": 1,
+          "jevRequests": 2,
+          "inputTokens": 6251,
+          "outputTokens": 538,
+          "reusedDecision": false,
+          "filesReused": 41,
+          "filesRefreshed": 0,
+          "memoryCandidates": 0,
+          "candidates": [
+            "6e7a44594f54",
+            "a4edc5ade08c",
+            "658e609aca7d",
+            "1b75e900ae9e",
+            "0cbf06ac2ed0",
+            "b0dc0b124843",
+            "f9ef11bcf005",
+            "ddf224a33ed5",
+            "4e8ae282c2a6",
+            "b671b6f461ef",
+            "f35be51a9ea0",
+            "7b0b45799363",
+            "47154f686558",
+            "1370ec838bf2",
+            "8e70f022143e",
+            "49493143fb57",
+            "d56d342b4921",
+            "88803b81dbf5",
+            "b3e67b6e470a",
+            "f9f81da691af",
+            "5aff94021b5e",
+            "2685e358fb57",
+            "3fced31f4f33",
+            "8519d269978e",
+            "a40aeaf1f2db",
+            "62214058ccd7",
+            "282bc78588c1",
+            "ee8f6577e024",
+            "8b5a689cc6df",
+            "4daf8b5f1feb"
+          ],
+          "selected": ["6e7a44594f54", "a4edc5ade08c", "658e609aca7d", "1b75e900ae9e", "0cbf06ac2ed0", "b0dc0b124843"],
+          "runId": "1791560435369-c2fa4a46"
+        }
+      ],
+      "sameSelection": true
+    }
+  ],
+  "related": [
+    {
+      "fixture": "mixed-app",
+      "task": "due-date-column",
+      "feedback": {
+        "useful": 2,
+        "missing": 0
+      },
+      "memoryOn": [
+        {
+          "shortlist": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 9,
+            "usefulTotal": 9
+          },
+          "selected": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 1,
+            "usefulTotal": 9
+          },
+          "measure": {
+            "ms": 168.2811660000002,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 7100,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "d1f06f3980ca",
+              "f9f834866fec",
+              "d47e52a4e656",
+              "5cc408734908",
+              "881351bf28c6",
+              "f136926c6ca3",
+              "24a839e6abba",
+              "e56f35e738a9",
+              "e976f1439f69",
+              "6582e9db8b05",
+              "756f6f04c956",
+              "55aabea59ceb",
+              "3ee66ff74cae",
+              "ccdf3c712735",
+              "75a9e2909acd",
+              "a8b4b9fe45e2",
+              "31a2e4bfb254",
+              "cbf263447c96",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "3fced31f4f33",
+              "2b24a2988c3b",
+              "569f16fb0075",
+              "d25dd5f39977",
+              "c9c98b3ef277",
+              "b04233fb7927",
+              "18eff2571885",
+              "452806c6d24c",
+              "b0dc0b124843",
+              "667f177f8155"
+            ],
+            "selected": ["65c24047fe3f", "d1f06f3980ca", "f9f834866fec", "d47e52a4e656"],
+            "runId": "1791560435793-bf9e45d1"
+          }
+        },
+        {
+          "shortlist": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 9,
+            "usefulTotal": 9
+          },
+          "selected": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 1,
+            "usefulTotal": 9
+          },
+          "measure": {
+            "ms": 194.66179099999954,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 7100,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "d1f06f3980ca",
+              "f9f834866fec",
+              "d47e52a4e656",
+              "5cc408734908",
+              "881351bf28c6",
+              "f136926c6ca3",
+              "24a839e6abba",
+              "e56f35e738a9",
+              "e976f1439f69",
+              "6582e9db8b05",
+              "756f6f04c956",
+              "55aabea59ceb",
+              "3ee66ff74cae",
+              "ccdf3c712735",
+              "75a9e2909acd",
+              "a8b4b9fe45e2",
+              "31a2e4bfb254",
+              "cbf263447c96",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "3fced31f4f33",
+              "2b24a2988c3b",
+              "569f16fb0075",
+              "d25dd5f39977",
+              "c9c98b3ef277",
+              "b04233fb7927",
+              "18eff2571885",
+              "452806c6d24c",
+              "b0dc0b124843",
+              "667f177f8155"
+            ],
+            "selected": ["65c24047fe3f", "d1f06f3980ca", "f9f834866fec", "d47e52a4e656"],
+            "runId": "1791560436668-e624d23b"
+          }
+        }
+      ],
+      "memoryOff": [
+        {
+          "shortlist": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 9,
+            "usefulTotal": 9
+          },
+          "selected": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 1,
+            "usefulTotal": 9
+          },
+          "measure": {
+            "ms": 165.1317080000008,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 7100,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "d1f06f3980ca",
+              "f9f834866fec",
+              "d47e52a4e656",
+              "5cc408734908",
+              "881351bf28c6",
+              "f136926c6ca3",
+              "24a839e6abba",
+              "e56f35e738a9",
+              "e976f1439f69",
+              "6582e9db8b05",
+              "756f6f04c956",
+              "55aabea59ceb",
+              "3ee66ff74cae",
+              "ccdf3c712735",
+              "75a9e2909acd",
+              "a8b4b9fe45e2",
+              "31a2e4bfb254",
+              "cbf263447c96",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "3fced31f4f33",
+              "2b24a2988c3b",
+              "569f16fb0075",
+              "d25dd5f39977",
+              "c9c98b3ef277",
+              "b04233fb7927",
+              "18eff2571885",
+              "452806c6d24c",
+              "b0dc0b124843",
+              "667f177f8155"
+            ],
+            "selected": ["65c24047fe3f", "d1f06f3980ca", "f9f834866fec", "d47e52a4e656"],
+            "runId": "1791560436208-2b14e82d"
+          }
+        },
+        {
+          "shortlist": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 9,
+            "usefulTotal": 9
+          },
+          "selected": {
+            "requiredFound": 2,
+            "requiredTotal": 2,
+            "usefulFound": 1,
+            "usefulTotal": 9
+          },
+          "measure": {
+            "ms": 158.89279199999964,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 7100,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "d1f06f3980ca",
+              "f9f834866fec",
+              "d47e52a4e656",
+              "5cc408734908",
+              "881351bf28c6",
+              "f136926c6ca3",
+              "24a839e6abba",
+              "e56f35e738a9",
+              "e976f1439f69",
+              "6582e9db8b05",
+              "756f6f04c956",
+              "55aabea59ceb",
+              "3ee66ff74cae",
+              "ccdf3c712735",
+              "75a9e2909acd",
+              "a8b4b9fe45e2",
+              "31a2e4bfb254",
+              "cbf263447c96",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "3fced31f4f33",
+              "2b24a2988c3b",
+              "569f16fb0075",
+              "d25dd5f39977",
+              "c9c98b3ef277",
+              "b04233fb7927",
+              "18eff2571885",
+              "452806c6d24c",
+              "b0dc0b124843",
+              "667f177f8155"
+            ],
+            "selected": ["65c24047fe3f", "d1f06f3980ca", "f9f834866fec", "d47e52a4e656"],
+            "runId": "1791560437113-d325ea80"
+          }
+        }
+      ],
+      "addedByMemory": [[], []],
+      "onlyAppended": true
+    },
+    {
+      "fixture": "mixed-app",
+      "task": "configurable-reminder-retries",
+      "feedback": {
+        "useful": 4,
+        "missing": 0
+      },
+      "memoryOn": [
+        {
+          "shortlist": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 5,
+            "usefulTotal": 8
+          },
+          "selected": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 2,
+            "usefulTotal": 8
+          },
+          "measure": {
+            "ms": 165.0650830000004,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 6258,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843",
+              "e56f35e738a9",
+              "f9ef11bcf005",
+              "ddf224a33ed5",
+              "4e8ae282c2a6",
+              "b671b6f461ef",
+              "f35be51a9ea0",
+              "7b0b45799363",
+              "47154f686558",
+              "1370ec838bf2",
+              "8e70f022143e",
+              "49493143fb57",
+              "d56d342b4921",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "5aff94021b5e",
+              "2685e358fb57",
+              "3fced31f4f33",
+              "8519d269978e",
+              "62214058ccd7",
+              "282bc78588c1",
+              "ee8f6577e024",
+              "8b5a689cc6df",
+              "4daf8b5f1feb"
+            ],
+            "selected": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843"
+            ],
+            "runId": "1791560437567-c198f9e2"
+          }
+        },
+        {
+          "shortlist": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 5,
+            "usefulTotal": 8
+          },
+          "selected": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 2,
+            "usefulTotal": 8
+          },
+          "measure": {
+            "ms": 209.12374999999975,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 6258,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843",
+              "e56f35e738a9",
+              "f9ef11bcf005",
+              "ddf224a33ed5",
+              "4e8ae282c2a6",
+              "b671b6f461ef",
+              "f35be51a9ea0",
+              "7b0b45799363",
+              "47154f686558",
+              "1370ec838bf2",
+              "8e70f022143e",
+              "49493143fb57",
+              "d56d342b4921",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "5aff94021b5e",
+              "2685e358fb57",
+              "3fced31f4f33",
+              "8519d269978e",
+              "62214058ccd7",
+              "282bc78588c1",
+              "ee8f6577e024",
+              "8b5a689cc6df",
+              "4daf8b5f1feb"
+            ],
+            "selected": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843"
+            ],
+            "runId": "1791560438523-9ae9cb87"
+          }
+        }
+      ],
+      "memoryOff": [
+        {
+          "shortlist": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 5,
+            "usefulTotal": 8
+          },
+          "selected": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 2,
+            "usefulTotal": 8
+          },
+          "measure": {
+            "ms": 206.17783400000008,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 6258,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843",
+              "e56f35e738a9",
+              "f9ef11bcf005",
+              "ddf224a33ed5",
+              "4e8ae282c2a6",
+              "b671b6f461ef",
+              "f35be51a9ea0",
+              "7b0b45799363",
+              "47154f686558",
+              "1370ec838bf2",
+              "8e70f022143e",
+              "49493143fb57",
+              "d56d342b4921",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "5aff94021b5e",
+              "2685e358fb57",
+              "3fced31f4f33",
+              "8519d269978e",
+              "62214058ccd7",
+              "282bc78588c1",
+              "ee8f6577e024",
+              "8b5a689cc6df",
+              "4daf8b5f1feb"
+            ],
+            "selected": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843"
+            ],
+            "runId": "1791560438037-e143099a"
+          }
+        },
+        {
+          "shortlist": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 5,
+            "usefulTotal": 8
+          },
+          "selected": {
+            "requiredFound": 4,
+            "requiredTotal": 4,
+            "usefulFound": 2,
+            "usefulTotal": 8
+          },
+          "measure": {
+            "ms": 178.02687499999956,
+            "providerCalls": 1,
+            "jevRequests": 2,
+            "inputTokens": 6258,
+            "outputTokens": 538,
+            "reusedDecision": false,
+            "filesReused": 41,
+            "filesRefreshed": 0,
+            "memoryCandidates": 0,
+            "candidates": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843",
+              "e56f35e738a9",
+              "f9ef11bcf005",
+              "ddf224a33ed5",
+              "4e8ae282c2a6",
+              "b671b6f461ef",
+              "f35be51a9ea0",
+              "7b0b45799363",
+              "47154f686558",
+              "1370ec838bf2",
+              "8e70f022143e",
+              "49493143fb57",
+              "d56d342b4921",
+              "88803b81dbf5",
+              "f9f81da691af",
+              "5aff94021b5e",
+              "2685e358fb57",
+              "3fced31f4f33",
+              "8519d269978e",
+              "62214058ccd7",
+              "282bc78588c1",
+              "ee8f6577e024",
+              "8b5a689cc6df",
+              "4daf8b5f1feb"
+            ],
+            "selected": [
+              "6e7a44594f54",
+              "b3e67b6e470a",
+              "a4edc5ade08c",
+              "658e609aca7d",
+              "1b75e900ae9e",
+              "0cbf06ac2ed0",
+              "b0dc0b124843"
+            ],
+            "runId": "1791560439004-eadcad01"
+          }
+        }
+      ],
+      "addedByMemory": [[], []],
+      "onlyAppended": true
+    }
+  ],
+  "unseen": [
+    {
+      "fixture": "mixed-app",
+      "task": "due-date-column",
+      "split": "tuning",
+      "emptyOn": [
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        },
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        }
+      ],
+      "emptyOff": [
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        },
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        }
+      ],
+      "historyOn": [
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        },
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        }
+      ],
+      "historyOff": [
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        },
+        {
+          "requiredFound": 2,
+          "requiredTotal": 2,
+          "usefulFound": 9,
+          "usefulTotal": 9
+        }
+      ],
+      "memoryCandidates": [0, 0],
+      "recallHeld": true
+    },
+    {
+      "fixture": "mixed-app",
+      "task": "configurable-reminder-retries",
+      "split": "tuning",
+      "emptyOn": [
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        },
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        }
+      ],
+      "emptyOff": [
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        },
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        }
+      ],
+      "historyOn": [
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        },
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        }
+      ],
+      "historyOff": [
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        },
+        {
+          "requiredFound": 4,
+          "requiredTotal": 4,
+          "usefulFound": 6,
+          "usefulTotal": 8
+        }
+      ],
+      "memoryCandidates": [0, 0],
+      "recallHeld": true
+    },
+    {
+      "fixture": "mixed-app",
+      "task": "localized-csv-export",
+      "split": "heldout",
+      "emptyOn": [
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        },
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        }
+      ],
+      "emptyOff": [
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        },
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        }
+      ],
+      "historyOn": [
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        },
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        }
+      ],
+      "historyOff": [
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        },
+        {
+          "requiredFound": 1,
+          "requiredTotal": 3,
+          "usefulFound": 1,
+          "usefulTotal": 2
+        }
+      ],
+      "memoryCandidates": [0, 0],
+      "recallHeld": true
+    }
+  ],
+  "adaptive": {
+    "fixture": "mixed-app",
+    "feedbackRuns": 4,
+    "report": {
+      "multipliers": {
+        "symbol": 1.040264,
+        "lexical": 0.995045,
+        "path": 1.015896,
+        "dependency": 1.026061,
+        "test": 0.992727,
+        "proximity": 0.982121
+      },
+      "identity": false,
+      "samples": {
+        "runs": 4,
+        "useful": 12,
+        "reference": 110
+      },
+      "excludedHeldoutRuns": 0,
+      "evaluation": {
+        "tasks": 1,
+        "baseline": {
+          "found": 1,
+          "total": 3
+        },
+        "proposal": {
+          "found": 1,
+          "total": 3
+        }
+      },
+      "outcome": {
+        "promoted": false,
+        "reason": "held-out recall 1/3 does not beat the baseline's 1/3"
+      },
+      "warnings": 0
+    }
+  },
+  "feedbackSubmitted": {
+    "tuning": 28,
+    "heldout": 0
+  }
+}
