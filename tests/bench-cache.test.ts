@@ -44,6 +44,8 @@ describe("cache benchmark (offline, mixed-app, one repeat)", () => {
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.first[0]!.providerCalls).toBe(1);
+      // Offline, the stand-in provider is not Jev: a decision is a provider call, never a Jev request.
+      expect(row.first[0]!.jevRequests).toBe(0);
       expect(row.second[0]!.providerCalls).toBe(0);
       expect(row.second[0]!.jevRequests).toBe(0);
       expect(row.second[0]!.decisionsReusedFrom).toBeDefined();

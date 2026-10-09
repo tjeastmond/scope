@@ -68,18 +68,18 @@ selected, `--missing` for those it missed), then run the paraphrase with memory 
 (`reuseDecisions` off, so Jev is asked either way). Shortlist recall is over the candidates Jev was shown, captured where the provider receives them (so a candidate kept
 only as a supporting declaration still counts).
 
-| task                          | feedback            | memory | shortlist recall    | memory cands | cands | ms               | Jev reqs |
-| ----------------------------- | ------------------- | ------ | ------------------- | ------------ | ----- | ---------------- | -------- |
-| due-date-column               | 2 useful, 0 missing | on     | 2/2 req, 9/9 useful | 0            | 30    | 16.7 (16.3-17.4) | 1        |
-| due-date-column               | 2 useful, 0 missing | off    | 2/2 req, 9/9 useful | 0            | 30    | 26.5 (15.9-67.1) | 1        |
-| configurable-reminder-retries | 4 useful, 0 missing | on     | 4/4 req, 6/8 useful | 1            | 31    | 17.1 (16.1-17.7) | 1        |
-| configurable-reminder-retries | 4 useful, 0 missing | off    | 4/4 req, 5/8 useful | 0            | 30    | 17.3 (16.0-20.6) | 1        |
+| task                          | feedback            | memory | shortlist recall    | memory cands | cands | ms               | provider calls |
+| ----------------------------- | ------------------- | ------ | ------------------- | ------------ | ----- | ---------------- | -------------- |
+| due-date-column               | 2 useful, 0 missing | on     | 2/2 req, 9/9 useful | 0            | 30    | 16.7 (16.3-17.4) | 1              |
+| due-date-column               | 2 useful, 0 missing | off    | 2/2 req, 9/9 useful | 0            | 30    | 26.5 (15.9-67.1) | 1              |
+| configurable-reminder-retries | 4 useful, 0 missing | on     | 4/4 req, 6/8 useful | 1            | 31    | 17.1 (16.1-17.7) | 1              |
+| configurable-reminder-retries | 4 useful, 0 missing | off    | 4/4 req, 5/8 useful | 0            | 30    | 17.3 (16.0-20.6) | 1              |
 
 - Selected recall equals shortlist recall in all four rows (the fake provider keeps what is labeled).
 - Memory on and off differ only by appended memory candidates (asserted by the test): for
   `configurable-reminder-retries` one extra candidate raised useful recall from 5/8 to 6/8. Required recall was already
   complete. For `due-date-column` memory added nothing and changed nothing.
-- Latency and Jev request count are the same either way. The live run gives the same result with real Jev (see Live run).
+- Latency and provider calls are the same either way (offline runs make no Jev request). The live run gives the same result with real Jev (see Live run).
 
 ## 4. Unseen task
 

@@ -206,9 +206,10 @@ async function measuredRun(
     measure: {
       ms,
       providerCalls: counter.calls,
-      jevRequests: result.jev?.requestCount ?? 0,
-      inputTokens: result.jev?.usage.inputTokens ?? 0,
-      outputTokens: result.jev?.usage.outputTokens ?? 0,
+      // Only a live run talks to Jev; the offline stand-in's request entry is synthetic and is not Jev usage.
+      jevRequests: ctx.live ? (result.jev?.requestCount ?? 0) : 0,
+      inputTokens: ctx.live ? (result.jev?.usage.inputTokens ?? 0) : 0,
+      outputTokens: ctx.live ? (result.jev?.usage.outputTokens ?? 0) : 0,
       reusedDecision: result.cache?.decision?.reused ?? false,
       ...(result.decisionsReusedFrom === undefined ? {} : { decisionsReusedFrom: result.decisionsReusedFrom }),
       filesReused: result.cache?.files.reused ?? 0,
