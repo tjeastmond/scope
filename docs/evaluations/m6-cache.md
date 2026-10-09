@@ -114,7 +114,7 @@ with real Jev decisions. Token figures below are Jev's own reported usage; nothi
 | measure                                     | result                                                                                                                                                     |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Repeated task, 1st run (Jev asked)          | due-date-column 721 ms (215-1227), 1 Jev request, 7108 in / 538 out; configurable-reminder-retries 218 ms, 1 request, 6251 in / 538 out                    |
-| Repeated task, 2nd run (exact decision hit) | 20.2 ms and 18.0 ms, 0 Jev requests, no usage, `decisionsReusedFrom` reported, same selection in every repeat                                              |
+| Repeated task, 2nd run (exact decision hit) | 20.2 ms and 18.0 ms, 0 Jev requests, no usage, `decisionsReusedFrom` reported, the same selection as the run it reused in every repeat                     |
 | Repeated task, `--fresh`                    | 182 ms and 225 ms, 1 Jev request each, the same usage as the 1st run                                                                                       |
 | Related task, memory on versus off          | identical: 0 memory candidates, the same shortlist and selection, 1 Jev request each, the same usage (7100 and 6258 in, 538 out); latency within noise     |
 | Related task recall (real Jev)              | due-date-column 2/2 required, 9/9 useful in the shortlist, 2/2 and 1/9 selected; configurable-reminder-retries 4/4 and 5/8 shortlist, 4/4 and 2/8 selected |
@@ -142,7 +142,11 @@ with real Jev decisions. Token figures below are Jev's own reported usage; nothi
 - The held-out task keeps 1/3 required recall in every arm; the cache does not change it.
 - The adaptive gate did not promote (1/3 against 1/3), so no feedback-driven weight change is evidenced.
 - Stat-shortcut hits were not exercised (racy margin on fresh copies); only content-hash reuse is measured.
-- No selection changed between cached and uncached runs, and no bug was found in `src/`.
+- Offline, no selection changed between cached and uncached runs. Live, every cache hit selected exactly what the run
+  it reused selected, but independent Jev calls on the same task did not always agree: for
+  `configurable-reminder-retries` the uncached run differed from the first cached run by one chunk in one repeat, and
+  `--fresh` differed from it in both repeats (one chunk fewer or swapped). That is Jev's run-to-run variation, not the
+  cache. No bug was found in `src/`.
 
 ## M6 acceptance
 

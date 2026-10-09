@@ -437,6 +437,10 @@ async function primedWorkspace(
   return { root, feedback };
 }
 
+/** True when `on` is `off` followed by extra ids: memory may only append, never drop or reorder fresh candidates. */
+export const onlyAppended = (off: readonly string[], on: readonly string[]): boolean =>
+  on.length >= off.length && off.every((id, index) => on[index] === id);
+
 export async function scenarioRelated(ctx: BenchContext, fixture: string): Promise<RelatedRow[]> {
   const rows: RelatedRow[] = [];
   const tuning = (await loadLabeledTasks(fixture)).filter((t) => t.split === "tuning");
@@ -471,10 +475,8 @@ export async function scenarioRelated(ctx: BenchContext, fixture: string): Promi
       row.memoryOn.push(on);
       row.memoryOff.push(off);
       const offIds = off.measure.candidates;
-      const added = on.measure.candidates.filter((id) => !offIds.includes(id));
-      row.addedByMemory.push(added);
-      // Memory only appends: the memory-off shortlist is a prefix-compatible subset of the memory-on one.
-      row.onlyAppended &&= offIds.every((id) => on.measure.candidates.includes(id));
+      row.addedByMemory.push(on.measure.candidates.slice(offIds.length));
+      row.onlyAppended &&= onlyAppended(offIds, on.measure.candidates);
     }
     rows.push(row);
   }

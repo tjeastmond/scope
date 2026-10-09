@@ -7,6 +7,7 @@ import type { CodeChunk } from "../src/types.ts";
 import {
   countingProvider,
   createContext,
+  onlyAppended,
   recallNotLower,
   scenarioParse,
   scenarioRelated,
@@ -76,6 +77,14 @@ describe("cache benchmark (offline, mixed-app, one repeat)", () => {
       expect(row.second[0]!.candidates).toEqual([]);
     }
   }, 30_000);
+
+  test("only an unchanged prefix followed by extra ids counts as appended", () => {
+    expect(onlyAppended(["a", "b"], ["a", "b"])).toBe(true);
+    expect(onlyAppended(["a", "b"], ["a", "b", "m"])).toBe(true);
+    expect(onlyAppended(["a", "b"], ["b", "a", "m"])).toBe(false);
+    expect(onlyAppended(["a", "b"], ["a", "m", "b"])).toBe(false);
+    expect(onlyAppended(["a", "b"], ["a"])).toBe(false);
+  });
 
   test("recall counts as lower when either required or useful recall drops", () => {
     const recall = (requiredFound: number, usefulFound: number) => ({
