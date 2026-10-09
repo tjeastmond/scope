@@ -40,6 +40,24 @@ describe("key creation", () => {
     const loaded = await loadIntegrityKey(env);
     expect("key" in loaded && loaded.key.toString("hex") === hex).toBe(true);
   });
+
+  test.skipIf(process.getuid?.() === 0)(
+    "an existing valid key in a read-only state directory still works",
+    async () => {
+      const { env, keyPath } = await freshState();
+      const directory = join(keyPath, "..");
+      await mkdir(directory, { recursive: true, mode: 0o700 });
+      const hex = "fedcba9876543210".repeat(4);
+      await writeFile(keyPath, `${hex}\n`, { mode: 0o600 });
+      await chmod(directory, 0o500);
+      try {
+        const loaded = await loadIntegrityKey(env);
+        expect("key" in loaded && loaded.key.toString("hex") === hex).toBe(true);
+      } finally {
+        await chmod(directory, 0o700);
+      }
+    },
+  );
 });
 
 describe("key location", () => {
