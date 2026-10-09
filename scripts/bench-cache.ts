@@ -61,10 +61,12 @@ export interface BenchContext {
   dispose(): Promise<void>;
 }
 
-interface ProviderCounter {
+export interface ProviderCounter {
   provider: DecisionProvider;
   /** Calls to `decide`, i.e. Jev decisions actually requested. */
   calls: number;
+  /** Ids of every candidate passed to `decide` (the shortlist Jev was shown), in order; empty on a decision-cache hit. */
+  candidates: string[];
 }
 
 export async function createContext(options: { live?: boolean; repeats?: number } = {}): Promise<BenchContext> {
@@ -135,14 +137,20 @@ function labelProvider(task: LabeledTask, chunks: readonly CodeChunk[]): Decisio
 }
 
 /** The provider for `task` (labels are only read by the offline stand-in), wrapped to count its calls. */
-function countingProvider(ctx: BenchContext, task: LabeledTask, chunks: readonly CodeChunk[]): ProviderCounter {
+export function countingProvider(
+  ctx: BenchContext,
+  task: LabeledTask,
+  chunks: readonly CodeChunk[],
+): ProviderCounter {
   const inner = ctx.live ? new JevDecisionProvider() : labelProvider(task, chunks);
   const counter: ProviderCounter = {
     calls: 0,
+    candidates: [],
     provider: {
       decisionCacheKey: (taskText, candidates) => inner.decisionCacheKey?.(taskText, candidates),
       async decide(request) {
         counter.calls++;
+        counter.candidates.push(...request.candidates.map((chunk) => chunk.id));
         return inner.decide(request);
       },
     },
@@ -175,11 +183,6 @@ export interface Measured {
   result: ScopeResult;
 }
 
-/** Chunk ids Jev was shown: the selected chunks that are candidates, plus the skipped ones. */
-const candidateIds = (result: ScopeResult): string[] => [
-  ...result.chunks.filter((entry) => entry.supportFor === undefined).map((entry) => entry.chunk.id),
-  ...result.skipped.map((entry) => entry.chunkId),
-];
 
 async function measuredRun(
   ctx: BenchContext,
@@ -216,7 +219,9 @@ async function measuredRun(
       filesReused: result.cache?.files.reused ?? 0,
       filesRefreshed: result.cache?.files.refreshed ?? 0,
       memoryCandidates: result.cache?.memory?.candidates ?? 0,
-      candidates: candidateIds(result),
+      // Captured at the provider boundary: the selection output cannot tell a candidate that was kept only as a
+      // supporting declaration from one that was never shown.
+      candidates: [...counter.candidates],
       selected: result.chunks.map((entry) => entry.chunk.id),
       ...(result.runId === undefined ? {} : { runId: result.runId }),
     },
@@ -493,9 +498,13 @@ export interface UnseenRow {
   historyOn: Recall[];
   historyOff: Recall[];
   memoryCandidates: number[];
-  /** Candidate recall with history never below the empty store's. */
+  /** Required and useful candidate recall with history never below the empty store's, memory on and off alike. */
   recallHeld: boolean;
 }
+
+/** True when `after` finds at least as many required labels and at least as many useful labels as `before`. */
+export const recallNotLower = (after: Recall, before: Recall): boolean =>
+  after.requiredFound >= before.requiredFound && after.usefulFound >= before.usefulFound;
 
 export async function scenarioUnseen(ctx: BenchContext, fixture: string): Promise<UnseenRow[]> {
   const rows: UnseenRow[] = [];
@@ -533,9 +542,8 @@ export async function scenarioUnseen(ctx: BenchContext, fixture: string): Promis
       row.historyOn.push(historyOn.recall);
       row.historyOff.push(historyOff.recall);
       row.memoryCandidates.push(historyOn.added);
-      const sum = (r: Recall) => r.requiredFound + r.usefulFound;
       row.recallHeld &&=
-        sum(historyOn.recall) >= sum(emptyOn.recall) && sum(historyOn.recall) >= sum(historyOff.recall);
+        recallNotLower(historyOn.recall, emptyOn.recall) && recallNotLower(historyOff.recall, emptyOff.recall);
     }
     rows.push(row);
   }

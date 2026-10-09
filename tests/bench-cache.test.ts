@@ -3,8 +3,11 @@
 // and no feedback is ever submitted for a held-out task. Timings and recall numbers are not asserted.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import type { CodeChunk } from "../src/types.ts";
 import {
+  countingProvider,
   createContext,
+  recallNotLower,
   scenarioParse,
   scenarioRelated,
   scenarioRepeat,
@@ -59,6 +62,33 @@ describe("cache benchmark (offline, mixed-app, one repeat)", () => {
   test("history does not lower the candidate recall of unseen tasks", async () => {
     for (const row of await scenarioUnseen(ctx, FIXTURE)) expect(row.recallHeld).toBe(true);
   }, 60_000);
+
+  test("the shortlist is what the provider was shown, including candidates later kept only as supports", async () => {
+    const [task] = await loadLabeledTasks(FIXTURE);
+    const chunk = (id: string) => ({ id }) as CodeChunk;
+    const counter = countingProvider(ctx, task!, []);
+    await counter.provider.decide({ task: task!.task, candidates: [chunk("parent"), chunk("child")] });
+    expect(counter.calls).toBe(1);
+    expect(counter.candidates).toEqual(["parent", "child"]);
+    for (const row of await scenarioRepeat(ctx, FIXTURE)) {
+      expect(row.first[0]!.candidates.length).toBeGreaterThan(0);
+      expect(row.first[0]!.candidates).toEqual(row.forced[0]!.candidates);
+      expect(row.second[0]!.candidates).toEqual([]);
+    }
+  }, 30_000);
+
+  test("recall counts as lower when either required or useful recall drops", () => {
+    const recall = (requiredFound: number, usefulFound: number) => ({
+      requiredFound,
+      requiredTotal: 3,
+      usefulFound,
+      usefulTotal: 3,
+    });
+    expect(recallNotLower(recall(2, 2), recall(2, 2))).toBe(true);
+    expect(recallNotLower(recall(3, 2), recall(2, 2))).toBe(true);
+    expect(recallNotLower(recall(1, 3), recall(2, 2))).toBe(false);
+    expect(recallNotLower(recall(3, 1), recall(2, 2))).toBe(false);
+  });
 
   test("feedback is never submitted for a held-out task", async () => {
     expect(ctx.feedbackLog.length).toBeGreaterThan(0);
