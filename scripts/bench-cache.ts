@@ -137,11 +137,7 @@ function labelProvider(task: LabeledTask, chunks: readonly CodeChunk[]): Decisio
 }
 
 /** The provider for `task` (labels are only read by the offline stand-in), wrapped to count its calls. */
-export function countingProvider(
-  ctx: BenchContext,
-  task: LabeledTask,
-  chunks: readonly CodeChunk[],
-): ProviderCounter {
+export function countingProvider(ctx: BenchContext, task: LabeledTask, chunks: readonly CodeChunk[]): ProviderCounter {
   const inner = ctx.live ? new JevDecisionProvider() : labelProvider(task, chunks);
   const counter: ProviderCounter = {
     calls: 0,
@@ -182,7 +178,6 @@ export interface Measured {
   measure: RunMeasure;
   result: ScopeResult;
 }
-
 
 async function measuredRun(
   ctx: BenchContext,
