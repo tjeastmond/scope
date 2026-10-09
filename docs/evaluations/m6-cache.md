@@ -4,7 +4,7 @@ This report measures the M6 cache (analysis reuse, exact decision reuse, retriev
 `bun run bench:cache` and checks each clause of the plan's M6 acceptance line against that evidence and the tests.
 
 **Conclusion: the mechanics work as specified.** Warm runs reparse nothing and equal cold runs, an identical repeat
-makes zero provider calls and discloses the reuse (live: no Jev request, about 200 ms saved), and memory never lowered recall. The benchmark also shows what the cache does not do: a cold run with the cache is slower than one without it, memory helped one of two tuning tasks by one chunk offline and none live, and the adaptive gate promoted nothing. The held-out set is one task, so nothing here is a claim about general
+makes zero provider calls and discloses the reuse (live: no Jev decision, its 2 requests and about 200 ms saved), and memory never lowered recall. The benchmark also shows what the cache does not do: a cold run with the cache is slower than one without it, memory helped one of two tuning tasks by one chunk offline and none live, and the adaptive gate promoted nothing. The held-out set is one task, so nothing here is a claim about general
 retrieval quality.
 
 ## Data and limits
@@ -111,17 +111,17 @@ The #78 held-out gate was run on the feedback from scenario 3 and promoted only 
 with real Jev decisions. Token figures below are Jev's own reported usage; nothing is estimated. Raw numbers:
 `docs/evaluations/m6-runs-live.json`.
 
-| measure                                     | result                                                                                                                                                     |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repeated task, 1st run (Jev asked)          | due-date-column 721 ms (215-1227), 1 Jev request, 7108 in / 538 out; configurable-reminder-retries 218 ms, 1 request, 6251 in / 538 out                    |
-| Repeated task, 2nd run (exact decision hit) | 20.2 ms and 18.0 ms, 0 Jev requests, no usage, `decisionsReusedFrom` reported, the same selection as the run it reused in every repeat                     |
-| Repeated task, `--fresh`                    | 182 ms and 225 ms, 1 Jev request each, the same usage as the 1st run                                                                                       |
-| Related task, memory on versus off          | identical: 0 memory candidates, the same shortlist and selection, 1 Jev request each, the same usage (7100 and 6258 in, 538 out); latency within noise     |
-| Related task recall (real Jev)              | due-date-column 2/2 required, 9/9 useful in the shortlist, 2/2 and 1/9 selected; configurable-reminder-retries 4/4 and 5/8 shortlist, 4/4 and 2/8 selected |
-| Unseen task recall (real Jev)               | the same as offline in every arm: history never lowered recall; the held-out task stays at 1/3 required                                                    |
-| Adaptive gate                               | the same proposal as offline; 1/3 against 1/3, not promoted                                                                                                |
+| measure                                     | result                                                                                                                                                                     |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repeated task, 1st run (Jev asked)          | due-date-column 721 ms (215-1227), 1 provider call made of 2 Jev requests, 7108 in / 538 out; configurable-reminder-retries 218 ms, 1 call (2 requests), 6251 in / 538 out |
+| Repeated task, 2nd run (exact decision hit) | 20.2 ms and 18.0 ms, 0 provider calls and 0 Jev requests, no usage, `decisionsReusedFrom` reported, the same selection as the run it reused in every repeat                |
+| Repeated task, `--fresh`                    | 182 ms and 225 ms, 1 provider call (2 Jev requests) each, the same usage as the 1st run                                                                                    |
+| Related task, memory on versus off          | identical: 0 memory candidates, the same shortlist and selection, 1 provider call (2 Jev requests) each, the same usage (7100 and 6258 in, 538 out); latency within noise  |
+| Related task recall (real Jev)              | due-date-column 2/2 required, 9/9 useful in the shortlist, 2/2 and 1/9 selected; configurable-reminder-retries 4/4 and 5/8 shortlist, 4/4 and 2/8 selected                 |
+| Unseen task recall (real Jev)               | the same as offline in every arm: history never lowered recall; the held-out task stays at 1/3 required                                                                    |
+| Adaptive gate                               | the same proposal as offline; 1/3 against 1/3, not promoted                                                                                                                |
 
-- The exact decision cache saves the whole Jev request: about 200 ms and 6000 to 7000 input tokens per repeated task
+- The exact decision cache saves the whole Jev decision (2 requests): about 200 ms and 6000 to 7000 input tokens per repeated task
   on this fixture, and the repeat is about 10x faster end to end than `--fresh`.
 - Live, memory added no candidate for either paraphrase. Real Jev selected fewer of the useful labels than the
   offline provider, so the remembered selection held nothing the fresh shortlist lacked; the offline +1 useful chunk
@@ -135,7 +135,7 @@ with real Jev decisions. Token figures below are Jev's own reported usage; nothi
 - On the 41-file fixture a warm run (8.7 ms) is barely faster than an uncached run (10.4 ms), within
   the noise: no real gain at that size.
 - The second run of a repeated task is no faster than an uncached run offline, because the fake provider is instant.
-  Live, it skips the Jev request and is about 10x faster.
+  Live, it skips the Jev decision (2 requests) and is about 10x faster.
 - Live, memory added no candidate to either related task, so it gave no gain with real Jev.
 - Memory gave no gain on `due-date-column` (recall already complete) and one useful chunk on
   `configurable-reminder-retries`; it added no candidate in the unseen-task arms. It never lost recall.
