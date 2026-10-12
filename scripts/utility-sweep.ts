@@ -12,7 +12,7 @@ import { validateJudgments } from "../src/jev/validate.ts";
 import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk, SelectedChunk } from "../src/types.ts";
-import { FIXTURES, loadLabeledTasks, resolve, type LabeledTask } from "../tests/helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks, resolve, type LabeledTask } from "./eval/labels.ts";
 import {
   blendScores,
   evaluateSelection,

@@ -8,7 +8,7 @@ import { scoreChunks, weighSignals, type ChunkScore, type Signal } from "../src/
 import { extractTaskTerms } from "../src/retrieval/terms.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk, ReferenceEvidence } from "../src/types.ts";
-import { FIXTURES, loadLabeledTasks, resolve } from "./helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks, resolve } from "../scripts/eval/labels.ts";
 
 const CONFIG = DEFAULT_RETRIEVAL_CONFIG;
 const ZERO: Record<Signal, number> = { symbol: 0, lexical: 0, path: 0, dependency: 0, test: 0, proximity: 0 };

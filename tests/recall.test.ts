@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { loadLabeledTasks } from "./helpers/labels.ts";
+import { listTaskFixtures, loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 test("the recall script prints per-task, per-split and aggregate candidate recall", async () => {
   const proc = Bun.spawn(["bun", join(import.meta.dir, "../scripts/recall.ts"), "mixed-app"], {
@@ -23,3 +23,12 @@ test("the recall script prints per-task, per-split and aggregate candidate recal
   expect(output).toMatch(/mixed-app\/due-date-column \[tuning\]\s+2\/2\s+100%/);
   expect(output).not.toMatch(/missed: web\/src\/components\/InvoiceRow/);
 });
+
+test("without arguments, the recall script measures every labeled fixture and nothing else", async () => {
+  const proc = Bun.spawn(["bun", join(import.meta.dir, "../scripts/recall.ts")], { stdout: "pipe", stderr: "pipe" });
+  const [output, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+  expect(code).toBe(0);
+  const measured = new Set([...output.matchAll(/^([\w-]+)\/[\w-]+ \[/gm)].map((match) => match[1]));
+  expect([...measured].sort()).toEqual(await listTaskFixtures());
+  expect(output).toMatch(/^aggregate candidate recall: \d+\/\d+/m);
+}, 60_000);

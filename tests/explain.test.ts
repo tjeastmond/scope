@@ -6,7 +6,7 @@ import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts
 import { runScope } from "../src/scope.ts";
 import type { ScopeResult } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
-import { FIXTURES, loadLabeledTasks } from "./helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 const MIXED = join(FIXTURES, "mixed-app");
 const validate = new Ajv2020({ strict: true }).compile(

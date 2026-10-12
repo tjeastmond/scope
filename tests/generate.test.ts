@@ -5,7 +5,7 @@ import { buildIndexes } from "../src/retrieval/indexes.ts";
 import type { Candidate } from "../src/retrieval/rank.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk } from "../src/types.ts";
-import { FIXTURES, loadLabeledTasks } from "./helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 function chunk(file: string, name: string, startLine: number, endLine: number, kind: CodeChunk["kind"] = "function") {
   return {

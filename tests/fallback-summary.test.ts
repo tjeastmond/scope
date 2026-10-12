@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadChunks, runScope } from "../src/scope.ts";
-import { FIXTURES } from "./helpers/labels.ts";
+import { FIXTURES } from "../scripts/eval/labels.ts";
 
 const MIXED = join(FIXTURES, "mixed-app");
 const BROKEN =

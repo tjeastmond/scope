@@ -9,7 +9,7 @@ import { prepareOutput } from "../src/output/file.ts";
 import { FORMATS } from "../src/output/index.ts";
 import type { DecisionProvider } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
-import { FIXTURES, loadLabeledTasks } from "./helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 const task = (await loadLabeledTasks("mixed-app"))[0]!.task;
 const SOURCE = "api/src/models/invoice.ts";

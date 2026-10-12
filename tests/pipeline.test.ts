@@ -7,7 +7,7 @@ import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks, runScope } from "../src/scope.ts";
 import type { CodeChunk, DecisionProvider } from "../src/types.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
-import { loadLabeledTasks } from "./helpers/labels.ts";
+import { loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 const FIXTURES = join(import.meta.dir, "../fixtures");
 const ROOT = join(FIXTURES, "mixed-app");

@@ -4,7 +4,7 @@ import { MAX_CANDIDATES } from "../src/config.ts";
 import { RetrievalConfigError } from "../src/errors.ts";
 import { DEFAULT_RETRIEVAL_CONFIG, resolveRetrievalConfig } from "../src/retrieval/config.ts";
 import { runScope } from "../src/scope.ts";
-import { FIXTURES } from "./helpers/labels.ts";
+import { FIXTURES } from "../scripts/eval/labels.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
 
 describe("DEFAULT_RETRIEVAL_CONFIG", () => {

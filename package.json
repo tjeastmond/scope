@@ -22,6 +22,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "recall": "bun scripts/recall.ts",
+    "eval": "bun scripts/eval/cli.ts",
+    "eval:freeze": "bun scripts/eval/freeze-cli.ts",
     "utility": "bun scripts/utility-sweep.ts",
     "smoke:node": "node scripts/smoke-node.mjs",
     "check": "bun run format:check && bun run lint && bun run typecheck",
