@@ -1,9 +1,9 @@
 {
   "version": 1,
   "model": "jev-latest",
-  "sdkVersion": "unknown",
-  "recordedAt": "2026-10-12T19:37:43.207Z",
-  "commit": "19954c3363cb6645744096fe21c78ce850c407d6",
+  "sdkVersion": "0.6.0",
+  "recordedAt": "2026-10-12T19:42:11.037Z",
+  "commit": "676e65b7a59d60c321d08147501b5ba9b2d1b571",
   "tasks": {
     "alert-age-over-a-day": {
       "candidateIds": [
@@ -55,7 +55,7 @@
         },
         {
           "chunkId": "9065e7df4446",
-          "relevance": 0.03
+          "relevance": 0.04
         },
         {
           "chunkId": "fed530ef9434",
@@ -63,11 +63,11 @@
         },
         {
           "chunkId": "4effd1a9bb4b",
-          "relevance": 0.19
+          "relevance": 0.18
         },
         {
           "chunkId": "73491343233e",
-          "relevance": 0.13
+          "relevance": 0.14
         },
         {
           "chunkId": "6f0d5fa20110",
@@ -87,7 +87,7 @@
         },
         {
           "chunkId": "b03e17fb393c",
-          "relevance": 0.98
+          "relevance": 0.97
         },
         {
           "chunkId": "9d38f9092994",
@@ -95,19 +95,19 @@
         },
         {
           "chunkId": "0a49efc468ac",
-          "relevance": 0.4
+          "relevance": 0.39
         },
         {
           "chunkId": "dcd8b745e002",
-          "relevance": 0.16
+          "relevance": 0.15
         },
         {
           "chunkId": "2e2a7badc95a",
-          "relevance": 0.56
+          "relevance": 0.57
         },
         {
           "chunkId": "18c590215dd1",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "3e8d041ada1e",
@@ -123,7 +123,7 @@
         },
         {
           "chunkId": "bad07e031a99",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "b1df859a3075",
@@ -135,7 +135,7 @@
         },
         {
           "chunkId": "e74bcbce4e63",
-          "relevance": 0.04
+          "relevance": 0.03
         },
         {
           "chunkId": "6d00aa882443",
@@ -147,7 +147,7 @@
         },
         {
           "chunkId": "f464bd1446a0",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "7829eecc71aa",
@@ -183,7 +183,7 @@
         },
         {
           "chunkId": "ac17ff8fde76",
-          "relevance": 0.04
+          "relevance": 0.03
         },
         {
           "chunkId": "7eebc4c7e8d8",
@@ -203,29 +203,327 @@
         },
         {
           "chunkId": "63f47113f62a",
-          "relevance": 0.04
+          "relevance": 0.05
         }
       ],
       "usage": {
         "inputTokens": 9592,
         "outputTokens": 704
       },
-      "latencyMs": 147,
+      "latencyMs": 159,
       "requests": [
         {
-          "latencyMs": 131,
+          "latencyMs": 157,
           "inputTokens": 3778,
           "outputTokens": 282
         },
         {
-          "latencyMs": 147,
+          "latencyMs": 159,
           "inputTokens": 3806,
           "outputTokens": 292
         },
         {
-          "latencyMs": 144,
+          "latencyMs": 156,
           "inputTokens": 2008,
           "outputTokens": 130
+        }
+      ]
+    },
+    "atom-updated-fallback": {
+      "candidateIds": [
+        "9be4b0423553",
+        "65b4ee1993ff",
+        "6a68716bbe15",
+        "4ffc285a16cd",
+        "ada23e4035f6",
+        "c622da93aad8",
+        "dc6cd4452cb4",
+        "b8c71630f644",
+        "4033dd32ddf0",
+        "1c34f2d9b427",
+        "2e6bd410eafb",
+        "44b765e29cce",
+        "60699c3078aa",
+        "c134e8a32fc3",
+        "c38220da51d7",
+        "09768284c8c7",
+        "b792f7b571cf",
+        "d4804588c413",
+        "9ac43d192f53",
+        "8772c3f01cc5",
+        "d49a1217d9e0",
+        "50e10ae39cf0",
+        "b6397c63216f",
+        "c019ba11f04d",
+        "f979309b800d",
+        "779f1d33f6b7",
+        "6148c7bb2643",
+        "6125d1795034",
+        "a1758f3f50e7",
+        "8f24c229836b",
+        "dcfcc0e7b379",
+        "75f1a5a26f51",
+        "5b9af542590e",
+        "ac9fa1cea13d",
+        "4a5dba5c5e8f",
+        "0553bbbd5c5c",
+        "0276b3f26222",
+        "babbe82a03ee",
+        "b7cd908932f6",
+        "158d7894fb30"
+      ],
+      "fingerprint": "fa1ea43720617a6e3fc66da5c6edf67939645437dae53e1c34cef6095b213493",
+      "judgments": [
+        {
+          "chunkId": "9be4b0423553",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "65b4ee1993ff",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "6a68716bbe15",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "4ffc285a16cd",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "ada23e4035f6",
+          "relevance": 0.96
+        },
+        {
+          "chunkId": "c622da93aad8",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "dc6cd4452cb4",
+          "relevance": 0.35
+        },
+        {
+          "chunkId": "b8c71630f644",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "4033dd32ddf0",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "1c34f2d9b427",
+          "relevance": 0.26
+        },
+        {
+          "chunkId": "2e6bd410eafb",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "44b765e29cce",
+          "relevance": 0.22
+        },
+        {
+          "chunkId": "60699c3078aa",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "c134e8a32fc3",
+          "relevance": 0.6
+        },
+        {
+          "chunkId": "c38220da51d7",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "09768284c8c7",
+          "relevance": 0.31
+        },
+        {
+          "chunkId": "b792f7b571cf",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "d4804588c413",
+          "relevance": 0.61
+        },
+        {
+          "chunkId": "9ac43d192f53",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "8772c3f01cc5",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "d49a1217d9e0",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "50e10ae39cf0",
+          "relevance": 0.8
+        },
+        {
+          "chunkId": "b6397c63216f",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "c019ba11f04d",
+          "relevance": 0.24
+        },
+        {
+          "chunkId": "f979309b800d",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "779f1d33f6b7",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "6148c7bb2643",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "6125d1795034",
+          "relevance": 0.7
+        },
+        {
+          "chunkId": "a1758f3f50e7",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "8f24c229836b",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "dcfcc0e7b379",
+          "relevance": 0.19
+        },
+        {
+          "chunkId": "75f1a5a26f51",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "5b9af542590e",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "ac9fa1cea13d",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "4a5dba5c5e8f",
+          "relevance": 0.31
+        },
+        {
+          "chunkId": "0553bbbd5c5c",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "0276b3f26222",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "babbe82a03ee",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "b7cd908932f6",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "158d7894fb30",
+          "relevance": 0.04
+        }
+      ],
+      "usage": {
+        "inputTokens": 10212,
+        "outputTokens": 722
+      },
+      "latencyMs": 174,
+      "requests": [
+        {
+          "latencyMs": 159,
+          "inputTokens": 4044,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 174,
+          "inputTokens": 3943,
+          "outputTokens": 292
+        },
+        {
+          "latencyMs": 154,
+          "inputTokens": 2225,
+          "outputTokens": 148
+        }
+      ]
+    },
+    "bearer-token": {
+      "candidateIds": [
+        "f7d84ce71bfa",
+        "3712241cdcd8",
+        "196e94b5f2f1",
+        "9065e7df4446",
+        "27bf0c3ebcdb",
+        "f83c3794f996",
+        "de7681543184",
+        "1da7aeef00d5",
+        "bf6473761fa6",
+        "2a3a717298da"
+      ],
+      "fingerprint": "10a9f43ab62f587ed573e8494bd08338264f7d3ef253674d7582ab92656f6efb",
+      "judgments": [
+        {
+          "chunkId": "f7d84ce71bfa",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "3712241cdcd8",
+          "relevance": 0.5
+        },
+        {
+          "chunkId": "196e94b5f2f1",
+          "relevance": 0.51
+        },
+        {
+          "chunkId": "9065e7df4446",
+          "relevance": 0.58
+        },
+        {
+          "chunkId": "27bf0c3ebcdb",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "f83c3794f996",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "de7681543184",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "1da7aeef00d5",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "bf6473761fa6",
+          "relevance": 0.94
+        },
+        {
+          "chunkId": "2a3a717298da",
+          "relevance": 0.93
+        }
+      ],
+      "usage": {
+        "inputTokens": 2641,
+        "outputTokens": 174
+      },
+      "latencyMs": 230,
+      "requests": [
+        {
+          "latencyMs": 229,
+          "inputTokens": 2641,
+          "outputTokens": 174
         }
       ]
     },
@@ -267,31 +565,31 @@
         },
         {
           "chunkId": "442d65a9b49a",
-          "relevance": 0.2
+          "relevance": 0.19
         },
         {
           "chunkId": "8ab6d7178d8d",
-          "relevance": 0.56
+          "relevance": 0.52
         },
         {
           "chunkId": "79ef0c3d42a3",
-          "relevance": 0.36
+          "relevance": 0.39
         },
         {
           "chunkId": "68ef41200979",
-          "relevance": 0.94
+          "relevance": 0.93
         },
         {
           "chunkId": "f884a38bcc44",
-          "relevance": 0.76
+          "relevance": 0.72
         },
         {
           "chunkId": "701ae67512d4",
-          "relevance": 0.15
+          "relevance": 0.12
         },
         {
           "chunkId": "bd9bc14e7178",
-          "relevance": 0.94
+          "relevance": 0.93
         },
         {
           "chunkId": "30a8181abc45",
@@ -311,7 +609,7 @@
         },
         {
           "chunkId": "f3280a484b70",
-          "relevance": 0.04
+          "relevance": 0.03
         },
         {
           "chunkId": "406389473d5d",
@@ -323,19 +621,19 @@
         },
         {
           "chunkId": "fb6a5ed2c392",
-          "relevance": 0.23
+          "relevance": 0.22
         },
         {
           "chunkId": "762131774255",
-          "relevance": 0.09
+          "relevance": 0.08
         },
         {
           "chunkId": "afd1f8ac27c6",
-          "relevance": 0.12
+          "relevance": 0.11
         },
         {
           "chunkId": "4345d3630743",
-          "relevance": 0.13
+          "relevance": 0.11
         },
         {
           "chunkId": "23c4004cbd8c",
@@ -347,7 +645,7 @@
         },
         {
           "chunkId": "becd5b96e215",
-          "relevance": 0.03
+          "relevance": 0.02
         },
         {
           "chunkId": "659f0db88d35",
@@ -359,7 +657,7 @@
         },
         {
           "chunkId": "c60af671ca26",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "54135770d2ca",
@@ -367,22 +665,22 @@
         },
         {
           "chunkId": "f8b1d02069a2",
-          "relevance": 0.1
+          "relevance": 0.11
         }
       ],
       "usage": {
         "inputTokens": 6309,
         "outputTokens": 484
       },
-      "latencyMs": 169,
+      "latencyMs": 216,
       "requests": [
         {
-          "latencyMs": 169,
+          "latencyMs": 216,
           "inputTokens": 3840,
           "outputTokens": 282
         },
         {
-          "latencyMs": 148,
+          "latencyMs": 154,
           "inputTokens": 2469,
           "outputTokens": 202
         }
@@ -439,23 +737,23 @@
         },
         {
           "chunkId": "a4edc5ade08c",
-          "relevance": 0.5
+          "relevance": 0.51
         },
         {
           "chunkId": "b671b6f461ef",
-          "relevance": 0.33
+          "relevance": 0.32
         },
         {
           "chunkId": "f35be51a9ea0",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "b3e67b6e470a",
-          "relevance": 0.44
+          "relevance": 0.46
         },
         {
           "chunkId": "0cbf06ac2ed0",
-          "relevance": 0.93
+          "relevance": 0.92
         },
         {
           "chunkId": "f9ef11bcf005",
@@ -475,7 +773,7 @@
         },
         {
           "chunkId": "1b75e900ae9e",
-          "relevance": 0.91
+          "relevance": 0.9
         },
         {
           "chunkId": "b0dc0b124843",
@@ -483,11 +781,11 @@
         },
         {
           "chunkId": "658e609aca7d",
-          "relevance": 0.9
+          "relevance": 0.89
         },
         {
           "chunkId": "88803b81dbf5",
-          "relevance": 0.39
+          "relevance": 0.41
         },
         {
           "chunkId": "2685e358fb57",
@@ -499,7 +797,7 @@
         },
         {
           "chunkId": "5aff94021b5e",
-          "relevance": 0.14
+          "relevance": 0.11
         },
         {
           "chunkId": "8519d269978e",
@@ -507,7 +805,7 @@
         },
         {
           "chunkId": "1370ec838bf2",
-          "relevance": 0.19
+          "relevance": 0.17
         },
         {
           "chunkId": "d56d342b4921",
@@ -515,11 +813,11 @@
         },
         {
           "chunkId": "62214058ccd7",
-          "relevance": 0.33
+          "relevance": 0.32
         },
         {
           "chunkId": "7b0b45799363",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "47154f686558",
@@ -527,15 +825,15 @@
         },
         {
           "chunkId": "8e70f022143e",
-          "relevance": 0.11
+          "relevance": 0.12
         },
         {
           "chunkId": "49493143fb57",
-          "relevance": 0.15
+          "relevance": 0.13
         },
         {
           "chunkId": "282bc78588c1",
-          "relevance": 0.41
+          "relevance": 0.34
         },
         {
           "chunkId": "f9f81da691af",
@@ -547,11 +845,11 @@
         },
         {
           "chunkId": "667f177f8155",
-          "relevance": 0.15
+          "relevance": 0.13
         },
         {
           "chunkId": "80d7b4675e8b",
-          "relevance": 0.09
+          "relevance": 0.08
         },
         {
           "chunkId": "2ffcfbeb4ef7",
@@ -559,15 +857,15 @@
         },
         {
           "chunkId": "a8b4b9fe45e2",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "4daf8b5f1feb",
-          "relevance": 0.16
+          "relevance": 0.15
         },
         {
           "chunkId": "31a2e4bfb254",
-          "relevance": 0.09
+          "relevance": 0.1
         },
         {
           "chunkId": "8b5a689cc6df",
@@ -579,7 +877,7 @@
         },
         {
           "chunkId": "cc66a4651b71",
-          "relevance": 0.18
+          "relevance": 0.2
         },
         {
           "chunkId": "71165217e62d",
@@ -591,27 +889,27 @@
         },
         {
           "chunkId": "62e514902770",
-          "relevance": 0.04
+          "relevance": 0.03
         }
       ],
       "usage": {
         "inputTokens": 8467,
         "outputTokens": 722
       },
-      "latencyMs": 240,
+      "latencyMs": 237,
       "requests": [
         {
-          "latencyMs": 212,
+          "latencyMs": 236,
           "inputTokens": 3368,
           "outputTokens": 282
         },
         {
-          "latencyMs": 239,
+          "latencyMs": 234,
           "inputTokens": 3331,
           "outputTokens": 292
         },
         {
-          "latencyMs": 216,
+          "latencyMs": 202,
           "inputTokens": 1768,
           "outputTokens": 148
         }
@@ -668,7 +966,7 @@
         },
         {
           "chunkId": "d47e52a4e656",
-          "relevance": 0.9
+          "relevance": 0.91
         },
         {
           "chunkId": "f9f834866fec",
@@ -676,19 +974,19 @@
         },
         {
           "chunkId": "2b24a2988c3b",
-          "relevance": 0.42
+          "relevance": 0.36
         },
         {
           "chunkId": "3fced31f4f33",
-          "relevance": 0.12
+          "relevance": 0.1
         },
         {
           "chunkId": "756f6f04c956",
-          "relevance": 0.21
+          "relevance": 0.19
         },
         {
           "chunkId": "d1f06f3980ca",
-          "relevance": 0.63
+          "relevance": 0.62
         },
         {
           "chunkId": "f136926c6ca3",
@@ -700,7 +998,7 @@
         },
         {
           "chunkId": "c9c98b3ef277",
-          "relevance": 0.13
+          "relevance": 0.12
         },
         {
           "chunkId": "18eff2571885",
@@ -708,7 +1006,7 @@
         },
         {
           "chunkId": "b04233fb7927",
-          "relevance": 0.21
+          "relevance": 0.24
         },
         {
           "chunkId": "75a9e2909acd",
@@ -720,19 +1018,19 @@
         },
         {
           "chunkId": "95fc08ae89dd",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "e976f1439f69",
-          "relevance": 0.18
+          "relevance": 0.2
         },
         {
           "chunkId": "24a839e6abba",
-          "relevance": 0.17
+          "relevance": 0.19
         },
         {
           "chunkId": "e7395a487977",
-          "relevance": 0.15
+          "relevance": 0.18
         },
         {
           "chunkId": "31a2e4bfb254",
@@ -740,11 +1038,11 @@
         },
         {
           "chunkId": "cbf263447c96",
-          "relevance": 0.72
+          "relevance": 0.63
         },
         {
           "chunkId": "6582e9db8b05",
-          "relevance": 0.38
+          "relevance": 0.4
         },
         {
           "chunkId": "4205b4923a44",
@@ -756,27 +1054,27 @@
         },
         {
           "chunkId": "d25dd5f39977",
-          "relevance": 0.63
+          "relevance": 0.64
         },
         {
           "chunkId": "fcfff666ba6f",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "66b5dc2b692b",
-          "relevance": 0.09
+          "relevance": 0.1
         },
         {
           "chunkId": "667f177f8155",
-          "relevance": 0.03
+          "relevance": 0.02
         },
         {
           "chunkId": "5cc408734908",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "e56f35e738a9",
-          "relevance": 0.2
+          "relevance": 0.21
         },
         {
           "chunkId": "881351bf28c6",
@@ -796,7 +1094,7 @@
         },
         {
           "chunkId": "d56d342b4921",
-          "relevance": 0.04
+          "relevance": 0.03
         },
         {
           "chunkId": "5aff94021b5e",
@@ -827,20 +1125,20 @@
         "inputTokens": 9263,
         "outputTokens": 722
       },
-      "latencyMs": 187,
+      "latencyMs": 174,
       "requests": [
         {
-          "latencyMs": 158,
+          "latencyMs": 138,
           "inputTokens": 3620,
           "outputTokens": 282
         },
         {
-          "latencyMs": 187,
+          "latencyMs": 174,
           "inputTokens": 3743,
           "outputTokens": 292
         },
         {
-          "latencyMs": 181,
+          "latencyMs": 157,
           "inputTokens": 1900,
           "outputTokens": 148
         }
@@ -880,11 +1178,11 @@
       "judgments": [
         {
           "chunkId": "79ef0c3d42a3",
-          "relevance": 0.81
+          "relevance": 0.83
         },
         {
           "chunkId": "f884a38bcc44",
-          "relevance": 0.78
+          "relevance": 0.75
         },
         {
           "chunkId": "8ab6d7178d8d",
@@ -908,23 +1206,23 @@
         },
         {
           "chunkId": "23c4004cbd8c",
-          "relevance": 0.41
+          "relevance": 0.39
         },
         {
           "chunkId": "f64236e2af5f",
-          "relevance": 0.11
+          "relevance": 0.12
         },
         {
           "chunkId": "4a5df7f9e496",
-          "relevance": 0.42
+          "relevance": 0.41
         },
         {
           "chunkId": "701ae67512d4",
-          "relevance": 0.38
+          "relevance": 0.37
         },
         {
           "chunkId": "07c5d47cdf4c",
-          "relevance": 0.07
+          "relevance": 0.06
         },
         {
           "chunkId": "f3280a484b70",
@@ -940,7 +1238,7 @@
         },
         {
           "chunkId": "fb6a5ed2c392",
-          "relevance": 0.14
+          "relevance": 0.13
         },
         {
           "chunkId": "762131774255",
@@ -956,7 +1254,7 @@
         },
         {
           "chunkId": "70b92491e54b",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "becd5b96e215",
@@ -964,11 +1262,11 @@
         },
         {
           "chunkId": "659f0db88d35",
-          "relevance": 0.09
+          "relevance": 0.08
         },
         {
           "chunkId": "68ef41200979",
-          "relevance": 0.09
+          "relevance": 0.08
         },
         {
           "chunkId": "bd9bc14e7178",
@@ -980,7 +1278,7 @@
         },
         {
           "chunkId": "c60af671ca26",
-          "relevance": 0.19
+          "relevance": 0.21
         },
         {
           "chunkId": "f8b1d02069a2",
@@ -991,16 +1289,175 @@
         "inputTokens": 6299,
         "outputTokens": 484
       },
-      "latencyMs": 144,
+      "latencyMs": 194,
       "requests": [
         {
-          "latencyMs": 144,
+          "latencyMs": 165,
           "inputTokens": 3768,
           "outputTokens": 282
         },
         {
-          "latencyMs": 127,
+          "latencyMs": 194,
           "inputTokens": 2531,
+          "outputTokens": 202
+        }
+      ]
+    },
+    "handle-refunds": {
+      "candidateIds": [
+        "fd22fd8fa403",
+        "23c4004cbd8c",
+        "4a5df7f9e496",
+        "54135770d2ca",
+        "f884a38bcc44",
+        "79ef0c3d42a3",
+        "701ae67512d4",
+        "8ab6d7178d8d",
+        "f64236e2af5f",
+        "30a8181abc45",
+        "07c5d47cdf4c",
+        "f3280a484b70",
+        "406389473d5d",
+        "a737c0428c71",
+        "442d65a9b49a",
+        "fb6a5ed2c392",
+        "762131774255",
+        "afd1f8ac27c6",
+        "4345d3630743",
+        "70b92491e54b",
+        "becd5b96e215",
+        "659f0db88d35",
+        "68ef41200979",
+        "bd9bc14e7178",
+        "c927b57147be",
+        "c60af671ca26",
+        "f8b1d02069a2"
+      ],
+      "fingerprint": "7cdb22d2f69bd03430547d3fcd2ebe5cac611f41803db4793676932a5bf03cb2",
+      "judgments": [
+        {
+          "chunkId": "fd22fd8fa403",
+          "relevance": 0.27
+        },
+        {
+          "chunkId": "23c4004cbd8c",
+          "relevance": 0.38
+        },
+        {
+          "chunkId": "4a5df7f9e496",
+          "relevance": 0.69
+        },
+        {
+          "chunkId": "54135770d2ca",
+          "relevance": 0.48
+        },
+        {
+          "chunkId": "f884a38bcc44",
+          "relevance": 0.92
+        },
+        {
+          "chunkId": "79ef0c3d42a3",
+          "relevance": 0.7
+        },
+        {
+          "chunkId": "701ae67512d4",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "8ab6d7178d8d",
+          "relevance": 0.8
+        },
+        {
+          "chunkId": "f64236e2af5f",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "30a8181abc45",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "07c5d47cdf4c",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "f3280a484b70",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "406389473d5d",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "a737c0428c71",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "442d65a9b49a",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "fb6a5ed2c392",
+          "relevance": 0.24
+        },
+        {
+          "chunkId": "762131774255",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "afd1f8ac27c6",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "4345d3630743",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "70b92491e54b",
+          "relevance": 0.02
+        },
+        {
+          "chunkId": "becd5b96e215",
+          "relevance": 0.02
+        },
+        {
+          "chunkId": "659f0db88d35",
+          "relevance": 0.11
+        },
+        {
+          "chunkId": "68ef41200979",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "bd9bc14e7178",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "c927b57147be",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "c60af671ca26",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "f8b1d02069a2",
+          "relevance": 0.08
+        }
+      ],
+      "usage": {
+        "inputTokens": 6283,
+        "outputTokens": 484
+      },
+      "latencyMs": 187,
+      "requests": [
+        {
+          "latencyMs": 187,
+          "inputTokens": 3760,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 162,
+          "inputTokens": 2523,
           "outputTokens": 202
         }
       ]
@@ -1052,11 +1509,11 @@
       "judgments": [
         {
           "chunkId": "dcd8b745e002",
-          "relevance": 0.52
+          "relevance": 0.53
         },
         {
           "chunkId": "0a49efc468ac",
-          "relevance": 0.75
+          "relevance": 0.74
         },
         {
           "chunkId": "2e2a7badc95a",
@@ -1064,31 +1521,31 @@
         },
         {
           "chunkId": "9d38f9092994",
-          "relevance": 0.79
+          "relevance": 0.8
         },
         {
           "chunkId": "de7681543184",
-          "relevance": 0.11
+          "relevance": 0.1
         },
         {
           "chunkId": "6f0d5fa20110",
-          "relevance": 0.46
+          "relevance": 0.44
         },
         {
           "chunkId": "ea3d551046ee",
-          "relevance": 0.25
+          "relevance": 0.26
         },
         {
           "chunkId": "1f4d574bca0c",
-          "relevance": 0.16
+          "relevance": 0.09
         },
         {
           "chunkId": "27bf0c3ebcdb",
-          "relevance": 0.5
+          "relevance": 0.52
         },
         {
           "chunkId": "0630b8ca7972",
-          "relevance": 0.63
+          "relevance": 0.62
         },
         {
           "chunkId": "73491343233e",
@@ -1104,11 +1561,11 @@
         },
         {
           "chunkId": "7829eecc71aa",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "1da7aeef00d5",
-          "relevance": 0.33
+          "relevance": 0.32
         },
         {
           "chunkId": "6ce139f1c10a",
@@ -1116,11 +1573,11 @@
         },
         {
           "chunkId": "fed530ef9434",
-          "relevance": 0.37
+          "relevance": 0.35
         },
         {
           "chunkId": "196e94b5f2f1",
-          "relevance": 0.48
+          "relevance": 0.44
         },
         {
           "chunkId": "9065e7df4446",
@@ -1128,7 +1585,7 @@
         },
         {
           "chunkId": "4effd1a9bb4b",
-          "relevance": 0.74
+          "relevance": 0.72
         },
         {
           "chunkId": "0ed8424b3c4f",
@@ -1136,39 +1593,39 @@
         },
         {
           "chunkId": "18c590215dd1",
-          "relevance": 0.35
+          "relevance": 0.3
         },
         {
           "chunkId": "6d00aa882443",
-          "relevance": 0.74
+          "relevance": 0.73
         },
         {
           "chunkId": "bad07e031a99",
-          "relevance": 0.53
+          "relevance": 0.49
         },
         {
           "chunkId": "f8b0823e0603",
-          "relevance": 0.62
+          "relevance": 0.6
         },
         {
           "chunkId": "13d5596d0d21",
-          "relevance": 0.55
+          "relevance": 0.51
         },
         {
           "chunkId": "e74bcbce4e63",
-          "relevance": 0.15
+          "relevance": 0.16
         },
         {
           "chunkId": "b1df859a3075",
-          "relevance": 0.12
+          "relevance": 0.11
         },
         {
           "chunkId": "f464bd1446a0",
-          "relevance": 0.53
+          "relevance": 0.54
         },
         {
           "chunkId": "662444b75140",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "70bb1d8aa12f",
@@ -1176,23 +1633,23 @@
         },
         {
           "chunkId": "b6edf2a9b71f",
-          "relevance": 0.27
+          "relevance": 0.24
         },
         {
           "chunkId": "b4da0c2164c2",
-          "relevance": 0.28
+          "relevance": 0.36
         },
         {
           "chunkId": "f0dc798a249c",
-          "relevance": 0.12
+          "relevance": 0.15
         },
         {
           "chunkId": "fe4b22255892",
-          "relevance": 0.12
+          "relevance": 0.13
         },
         {
           "chunkId": "ba040883b669",
-          "relevance": 0.17
+          "relevance": 0.19
         },
         {
           "chunkId": "d5666f149b9f",
@@ -1200,7 +1657,7 @@
         },
         {
           "chunkId": "3d9bd74a7f46",
-          "relevance": 0.1
+          "relevance": 0.11
         },
         {
           "chunkId": "ac17ff8fde76",
@@ -1215,22 +1672,171 @@
         "inputTokens": 9464,
         "outputTokens": 722
       },
-      "latencyMs": 177,
+      "latencyMs": 217,
       "requests": [
         {
-          "latencyMs": 136,
+          "latencyMs": 217,
           "inputTokens": 4001,
           "outputTokens": 282
         },
         {
-          "latencyMs": 177,
+          "latencyMs": 174,
           "inputTokens": 3766,
           "outputTokens": 292
         },
         {
-          "latencyMs": 156,
+          "latencyMs": 166,
           "inputTokens": 1697,
           "outputTokens": 148
+        }
+      ]
+    },
+    "ignore-tracking-params": {
+      "candidateIds": [
+        "8959cd4c6b1d",
+        "d3c294a89b31",
+        "d49a1217d9e0",
+        "c8ee83686eb1",
+        "998bedeec8f7",
+        "03320b46689d",
+        "92cd465a318a",
+        "dcfcc0e7b379",
+        "ada23e4035f6",
+        "8af42be96b1c",
+        "5b9af542590e",
+        "8772c3f01cc5",
+        "b792f7b571cf",
+        "65b4ee1993ff",
+        "c134e8a32fc3",
+        "d58de74f672e",
+        "b8c71630f644",
+        "9be4b0423553",
+        "0eb7efb1b81b",
+        "15bb5f322331",
+        "5c43eaec8779",
+        "573977af6eaa",
+        "b61d8bc5a7fd",
+        "0c0a4518c0ab",
+        "84ec81ed749e"
+      ],
+      "fingerprint": "8dea8f2cdb4256b1258c79dc638930c98a6bfc13359c962391a47079eae91de4",
+      "judgments": [
+        {
+          "chunkId": "8959cd4c6b1d",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "d3c294a89b31",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "d49a1217d9e0",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "c8ee83686eb1",
+          "relevance": 0.2
+        },
+        {
+          "chunkId": "998bedeec8f7",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "03320b46689d",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "92cd465a318a",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "dcfcc0e7b379",
+          "relevance": 0.58
+        },
+        {
+          "chunkId": "ada23e4035f6",
+          "relevance": 0.53
+        },
+        {
+          "chunkId": "8af42be96b1c",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "5b9af542590e",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "8772c3f01cc5",
+          "relevance": 0.68
+        },
+        {
+          "chunkId": "b792f7b571cf",
+          "relevance": 0.52
+        },
+        {
+          "chunkId": "65b4ee1993ff",
+          "relevance": 0.91
+        },
+        {
+          "chunkId": "c134e8a32fc3",
+          "relevance": 0.58
+        },
+        {
+          "chunkId": "d58de74f672e",
+          "relevance": 0.94
+        },
+        {
+          "chunkId": "b8c71630f644",
+          "relevance": 0.7
+        },
+        {
+          "chunkId": "9be4b0423553",
+          "relevance": 0.62
+        },
+        {
+          "chunkId": "0eb7efb1b81b",
+          "relevance": 0.18
+        },
+        {
+          "chunkId": "15bb5f322331",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "5c43eaec8779",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "573977af6eaa",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "b61d8bc5a7fd",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "0c0a4518c0ab",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "84ec81ed749e",
+          "relevance": 0.3
+        }
+      ],
+      "usage": {
+        "inputTokens": 6620,
+        "outputTokens": 448
+      },
+      "latencyMs": 176,
+      "requests": [
+        {
+          "latencyMs": 176,
+          "inputTokens": 4257,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 131,
+          "inputTokens": 2363,
+          "outputTokens": 166
         }
       ]
     },
@@ -1281,7 +1887,7 @@
       "judgments": [
         {
           "chunkId": "1186c10908b1",
-          "relevance": 0.92
+          "relevance": 0.93
         },
         {
           "chunkId": "57df7ea5f425",
@@ -1289,7 +1895,7 @@
         },
         {
           "chunkId": "24009cc8f579",
-          "relevance": 0.24
+          "relevance": 0.25
         },
         {
           "chunkId": "5df0f003b0bc",
@@ -1301,7 +1907,7 @@
         },
         {
           "chunkId": "f97666233a8d",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "afddd6ad8531",
@@ -1309,11 +1915,11 @@
         },
         {
           "chunkId": "e96b9b53afc9",
-          "relevance": 0.07
+          "relevance": 0.06
         },
         {
           "chunkId": "1c7086408e95",
-          "relevance": 0.42
+          "relevance": 0.39
         },
         {
           "chunkId": "6d60e9a77e79",
@@ -1321,19 +1927,19 @@
         },
         {
           "chunkId": "04f85ddb4fef",
-          "relevance": 0.14
+          "relevance": 0.15
         },
         {
           "chunkId": "5f57f5e9cdff",
-          "relevance": 0.38
+          "relevance": 0.41
         },
         {
           "chunkId": "32a8a9c08d69",
-          "relevance": 0.75
+          "relevance": 0.69
         },
         {
           "chunkId": "5c3b1433f59c",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "ffb8ccd3492b",
@@ -1341,11 +1947,11 @@
         },
         {
           "chunkId": "c52b3c61877e",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "c10b178fed22",
-          "relevance": 0.16
+          "relevance": 0.14
         },
         {
           "chunkId": "db868f2fdb35",
@@ -1353,23 +1959,23 @@
         },
         {
           "chunkId": "445ab9b72251",
-          "relevance": 0.08
+          "relevance": 0.07
         },
         {
           "chunkId": "2c5eedad1481",
-          "relevance": 0.87
+          "relevance": 0.88
         },
         {
           "chunkId": "9a75073aa95f",
-          "relevance": 0.78
+          "relevance": 0.8
         },
         {
           "chunkId": "0efc4ccfd6d3",
-          "relevance": 0.68
+          "relevance": 0.7
         },
         {
           "chunkId": "49cae0f68b4a",
-          "relevance": 0.14
+          "relevance": 0.15
         },
         {
           "chunkId": "d12161dbb209",
@@ -1377,7 +1983,7 @@
         },
         {
           "chunkId": "7836b8b98422",
-          "relevance": 0.24
+          "relevance": 0.21
         },
         {
           "chunkId": "854af3565b67",
@@ -1393,15 +1999,15 @@
         },
         {
           "chunkId": "fd9c6011a436",
-          "relevance": 0.22
+          "relevance": 0.24
         },
         {
           "chunkId": "93ba8f38c285",
-          "relevance": 0.15
+          "relevance": 0.13
         },
         {
           "chunkId": "37f6c0d0866c",
-          "relevance": 0.5
+          "relevance": 0.53
         },
         {
           "chunkId": "a7aebc4bc27c",
@@ -1409,11 +2015,11 @@
         },
         {
           "chunkId": "00b93019900d",
-          "relevance": 0.08
+          "relevance": 0.07
         },
         {
           "chunkId": "5502ee689056",
-          "relevance": 0.33
+          "relevance": 0.36
         },
         {
           "chunkId": "bf093547c89c",
@@ -1421,11 +2027,11 @@
         },
         {
           "chunkId": "3df9c4d02f0f",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "82012638763a",
-          "relevance": 0.13
+          "relevance": 0.11
         },
         {
           "chunkId": "b7a88c2dbc9f",
@@ -1433,26 +2039,26 @@
         },
         {
           "chunkId": "cc7561313035",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "ab6fa4ed8eaa",
-          "relevance": 0.03
+          "relevance": 0.04
         }
       ],
       "usage": {
         "inputTokens": 13792,
         "outputTokens": 722
       },
-      "latencyMs": 167,
+      "latencyMs": 168,
       "requests": [
         {
-          "latencyMs": 149,
+          "latencyMs": 167,
           "inputTokens": 6062,
           "outputTokens": 282
         },
         {
-          "latencyMs": 156,
+          "latencyMs": 164,
           "inputTokens": 3842,
           "outputTokens": 292
         },
@@ -1460,6 +2066,394 @@
           "latencyMs": 167,
           "inputTokens": 3888,
           "outputTokens": 148
+        }
+      ]
+    },
+    "localized-csv-export": {
+      "candidateIds": [
+        "49493143fb57",
+        "18afe200f9d1",
+        "65c24047fe3f",
+        "d1f06f3980ca",
+        "75a9e2909acd",
+        "b73c00116f5b",
+        "a8b4b9fe45e2",
+        "55aabea59ceb",
+        "f136926c6ca3",
+        "d25dd5f39977",
+        "d47e52a4e656",
+        "cbf263447c96",
+        "24a839e6abba",
+        "f9f834866fec",
+        "66b5dc2b692b",
+        "6582e9db8b05",
+        "e56f35e738a9",
+        "569f16fb0075",
+        "881351bf28c6",
+        "31a2e4bfb254",
+        "d56d342b4921",
+        "1370ec838bf2",
+        "e7395a487977",
+        "2b24a2988c3b",
+        "f88e69675e26",
+        "b30950b97746",
+        "9e336173d2c3",
+        "e976f1439f69",
+        "fcfff666ba6f",
+        "82e55bb97599",
+        "f9f81da691af",
+        "0329e77a45fa",
+        "5cc408734908",
+        "95fc08ae89dd",
+        "3fced31f4f33",
+        "6fe9bebbbe49",
+        "032b75a455cc",
+        "1505391387be",
+        "b666c8d0fe27",
+        "60dc56daf223"
+      ],
+      "fingerprint": "aa73f20af5b4eaa4b027b625d3210333e78f6f01e67bfb453b9643dee3c356a7",
+      "judgments": [
+        {
+          "chunkId": "49493143fb57",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "18afe200f9d1",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "65c24047fe3f",
+          "relevance": 0.4
+        },
+        {
+          "chunkId": "d1f06f3980ca",
+          "relevance": 0.68
+        },
+        {
+          "chunkId": "75a9e2909acd",
+          "relevance": 0.63
+        },
+        {
+          "chunkId": "b73c00116f5b",
+          "relevance": 0.62
+        },
+        {
+          "chunkId": "a8b4b9fe45e2",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "55aabea59ceb",
+          "relevance": 0.72
+        },
+        {
+          "chunkId": "f136926c6ca3",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "d25dd5f39977",
+          "relevance": 0.11
+        },
+        {
+          "chunkId": "d47e52a4e656",
+          "relevance": 0.21
+        },
+        {
+          "chunkId": "cbf263447c96",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "24a839e6abba",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "f9f834866fec",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "66b5dc2b692b",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "6582e9db8b05",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "e56f35e738a9",
+          "relevance": 0.46
+        },
+        {
+          "chunkId": "569f16fb0075",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "881351bf28c6",
+          "relevance": 0.33
+        },
+        {
+          "chunkId": "31a2e4bfb254",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "d56d342b4921",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "1370ec838bf2",
+          "relevance": 0.35
+        },
+        {
+          "chunkId": "e7395a487977",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "2b24a2988c3b",
+          "relevance": 0.23
+        },
+        {
+          "chunkId": "f88e69675e26",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "b30950b97746",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "9e336173d2c3",
+          "relevance": 0.32
+        },
+        {
+          "chunkId": "e976f1439f69",
+          "relevance": 0.43
+        },
+        {
+          "chunkId": "fcfff666ba6f",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "82e55bb97599",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "f9f81da691af",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "0329e77a45fa",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "5cc408734908",
+          "relevance": 0.46
+        },
+        {
+          "chunkId": "95fc08ae89dd",
+          "relevance": 0.11
+        },
+        {
+          "chunkId": "3fced31f4f33",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "6fe9bebbbe49",
+          "relevance": 0.77
+        },
+        {
+          "chunkId": "032b75a455cc",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "1505391387be",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "b666c8d0fe27",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "60dc56daf223",
+          "relevance": 0.03
+        }
+      ],
+      "usage": {
+        "inputTokens": 8918,
+        "outputTokens": 722
+      },
+      "latencyMs": 164,
+      "requests": [
+        {
+          "latencyMs": 159,
+          "inputTokens": 3655,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 164,
+          "inputTokens": 3354,
+          "outputTokens": 292
+        },
+        {
+          "latencyMs": 143,
+          "inputTokens": 1909,
+          "outputTokens": 148
+        }
+      ]
+    },
+    "log-accepted-events": {
+      "candidateIds": [
+        "fd22fd8fa403",
+        "23c4004cbd8c",
+        "f884a38bcc44",
+        "54135770d2ca",
+        "79ef0c3d42a3",
+        "762131774255",
+        "8ab6d7178d8d",
+        "701ae67512d4",
+        "4a5df7f9e496",
+        "f64236e2af5f",
+        "c927b57147be",
+        "c60af671ca26",
+        "f8b1d02069a2",
+        "07c5d47cdf4c",
+        "f3280a484b70",
+        "406389473d5d",
+        "a737c0428c71",
+        "442d65a9b49a",
+        "30a8181abc45",
+        "fb6a5ed2c392",
+        "afd1f8ac27c6",
+        "4345d3630743",
+        "70b92491e54b",
+        "becd5b96e215",
+        "659f0db88d35",
+        "68ef41200979",
+        "bd9bc14e7178"
+      ],
+      "fingerprint": "59105ff7d5bccc438dfa8edcdec498f58066233a0fe21b9b12af29b25147aa08",
+      "judgments": [
+        {
+          "chunkId": "fd22fd8fa403",
+          "relevance": 0.35
+        },
+        {
+          "chunkId": "23c4004cbd8c",
+          "relevance": 0.18
+        },
+        {
+          "chunkId": "f884a38bcc44",
+          "relevance": 0.81
+        },
+        {
+          "chunkId": "54135770d2ca",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "79ef0c3d42a3",
+          "relevance": 0.61
+        },
+        {
+          "chunkId": "762131774255",
+          "relevance": 0.46
+        },
+        {
+          "chunkId": "8ab6d7178d8d",
+          "relevance": 0.52
+        },
+        {
+          "chunkId": "701ae67512d4",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "4a5df7f9e496",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "f64236e2af5f",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "c927b57147be",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "c60af671ca26",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "f8b1d02069a2",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "07c5d47cdf4c",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "f3280a484b70",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "406389473d5d",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "a737c0428c71",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "442d65a9b49a",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "30a8181abc45",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "fb6a5ed2c392",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "afd1f8ac27c6",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "4345d3630743",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "70b92491e54b",
+          "relevance": 0.02
+        },
+        {
+          "chunkId": "becd5b96e215",
+          "relevance": 0.02
+        },
+        {
+          "chunkId": "659f0db88d35",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "68ef41200979",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "bd9bc14e7178",
+          "relevance": 0.03
+        }
+      ],
+      "usage": {
+        "inputTokens": 6277,
+        "outputTokens": 484
+      },
+      "latencyMs": 157,
+      "requests": [
+        {
+          "latencyMs": 156,
+          "inputTokens": 3709,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 156,
+          "inputTokens": 2568,
+          "outputTokens": 202
         }
       ]
     },
@@ -1510,11 +2504,11 @@
       "judgments": [
         {
           "chunkId": "c134e8a32fc3",
-          "relevance": 0.27
+          "relevance": 0.28
         },
         {
           "chunkId": "c38220da51d7",
-          "relevance": 0.57
+          "relevance": 0.56
         },
         {
           "chunkId": "65b4ee1993ff",
@@ -1522,7 +2516,7 @@
         },
         {
           "chunkId": "b8c71630f644",
-          "relevance": 0.49
+          "relevance": 0.53
         },
         {
           "chunkId": "c622da93aad8",
@@ -1530,7 +2524,7 @@
         },
         {
           "chunkId": "44b765e29cce",
-          "relevance": 0.29
+          "relevance": 0.28
         },
         {
           "chunkId": "bdcc11031fe5",
@@ -1538,19 +2532,19 @@
         },
         {
           "chunkId": "73c8722bd18f",
-          "relevance": 0.75
+          "relevance": 0.67
         },
         {
           "chunkId": "d49a1217d9e0",
-          "relevance": 0.89
+          "relevance": 0.86
         },
         {
           "chunkId": "5b9af542590e",
-          "relevance": 0.65
+          "relevance": 0.66
         },
         {
           "chunkId": "9ac43d192f53",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "d3edc79a755e",
@@ -1558,7 +2552,7 @@
         },
         {
           "chunkId": "9be4b0423553",
-          "relevance": 0.52
+          "relevance": 0.46
         },
         {
           "chunkId": "8772c3f01cc5",
@@ -1566,7 +2560,7 @@
         },
         {
           "chunkId": "d4b46ad0842a",
-          "relevance": 0.85
+          "relevance": 0.82
         },
         {
           "chunkId": "4ffc285a16cd",
@@ -1582,11 +2576,11 @@
         },
         {
           "chunkId": "b792f7b571cf",
-          "relevance": 0.56
+          "relevance": 0.57
         },
         {
           "chunkId": "779f1d33f6b7",
-          "relevance": 0.03
+          "relevance": 0.04
         },
         {
           "chunkId": "6148c7bb2643",
@@ -1594,7 +2588,7 @@
         },
         {
           "chunkId": "ada23e4035f6",
-          "relevance": 0.64
+          "relevance": 0.67
         },
         {
           "chunkId": "babbe82a03ee",
@@ -1602,7 +2596,7 @@
         },
         {
           "chunkId": "8af42be96b1c",
-          "relevance": 0.58
+          "relevance": 0.61
         },
         {
           "chunkId": "53e5e61e6e42",
@@ -1618,7 +2612,7 @@
         },
         {
           "chunkId": "dcfcc0e7b379",
-          "relevance": 0.1
+          "relevance": 0.11
         },
         {
           "chunkId": "f979309b800d",
@@ -1630,15 +2624,15 @@
         },
         {
           "chunkId": "2e6bd410eafb",
-          "relevance": 0.24
+          "relevance": 0.22
         },
         {
           "chunkId": "1c34f2d9b427",
-          "relevance": 0.17
+          "relevance": 0.16
         },
         {
           "chunkId": "3a25824c5462",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "fb16adf20ba2",
@@ -1650,19 +2644,19 @@
         },
         {
           "chunkId": "dc6cd4452cb4",
-          "relevance": 0.07
+          "relevance": 0.1
         },
         {
           "chunkId": "f1884320c3c3",
-          "relevance": 0.05
+          "relevance": 0.07
         },
         {
           "chunkId": "6bb46413b391",
-          "relevance": 0.03
+          "relevance": 0.04
         },
         {
           "chunkId": "84ec81ed749e",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "0c0a4518c0ab",
@@ -1673,20 +2667,20 @@
         "inputTokens": 10295,
         "outputTokens": 722
       },
-      "latencyMs": 207,
+      "latencyMs": 164,
       "requests": [
         {
-          "latencyMs": 207,
+          "latencyMs": 162,
           "inputTokens": 4001,
           "outputTokens": 282
         },
         {
-          "latencyMs": 148,
+          "latencyMs": 162,
           "inputTokens": 4123,
           "outputTokens": 292
         },
         {
-          "latencyMs": 139,
+          "latencyMs": 163,
           "inputTokens": 2171,
           "outputTokens": 148
         }
@@ -1739,15 +2733,15 @@
       "judgments": [
         {
           "chunkId": "a423ebb92f3f",
-          "relevance": 0.86
+          "relevance": 0.88
         },
         {
           "chunkId": "744abaa8ffed",
-          "relevance": 0.3
+          "relevance": 0.32
         },
         {
           "chunkId": "04bc57661f50",
-          "relevance": 0.32
+          "relevance": 0.34
         },
         {
           "chunkId": "7a81fbcf19f6",
@@ -1755,7 +2749,7 @@
         },
         {
           "chunkId": "4b56a354c42c",
-          "relevance": 0.62
+          "relevance": 0.6
         },
         {
           "chunkId": "3df9c4d02f0f",
@@ -1763,27 +2757,27 @@
         },
         {
           "chunkId": "32a8a9c08d69",
-          "relevance": 0.13
+          "relevance": 0.14
         },
         {
           "chunkId": "93ba8f38c285",
-          "relevance": 0.78
+          "relevance": 0.76
         },
         {
           "chunkId": "45347c9db19b",
-          "relevance": 0.41
+          "relevance": 0.37
         },
         {
           "chunkId": "8b11ea202d84",
-          "relevance": 0.22
+          "relevance": 0.24
         },
         {
           "chunkId": "635587bf7ad0",
-          "relevance": 0.6
+          "relevance": 0.54
         },
         {
           "chunkId": "d329ed654a3d",
-          "relevance": 0.25
+          "relevance": 0.2
         },
         {
           "chunkId": "0efc4ccfd6d3",
@@ -1795,11 +2789,11 @@
         },
         {
           "chunkId": "9a75073aa95f",
-          "relevance": 0.79
+          "relevance": 0.76
         },
         {
           "chunkId": "b3ee63880a2a",
-          "relevance": 0.9
+          "relevance": 0.88
         },
         {
           "chunkId": "5c3b1433f59c",
@@ -1807,7 +2801,7 @@
         },
         {
           "chunkId": "afeef4fe50f8",
-          "relevance": 0.68
+          "relevance": 0.73
         },
         {
           "chunkId": "24009cc8f579",
@@ -1815,11 +2809,11 @@
         },
         {
           "chunkId": "e49c1b420561",
-          "relevance": 0.37
+          "relevance": 0.26
         },
         {
           "chunkId": "1c7086408e95",
-          "relevance": 0.14
+          "relevance": 0.15
         },
         {
           "chunkId": "e30fba9f77ae",
@@ -1827,11 +2821,11 @@
         },
         {
           "chunkId": "6a4f4802f334",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "b3845b322a75",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "bf093547c89c",
@@ -1839,19 +2833,19 @@
         },
         {
           "chunkId": "243bc7034468",
-          "relevance": 0.76
+          "relevance": 0.78
         },
         {
           "chunkId": "5f57f5e9cdff",
-          "relevance": 0.13
+          "relevance": 0.12
         },
         {
           "chunkId": "6da0cbc1b4a6",
-          "relevance": 0.37
+          "relevance": 0.39
         },
         {
           "chunkId": "7836b8b98422",
-          "relevance": 0.2
+          "relevance": 0.21
         },
         {
           "chunkId": "abcdd9fe2866",
@@ -1859,7 +2853,7 @@
         },
         {
           "chunkId": "824495765a92",
-          "relevance": 0.75
+          "relevance": 0.78
         },
         {
           "chunkId": "1632b9572641",
@@ -1867,7 +2861,7 @@
         },
         {
           "chunkId": "e96b9b53afc9",
-          "relevance": 0.47
+          "relevance": 0.52
         },
         {
           "chunkId": "bdac7f3677e7",
@@ -1875,15 +2869,15 @@
         },
         {
           "chunkId": "fd9c6011a436",
-          "relevance": 0.3
+          "relevance": 0.26
         },
         {
           "chunkId": "5312985e48cf",
-          "relevance": 0.19
+          "relevance": 0.29
         },
         {
           "chunkId": "3e6f9f4cbf64",
-          "relevance": 0.39
+          "relevance": 0.43
         },
         {
           "chunkId": "82012638763a",
@@ -1895,27 +2889,27 @@
         },
         {
           "chunkId": "6382d6fc162f",
-          "relevance": 0.14
+          "relevance": 0.12
         }
       ],
       "usage": {
         "inputTokens": 12763,
         "outputTokens": 722
       },
-      "latencyMs": 167,
+      "latencyMs": 218,
       "requests": [
         {
-          "latencyMs": 144,
+          "latencyMs": 156,
           "inputTokens": 4971,
           "outputTokens": 282
         },
         {
-          "latencyMs": 167,
+          "latencyMs": 217,
           "inputTokens": 4291,
           "outputTokens": 292
         },
         {
-          "latencyMs": 165,
+          "latencyMs": 178,
           "inputTokens": 3501,
           "outputTokens": 148
         }
@@ -1972,15 +2966,15 @@
         },
         {
           "chunkId": "1464d20d0fe8",
-          "relevance": 0.46
+          "relevance": 0.49
         },
         {
           "chunkId": "afeef4fe50f8",
-          "relevance": 0.16
+          "relevance": 0.14
         },
         {
           "chunkId": "1186c10908b1",
-          "relevance": 0.52
+          "relevance": 0.55
         },
         {
           "chunkId": "6952b8f0767a",
@@ -1996,7 +2990,7 @@
         },
         {
           "chunkId": "854af3565b67",
-          "relevance": 0.47
+          "relevance": 0.52
         },
         {
           "chunkId": "6e4a06b1114c",
@@ -2004,7 +2998,7 @@
         },
         {
           "chunkId": "afddd6ad8531",
-          "relevance": 0.09
+          "relevance": 0.11
         },
         {
           "chunkId": "21ea6ebe00d0",
@@ -2024,11 +3018,11 @@
         },
         {
           "chunkId": "13b8229d1a2d",
-          "relevance": 0.67
+          "relevance": 0.65
         },
         {
           "chunkId": "6da0cbc1b4a6",
-          "relevance": 0.18
+          "relevance": 0.19
         },
         {
           "chunkId": "6b38f2947bd3",
@@ -2036,7 +3030,7 @@
         },
         {
           "chunkId": "635587bf7ad0",
-          "relevance": 0.77
+          "relevance": 0.78
         },
         {
           "chunkId": "73ee4d59221f",
@@ -2044,7 +3038,7 @@
         },
         {
           "chunkId": "3ea6c3aa0a62",
-          "relevance": 0.88
+          "relevance": 0.89
         },
         {
           "chunkId": "0c9b5f4a0ce3",
@@ -2052,7 +3046,7 @@
         },
         {
           "chunkId": "dc74bd436ac3",
-          "relevance": 0.36
+          "relevance": 0.35
         },
         {
           "chunkId": "1632b9572641",
@@ -2068,11 +3062,11 @@
         },
         {
           "chunkId": "c686f024d48f",
-          "relevance": 0.18
+          "relevance": 0.17
         },
         {
           "chunkId": "d0d3a206bc90",
-          "relevance": 0.08
+          "relevance": 0.07
         },
         {
           "chunkId": "76417f59a61f",
@@ -2080,11 +3074,11 @@
         },
         {
           "chunkId": "fe8cd1cc2e8f",
-          "relevance": 0.28
+          "relevance": 0.26
         },
         {
           "chunkId": "5312985e48cf",
-          "relevance": 0.3
+          "relevance": 0.33
         },
         {
           "chunkId": "bede440dbc8d",
@@ -2092,11 +3086,11 @@
         },
         {
           "chunkId": "b8e65255df9d",
-          "relevance": 0.27
+          "relevance": 0.24
         },
         {
           "chunkId": "0d8716a3d54e",
-          "relevance": 0.3
+          "relevance": 0.26
         },
         {
           "chunkId": "e30fba9f77ae",
@@ -2108,7 +3102,7 @@
         },
         {
           "chunkId": "4b56a354c42c",
-          "relevance": 0.81
+          "relevance": 0.79
         },
         {
           "chunkId": "c161d351ffa0",
@@ -2116,35 +3110,35 @@
         },
         {
           "chunkId": "1834d731744e",
-          "relevance": 0.17
+          "relevance": 0.18
         },
         {
           "chunkId": "7f5928bb4cb1",
-          "relevance": 0.33
+          "relevance": 0.34
         },
         {
           "chunkId": "658523972c05",
-          "relevance": 0.88
+          "relevance": 0.87
         }
       ],
       "usage": {
         "inputTokens": 15189,
         "outputTokens": 722
       },
-      "latencyMs": 193,
+      "latencyMs": 201,
       "requests": [
         {
-          "latencyMs": 167,
+          "latencyMs": 191,
           "inputTokens": 6396,
           "outputTokens": 282
         },
         {
-          "latencyMs": 162,
+          "latencyMs": 200,
           "inputTokens": 5684,
           "outputTokens": 292
         },
         {
-          "latencyMs": 193,
+          "latencyMs": 195,
           "inputTokens": 3109,
           "outputTokens": 148
         }
@@ -2197,7 +3191,7 @@
       "judgments": [
         {
           "chunkId": "c622da93aad8",
-          "relevance": 0.51
+          "relevance": 0.52
         },
         {
           "chunkId": "c134e8a32fc3",
@@ -2205,11 +3199,11 @@
         },
         {
           "chunkId": "b8c71630f644",
-          "relevance": 0.39
+          "relevance": 0.38
         },
         {
           "chunkId": "babbe82a03ee",
-          "relevance": 0.18
+          "relevance": 0.17
         },
         {
           "chunkId": "65b4ee1993ff",
@@ -2221,15 +3215,15 @@
         },
         {
           "chunkId": "998bedeec8f7",
-          "relevance": 0.77
+          "relevance": 0.78
         },
         {
           "chunkId": "8af42be96b1c",
-          "relevance": 0.52
+          "relevance": 0.53
         },
         {
           "chunkId": "5b9af542590e",
-          "relevance": 0.5
+          "relevance": 0.49
         },
         {
           "chunkId": "ffeff093608d",
@@ -2237,7 +3231,7 @@
         },
         {
           "chunkId": "f979309b800d",
-          "relevance": 0.57
+          "relevance": 0.45
         },
         {
           "chunkId": "6a68716bbe15",
@@ -2245,7 +3239,7 @@
         },
         {
           "chunkId": "8772c3f01cc5",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "d3c294a89b31",
@@ -2253,11 +3247,11 @@
         },
         {
           "chunkId": "60699c3078aa",
-          "relevance": 0.1
+          "relevance": 0.12
         },
         {
           "chunkId": "dc6cd4452cb4",
-          "relevance": 0.11
+          "relevance": 0.1
         },
         {
           "chunkId": "d3edc79a755e",
@@ -2293,7 +3287,7 @@
         },
         {
           "chunkId": "1c34f2d9b427",
-          "relevance": 0.09
+          "relevance": 0.1
         },
         {
           "chunkId": "ac9fa1cea13d",
@@ -2301,7 +3295,7 @@
         },
         {
           "chunkId": "0553bbbd5c5c",
-          "relevance": 0.48
+          "relevance": 0.49
         },
         {
           "chunkId": "0276b3f26222",
@@ -2321,7 +3315,7 @@
         },
         {
           "chunkId": "c019ba11f04d",
-          "relevance": 0.1
+          "relevance": 0.09
         },
         {
           "chunkId": "b792f7b571cf",
@@ -2329,11 +3323,11 @@
         },
         {
           "chunkId": "b7cd908932f6",
-          "relevance": 0.49
+          "relevance": 0.47
         },
         {
           "chunkId": "158d7894fb30",
-          "relevance": 0.63
+          "relevance": 0.59
         },
         {
           "chunkId": "f0132cdbc63a",
@@ -2341,7 +3335,7 @@
         },
         {
           "chunkId": "ada23e4035f6",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "799e9a5bfd9b",
@@ -2349,33 +3343,142 @@
         },
         {
           "chunkId": "a1758f3f50e7",
-          "relevance": 0.12
+          "relevance": 0.11
         },
         {
           "chunkId": "53e5e61e6e42",
-          "relevance": 0.69
+          "relevance": 0.74
         }
       ],
       "usage": {
         "inputTokens": 10542,
         "outputTokens": 722
       },
-      "latencyMs": 188,
+      "latencyMs": 209,
       "requests": [
         {
-          "latencyMs": 142,
+          "latencyMs": 162,
           "inputTokens": 4406,
           "outputTokens": 282
         },
         {
-          "latencyMs": 148,
+          "latencyMs": 166,
           "inputTokens": 3937,
           "outputTokens": 292
         },
         {
-          "latencyMs": 188,
+          "latencyMs": 208,
           "inputTokens": 2199,
           "outputTokens": 148
+        }
+      ]
+    },
+    "plain-number-format": {
+      "candidateIds": [
+        "7829eecc71aa",
+        "b1e8cf808ec3",
+        "df215407da31",
+        "a0560fb8eb8a",
+        "6ce139f1c10a",
+        "fdcd19d1e0c9",
+        "f7d84ce71bfa",
+        "960c85cf8ae9",
+        "30c28e3f5563",
+        "63f47113f62a",
+        "bf6473761fa6",
+        "2a3a717298da",
+        "4b05e67cdcec",
+        "41cabfeb7be9",
+        "11afe6b36fe6",
+        "662444b75140",
+        "70bb1d8aa12f"
+      ],
+      "fingerprint": "1f3575616f11f2df54791616e75812849cc37664927b7d0741729777a98ccada",
+      "judgments": [
+        {
+          "chunkId": "7829eecc71aa",
+          "relevance": 0.25
+        },
+        {
+          "chunkId": "b1e8cf808ec3",
+          "relevance": 0.42
+        },
+        {
+          "chunkId": "df215407da31",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "a0560fb8eb8a",
+          "relevance": 0.11
+        },
+        {
+          "chunkId": "6ce139f1c10a",
+          "relevance": 0.86
+        },
+        {
+          "chunkId": "fdcd19d1e0c9",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "f7d84ce71bfa",
+          "relevance": 0.22
+        },
+        {
+          "chunkId": "960c85cf8ae9",
+          "relevance": 0.72
+        },
+        {
+          "chunkId": "30c28e3f5563",
+          "relevance": 0.28
+        },
+        {
+          "chunkId": "63f47113f62a",
+          "relevance": 0.25
+        },
+        {
+          "chunkId": "bf6473761fa6",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "2a3a717298da",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "4b05e67cdcec",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "41cabfeb7be9",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "11afe6b36fe6",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "662444b75140",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "70bb1d8aa12f",
+          "relevance": 0.03
+        }
+      ],
+      "usage": {
+        "inputTokens": 4751,
+        "outputTokens": 304
+      },
+      "latencyMs": 210,
+      "requests": [
+        {
+          "latencyMs": 209,
+          "inputTokens": 4210,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 140,
+          "inputTokens": 541,
+          "outputTokens": 22
         }
       ]
     },
@@ -2426,11 +3529,11 @@
       "judgments": [
         {
           "chunkId": "71320f91ff2d",
-          "relevance": 0.9
+          "relevance": 0.89
         },
         {
           "chunkId": "1da7aeef00d5",
-          "relevance": 0.21
+          "relevance": 0.2
         },
         {
           "chunkId": "6d00aa882443",
@@ -2442,7 +3545,7 @@
         },
         {
           "chunkId": "b8374051d68c",
-          "relevance": 0.88
+          "relevance": 0.87
         },
         {
           "chunkId": "73491343233e",
@@ -2450,31 +3553,31 @@
         },
         {
           "chunkId": "7829eecc71aa",
-          "relevance": 0.21
+          "relevance": 0.2
         },
         {
           "chunkId": "1f4d574bca0c",
-          "relevance": 0.07
+          "relevance": 0.08
         },
         {
           "chunkId": "45940050a0f5",
-          "relevance": 0.71
+          "relevance": 0.73
         },
         {
           "chunkId": "41d2e44245bb",
-          "relevance": 0.84
+          "relevance": 0.83
         },
         {
           "chunkId": "92a039eafb1c",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "27bf0c3ebcdb",
-          "relevance": 0.87
+          "relevance": 0.85
         },
         {
           "chunkId": "196e94b5f2f1",
-          "relevance": 0.19
+          "relevance": 0.23
         },
         {
           "chunkId": "3712241cdcd8",
@@ -2482,7 +3585,7 @@
         },
         {
           "chunkId": "0630b8ca7972",
-          "relevance": 0.22
+          "relevance": 0.18
         },
         {
           "chunkId": "1ea70711996e",
@@ -2490,27 +3593,27 @@
         },
         {
           "chunkId": "6f0d5fa20110",
-          "relevance": 0.3
+          "relevance": 0.28
         },
         {
           "chunkId": "f8b0823e0603",
-          "relevance": 0.33
+          "relevance": 0.34
         },
         {
           "chunkId": "8d8c6ce307be",
-          "relevance": 0.39
+          "relevance": 0.45
         },
         {
           "chunkId": "bad07e031a99",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "643d9679ff73",
-          "relevance": 0.25
+          "relevance": 0.27
         },
         {
           "chunkId": "bf6473761fa6",
-          "relevance": 0.25
+          "relevance": 0.27
         },
         {
           "chunkId": "13d5596d0d21",
@@ -2518,11 +3621,11 @@
         },
         {
           "chunkId": "2a3a717298da",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "8c2316d63850",
-          "relevance": 0.08
+          "relevance": 0.07
         },
         {
           "chunkId": "19e20eef932a",
@@ -2538,7 +3641,7 @@
         },
         {
           "chunkId": "b1e8cf808ec3",
-          "relevance": 0.18
+          "relevance": 0.19
         },
         {
           "chunkId": "a0560fb8eb8a",
@@ -2550,23 +3653,23 @@
         },
         {
           "chunkId": "18c590215dd1",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "71a6a966e9f9",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "137d1ae7bfcc",
-          "relevance": 0.15
+          "relevance": 0.17
         },
         {
           "chunkId": "662444b75140",
-          "relevance": 0.29
+          "relevance": 0.27
         },
         {
           "chunkId": "988ce7c3c2af",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "6ce139f1c10a",
@@ -2578,7 +3681,7 @@
         },
         {
           "chunkId": "c03e2f1db303",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "f7b084216020",
@@ -2589,21 +3692,250 @@
         "inputTokens": 9960,
         "outputTokens": 722
       },
-      "latencyMs": 161,
+      "latencyMs": 204,
       "requests": [
         {
-          "latencyMs": 151,
+          "latencyMs": 204,
           "inputTokens": 3905,
           "outputTokens": 282
         },
         {
-          "latencyMs": 161,
+          "latencyMs": 148,
           "inputTokens": 4008,
           "outputTokens": 292
         },
         {
-          "latencyMs": 161,
+          "latencyMs": 184,
           "inputTokens": 2047,
+          "outputTokens": 148
+        }
+      ]
+    },
+    "prune-old-items": {
+      "candidateIds": [
+        "d49a1217d9e0",
+        "8af42be96b1c",
+        "c622da93aad8",
+        "8959cd4c6b1d",
+        "c8ee83686eb1",
+        "799e9a5bfd9b",
+        "998bedeec8f7",
+        "babbe82a03ee",
+        "d3c294a89b31",
+        "53e5e61e6e42",
+        "5b9af542590e",
+        "4ffc285a16cd",
+        "8772c3f01cc5",
+        "9ac43d192f53",
+        "65b4ee1993ff",
+        "6a68716bbe15",
+        "b6397c63216f",
+        "0276b3f26222",
+        "779f1d33f6b7",
+        "6148c7bb2643",
+        "b792f7b571cf",
+        "c134e8a32fc3",
+        "d046db0c2a10",
+        "dc1c1bc1e2bc",
+        "03320b46689d",
+        "92cd465a318a",
+        "dcfcc0e7b379",
+        "b8c71630f644",
+        "b0a1d08d7424",
+        "99789ee32c06",
+        "daf5e23b94af",
+        "6bb46413b391",
+        "158d7894fb30",
+        "0553bbbd5c5c",
+        "f0132cdbc63a",
+        "4033dd32ddf0",
+        "2e6bd410eafb",
+        "1c34f2d9b427",
+        "3a25824c5462",
+        "fb16adf20ba2"
+      ],
+      "fingerprint": "eb972f299e92f8ebb6f3b079c448072b65b9654cd04499d11485ac89b95306ec",
+      "judgments": [
+        {
+          "chunkId": "d49a1217d9e0",
+          "relevance": 0.82
+        },
+        {
+          "chunkId": "8af42be96b1c",
+          "relevance": 0.88
+        },
+        {
+          "chunkId": "c622da93aad8",
+          "relevance": 0.18
+        },
+        {
+          "chunkId": "8959cd4c6b1d",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "c8ee83686eb1",
+          "relevance": 0.6
+        },
+        {
+          "chunkId": "799e9a5bfd9b",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "998bedeec8f7",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "babbe82a03ee",
+          "relevance": 0.11
+        },
+        {
+          "chunkId": "d3c294a89b31",
+          "relevance": 0.58
+        },
+        {
+          "chunkId": "53e5e61e6e42",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "5b9af542590e",
+          "relevance": 0.84
+        },
+        {
+          "chunkId": "4ffc285a16cd",
+          "relevance": 0.57
+        },
+        {
+          "chunkId": "8772c3f01cc5",
+          "relevance": 0.55
+        },
+        {
+          "chunkId": "9ac43d192f53",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "65b4ee1993ff",
+          "relevance": 0.21
+        },
+        {
+          "chunkId": "6a68716bbe15",
+          "relevance": 0.62
+        },
+        {
+          "chunkId": "b6397c63216f",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "0276b3f26222",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "779f1d33f6b7",
+          "relevance": 0.24
+        },
+        {
+          "chunkId": "6148c7bb2643",
+          "relevance": 0.35
+        },
+        {
+          "chunkId": "b792f7b571cf",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "c134e8a32fc3",
+          "relevance": 0.55
+        },
+        {
+          "chunkId": "d046db0c2a10",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "dc1c1bc1e2bc",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "03320b46689d",
+          "relevance": 0.24
+        },
+        {
+          "chunkId": "92cd465a318a",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "dcfcc0e7b379",
+          "relevance": 0.81
+        },
+        {
+          "chunkId": "b8c71630f644",
+          "relevance": 0.33
+        },
+        {
+          "chunkId": "b0a1d08d7424",
+          "relevance": 0.22
+        },
+        {
+          "chunkId": "99789ee32c06",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "daf5e23b94af",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "6bb46413b391",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "158d7894fb30",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "0553bbbd5c5c",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "f0132cdbc63a",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "4033dd32ddf0",
+          "relevance": 0.5
+        },
+        {
+          "chunkId": "2e6bd410eafb",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "1c34f2d9b427",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "3a25824c5462",
+          "relevance": 0.3
+        },
+        {
+          "chunkId": "fb16adf20ba2",
+          "relevance": 0.55
+        }
+      ],
+      "usage": {
+        "inputTokens": 10083,
+        "outputTokens": 722
+      },
+      "latencyMs": 190,
+      "requests": [
+        {
+          "latencyMs": 174,
+          "inputTokens": 4110,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 189,
+          "inputTokens": 4072,
+          "outputTokens": 292
+        },
+        {
+          "latencyMs": 160,
+          "inputTokens": 1901,
           "outputTokens": 148
         }
       ]
@@ -2655,39 +3987,39 @@
       "judgments": [
         {
           "chunkId": "d7120077454c",
-          "relevance": 0.27
+          "relevance": 0.3
         },
         {
           "chunkId": "e1e3851907c1",
-          "relevance": 0.89
+          "relevance": 0.9
         },
         {
           "chunkId": "e05af042c54f",
-          "relevance": 0.15
+          "relevance": 0.12
         },
         {
           "chunkId": "d8db07b8757c",
-          "relevance": 0.09
+          "relevance": 0.08
         },
         {
           "chunkId": "08f3894deba7",
-          "relevance": 0.35
+          "relevance": 0.33
         },
         {
           "chunkId": "be6d4587ce83",
-          "relevance": 0.15
+          "relevance": 0.17
         },
         {
           "chunkId": "49060cb8166b",
-          "relevance": 0.09
+          "relevance": 0.07
         },
         {
           "chunkId": "6e4a06b1114c",
-          "relevance": 0.19
+          "relevance": 0.17
         },
         {
           "chunkId": "034ec212d92c",
-          "relevance": 0.38
+          "relevance": 0.4
         },
         {
           "chunkId": "49af6a953027",
@@ -2699,7 +4031,7 @@
         },
         {
           "chunkId": "2dc923feb6e7",
-          "relevance": 0.11
+          "relevance": 0.1
         },
         {
           "chunkId": "510ec92db5f4",
@@ -2711,15 +4043,15 @@
         },
         {
           "chunkId": "12602c9aa635",
-          "relevance": 0.79
+          "relevance": 0.83
         },
         {
           "chunkId": "8c170ea439ab",
-          "relevance": 0.13
+          "relevance": 0.12
         },
         {
           "chunkId": "0c33dc8186d4",
-          "relevance": 0.12
+          "relevance": 0.1
         },
         {
           "chunkId": "0fd8a10e275d",
@@ -2727,19 +4059,19 @@
         },
         {
           "chunkId": "d0d3a206bc90",
-          "relevance": 0.09
+          "relevance": 0.1
         },
         {
           "chunkId": "efd37d479dc5",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "98216fe72180",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "634e45ee0b30",
-          "relevance": 0.05
+          "relevance": 0.06
         },
         {
           "chunkId": "599124df8319",
@@ -2747,11 +4079,11 @@
         },
         {
           "chunkId": "1a5254224774",
-          "relevance": 0.08
+          "relevance": 0.1
         },
         {
           "chunkId": "6b355b043b2a",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "392a9d888edd",
@@ -2759,7 +4091,7 @@
         },
         {
           "chunkId": "24c37fe00e10",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "4561edbead93",
@@ -2771,11 +4103,11 @@
         },
         {
           "chunkId": "bdac7f3677e7",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "73fd3897824d",
-          "relevance": 0.06
+          "relevance": 0.07
         },
         {
           "chunkId": "ca69e4fe02db",
@@ -2787,7 +4119,7 @@
         },
         {
           "chunkId": "18bdf3343e7c",
-          "relevance": 0.08
+          "relevance": 0.09
         },
         {
           "chunkId": "f041a3d474f4",
@@ -2795,7 +4127,7 @@
         },
         {
           "chunkId": "bdfb002a6859",
-          "relevance": 0.12
+          "relevance": 0.11
         },
         {
           "chunkId": "8859e0d97cf8",
@@ -2811,29 +4143,193 @@
         },
         {
           "chunkId": "53bbe2405908",
-          "relevance": 0.1
+          "relevance": 0.09
         }
       ],
       "usage": {
         "inputTokens": 13529,
         "outputTokens": 722
       },
-      "latencyMs": 171,
+      "latencyMs": 186,
       "requests": [
         {
-          "latencyMs": 145,
+          "latencyMs": 178,
           "inputTokens": 6255,
           "outputTokens": 282
         },
         {
-          "latencyMs": 170,
+          "latencyMs": 171,
           "inputTokens": 4892,
           "outputTokens": 292
         },
         {
-          "latencyMs": 157,
+          "latencyMs": 185,
           "inputTokens": 2382,
           "outputTokens": 148
+        }
+      ]
+    },
+    "remember-time-range": {
+      "candidateIds": [
+        "1f4d574bca0c",
+        "45f8dd877e33",
+        "71320f91ff2d",
+        "3712241cdcd8",
+        "73491343233e",
+        "6f0d5fa20110",
+        "6d00aa882443",
+        "8c2316d63850",
+        "ea3d551046ee",
+        "2af2e04c04c4",
+        "de7681543184",
+        "0630b8ca7972",
+        "0ed8424b3c4f",
+        "2e2a7badc95a",
+        "7829eecc71aa",
+        "960c85cf8ae9",
+        "27bf0c3ebcdb",
+        "dcd8b745e002",
+        "1da7aeef00d5",
+        "13d5596d0d21",
+        "71a6a966e9f9",
+        "b03e17fb393c",
+        "9d38f9092994",
+        "f464bd1446a0",
+        "662444b75140",
+        "70bb1d8aa12f",
+        "5c85b4dbd627",
+        "b1df859a3075"
+      ],
+      "fingerprint": "d52e798b0183900953366f301a8d2f8e5e59aebfb5aa00ad1c5b12fde824df66",
+      "judgments": [
+        {
+          "chunkId": "1f4d574bca0c",
+          "relevance": 0.67
+        },
+        {
+          "chunkId": "45f8dd877e33",
+          "relevance": 0.21
+        },
+        {
+          "chunkId": "71320f91ff2d",
+          "relevance": 0.44
+        },
+        {
+          "chunkId": "3712241cdcd8",
+          "relevance": 0.32
+        },
+        {
+          "chunkId": "73491343233e",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "6f0d5fa20110",
+          "relevance": 0.75
+        },
+        {
+          "chunkId": "6d00aa882443",
+          "relevance": 0.66
+        },
+        {
+          "chunkId": "8c2316d63850",
+          "relevance": 0.69
+        },
+        {
+          "chunkId": "ea3d551046ee",
+          "relevance": 0.32
+        },
+        {
+          "chunkId": "2af2e04c04c4",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "de7681543184",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "0630b8ca7972",
+          "relevance": 0.57
+        },
+        {
+          "chunkId": "0ed8424b3c4f",
+          "relevance": 0.35
+        },
+        {
+          "chunkId": "2e2a7badc95a",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "7829eecc71aa",
+          "relevance": 0.29
+        },
+        {
+          "chunkId": "960c85cf8ae9",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "27bf0c3ebcdb",
+          "relevance": 0.25
+        },
+        {
+          "chunkId": "dcd8b745e002",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "1da7aeef00d5",
+          "relevance": 0.4
+        },
+        {
+          "chunkId": "13d5596d0d21",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "71a6a966e9f9",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "b03e17fb393c",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "9d38f9092994",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "f464bd1446a0",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "662444b75140",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "70bb1d8aa12f",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "5c85b4dbd627",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "b1df859a3075",
+          "relevance": 0.05
+        }
+      ],
+      "usage": {
+        "inputTokens": 7205,
+        "outputTokens": 502
+      },
+      "latencyMs": 175,
+      "requests": [
+        {
+          "latencyMs": 154,
+          "inputTokens": 3973,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 175,
+          "inputTokens": 3232,
+          "outputTokens": 220
         }
       ]
     },
@@ -2884,7 +4380,7 @@
       "judgments": [
         {
           "chunkId": "8af42be96b1c",
-          "relevance": 0.3
+          "relevance": 0.27
         },
         {
           "chunkId": "0553bbbd5c5c",
@@ -2896,15 +4392,15 @@
         },
         {
           "chunkId": "b7cd908932f6",
-          "relevance": 0.8
+          "relevance": 0.75
         },
         {
           "chunkId": "158d7894fb30",
-          "relevance": 0.39
+          "relevance": 0.36
         },
         {
           "chunkId": "f0132cdbc63a",
-          "relevance": 0.71
+          "relevance": 0.7
         },
         {
           "chunkId": "b8c71630f644",
@@ -2916,15 +4412,15 @@
         },
         {
           "chunkId": "c8ee83686eb1",
-          "relevance": 0.5
+          "relevance": 0.51
         },
         {
           "chunkId": "1c34f2d9b427",
-          "relevance": 0.08
+          "relevance": 0.07
         },
         {
           "chunkId": "60699c3078aa",
-          "relevance": 0.07
+          "relevance": 0.06
         },
         {
           "chunkId": "9be4b0423553",
@@ -2936,11 +4432,11 @@
         },
         {
           "chunkId": "dc6cd4452cb4",
-          "relevance": 0.1
+          "relevance": 0.08
         },
         {
           "chunkId": "2e6bd410eafb",
-          "relevance": 0.15
+          "relevance": 0.12
         },
         {
           "chunkId": "ada23e4035f6",
@@ -2952,19 +4448,19 @@
         },
         {
           "chunkId": "d046db0c2a10",
-          "relevance": 0.86
+          "relevance": 0.89
         },
         {
           "chunkId": "8f24c229836b",
-          "relevance": 0.16
+          "relevance": 0.14
         },
         {
           "chunkId": "c134e8a32fc3",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "5b9af542590e",
-          "relevance": 0.17
+          "relevance": 0.15
         },
         {
           "chunkId": "75f1a5a26f51",
@@ -2972,11 +4468,11 @@
         },
         {
           "chunkId": "f611e1f1869e",
-          "relevance": 0.14
+          "relevance": 0.13
         },
         {
           "chunkId": "c622da93aad8",
-          "relevance": 0.22
+          "relevance": 0.25
         },
         {
           "chunkId": "6bb46413b391",
@@ -3004,11 +4500,11 @@
         },
         {
           "chunkId": "d3c294a89b31",
-          "relevance": 0.14
+          "relevance": 0.12
         },
         {
           "chunkId": "8b12a327abf9",
-          "relevance": 0.04
+          "relevance": 0.03
         },
         {
           "chunkId": "4033dd32ddf0",
@@ -3016,7 +4512,7 @@
         },
         {
           "chunkId": "44b765e29cce",
-          "relevance": 0.04
+          "relevance": 0.05
         },
         {
           "chunkId": "c019ba11f04d",
@@ -3024,7 +4520,7 @@
         },
         {
           "chunkId": "6a68716bbe15",
-          "relevance": 0.06
+          "relevance": 0.05
         },
         {
           "chunkId": "4ffc285a16cd",
@@ -3036,7 +4532,7 @@
         },
         {
           "chunkId": "a1758f3f50e7",
-          "relevance": 0.31
+          "relevance": 0.34
         },
         {
           "chunkId": "8772c3f01cc5",
@@ -3047,21 +4543,479 @@
         "inputTokens": 10696,
         "outputTokens": 722
       },
-      "latencyMs": 198,
+      "latencyMs": 176,
       "requests": [
         {
-          "latencyMs": 196,
+          "latencyMs": 175,
           "inputTokens": 4291,
           "outputTokens": 282
         },
         {
-          "latencyMs": 198,
+          "latencyMs": 164,
           "inputTokens": 4355,
           "outputTokens": 292
         },
         {
-          "latencyMs": 170,
+          "latencyMs": 156,
           "inputTokens": 2050,
+          "outputTokens": 148
+        }
+      ]
+    },
+    "score-in-markdown": {
+      "candidateIds": [
+        "26a3e31c1e0e",
+        "055ca282201c",
+        "32f19ce2c175",
+        "21ea6ebe00d0",
+        "7c6009f4f0b7",
+        "dc74bd436ac3",
+        "ff212374858a",
+        "1834d731744e",
+        "b2618207e6fd",
+        "635587bf7ad0",
+        "410517952a4b",
+        "034ec212d92c",
+        "03be478395e9",
+        "0cf1cfc603a3",
+        "63fae25e9b43",
+        "914e277b710c",
+        "8aa0a9562e8e",
+        "6e4a06b1114c",
+        "be0fde3ce1df",
+        "3a8e2727929f",
+        "e66e434c7f2a",
+        "e00ff6bce7e6",
+        "5008805aa6fd",
+        "ab6fa4ed8eaa",
+        "a7aebc4bc27c",
+        "e83d59b57d13",
+        "51a1dd307a12",
+        "c5267ab7db8a",
+        "7a0a52edfd80",
+        "a1d2f2b4574c",
+        "93e836ef002e",
+        "13b8229d1a2d",
+        "1a5254224774",
+        "3ea6c3aa0a62",
+        "42cc4ab0eb73",
+        "21c0ea5a6a38",
+        "040b9a0189ff",
+        "5df0f003b0bc",
+        "73ee4d59221f",
+        "dbcd05af1d7a"
+      ],
+      "fingerprint": "63f70491bde8bff838e77845038e8d9a47e94e3d88b82dde219a331c74028433",
+      "judgments": [
+        {
+          "chunkId": "26a3e31c1e0e",
+          "relevance": 0.61
+        },
+        {
+          "chunkId": "055ca282201c",
+          "relevance": 0.65
+        },
+        {
+          "chunkId": "32f19ce2c175",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "21ea6ebe00d0",
+          "relevance": 0.41
+        },
+        {
+          "chunkId": "7c6009f4f0b7",
+          "relevance": 0.38
+        },
+        {
+          "chunkId": "dc74bd436ac3",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "ff212374858a",
+          "relevance": 0.16
+        },
+        {
+          "chunkId": "1834d731744e",
+          "relevance": 0.29
+        },
+        {
+          "chunkId": "b2618207e6fd",
+          "relevance": 0.54
+        },
+        {
+          "chunkId": "635587bf7ad0",
+          "relevance": 0.11
+        },
+        {
+          "chunkId": "410517952a4b",
+          "relevance": 0.66
+        },
+        {
+          "chunkId": "034ec212d92c",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "03be478395e9",
+          "relevance": 0.33
+        },
+        {
+          "chunkId": "0cf1cfc603a3",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "63fae25e9b43",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "914e277b710c",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "8aa0a9562e8e",
+          "relevance": 0.2
+        },
+        {
+          "chunkId": "6e4a06b1114c",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "be0fde3ce1df",
+          "relevance": 0.24
+        },
+        {
+          "chunkId": "3a8e2727929f",
+          "relevance": 0.25
+        },
+        {
+          "chunkId": "e66e434c7f2a",
+          "relevance": 0.59
+        },
+        {
+          "chunkId": "e00ff6bce7e6",
+          "relevance": 0.77
+        },
+        {
+          "chunkId": "5008805aa6fd",
+          "relevance": 0.86
+        },
+        {
+          "chunkId": "ab6fa4ed8eaa",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "a7aebc4bc27c",
+          "relevance": 0.06
+        },
+        {
+          "chunkId": "e83d59b57d13",
+          "relevance": 0.31
+        },
+        {
+          "chunkId": "51a1dd307a12",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "c5267ab7db8a",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "7a0a52edfd80",
+          "relevance": 0.62
+        },
+        {
+          "chunkId": "a1d2f2b4574c",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "93e836ef002e",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "13b8229d1a2d",
+          "relevance": 0.6
+        },
+        {
+          "chunkId": "1a5254224774",
+          "relevance": 0.19
+        },
+        {
+          "chunkId": "3ea6c3aa0a62",
+          "relevance": 0.58
+        },
+        {
+          "chunkId": "42cc4ab0eb73",
+          "relevance": 0.57
+        },
+        {
+          "chunkId": "21c0ea5a6a38",
+          "relevance": 0.6
+        },
+        {
+          "chunkId": "040b9a0189ff",
+          "relevance": 0.34
+        },
+        {
+          "chunkId": "5df0f003b0bc",
+          "relevance": 0.26
+        },
+        {
+          "chunkId": "73ee4d59221f",
+          "relevance": 0.67
+        },
+        {
+          "chunkId": "dbcd05af1d7a",
+          "relevance": 0.1
+        }
+      ],
+      "usage": {
+        "inputTokens": 16095,
+        "outputTokens": 722
+      },
+      "latencyMs": 191,
+      "requests": [
+        {
+          "latencyMs": 167,
+          "inputTokens": 6399,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 178,
+          "inputTokens": 6509,
+          "outputTokens": 292
+        },
+        {
+          "latencyMs": 191,
+          "inputTokens": 3187,
+          "outputTokens": 148
+        }
+      ]
+    },
+    "skip-generated-folders": {
+      "candidateIds": [
+        "12602c9aa635",
+        "ab6fa4ed8eaa",
+        "5a4d1c59bebe",
+        "6e4a06b1114c",
+        "8d55f25680af",
+        "a820edf5da32",
+        "c0842d1ee2b9",
+        "62b703ed2a40",
+        "6952b8f0767a",
+        "40f96cbf917a",
+        "034ec212d92c",
+        "1e326d3556fa",
+        "c592bd0f1ea0",
+        "29617d2a3a5d",
+        "1ca5a3a13885",
+        "dbcd05af1d7a",
+        "ebb30ffa22b6",
+        "3a385ca4aefc",
+        "d8db07b8757c",
+        "03be478395e9",
+        "e05af042c54f",
+        "5d92b80639f8",
+        "1370f43a39e4",
+        "bc7ddb520d34",
+        "b3ee63880a2a",
+        "d7120077454c",
+        "7de6843f8f73",
+        "658523972c05",
+        "b3845b322a75",
+        "919d0bfa5ed6",
+        "d42f9712a574",
+        "cb86955c0f16",
+        "1c75bf68e631",
+        "8387761a957b",
+        "815e2b6c59f5",
+        "fc20638e7421",
+        "0e903fb9ce37",
+        "70e0bccf50d1",
+        "287c7a8b186f",
+        "6b38f2947bd3"
+      ],
+      "fingerprint": "17f5fc958fa294e8c870ab1890e2d00d533f38d7eaf050367c5a93bd7bff0e60",
+      "judgments": [
+        {
+          "chunkId": "12602c9aa635",
+          "relevance": 0.29
+        },
+        {
+          "chunkId": "ab6fa4ed8eaa",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "5a4d1c59bebe",
+          "relevance": 0.25
+        },
+        {
+          "chunkId": "6e4a06b1114c",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "8d55f25680af",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "a820edf5da32",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "c0842d1ee2b9",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "62b703ed2a40",
+          "relevance": 0.05
+        },
+        {
+          "chunkId": "6952b8f0767a",
+          "relevance": 0.23
+        },
+        {
+          "chunkId": "40f96cbf917a",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "034ec212d92c",
+          "relevance": 0.9
+        },
+        {
+          "chunkId": "1e326d3556fa",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "c592bd0f1ea0",
+          "relevance": 0.22
+        },
+        {
+          "chunkId": "29617d2a3a5d",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "1ca5a3a13885",
+          "relevance": 0.66
+        },
+        {
+          "chunkId": "dbcd05af1d7a",
+          "relevance": 0.44
+        },
+        {
+          "chunkId": "ebb30ffa22b6",
+          "relevance": 0.3
+        },
+        {
+          "chunkId": "3a385ca4aefc",
+          "relevance": 0.1
+        },
+        {
+          "chunkId": "d8db07b8757c",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "03be478395e9",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "e05af042c54f",
+          "relevance": 0.15
+        },
+        {
+          "chunkId": "5d92b80639f8",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "1370f43a39e4",
+          "relevance": 0.18
+        },
+        {
+          "chunkId": "bc7ddb520d34",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "b3ee63880a2a",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "d7120077454c",
+          "relevance": 0.13
+        },
+        {
+          "chunkId": "7de6843f8f73",
+          "relevance": 0.08
+        },
+        {
+          "chunkId": "658523972c05",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "b3845b322a75",
+          "relevance": 0.19
+        },
+        {
+          "chunkId": "919d0bfa5ed6",
+          "relevance": 0.76
+        },
+        {
+          "chunkId": "d42f9712a574",
+          "relevance": 0.6
+        },
+        {
+          "chunkId": "cb86955c0f16",
+          "relevance": 0.77
+        },
+        {
+          "chunkId": "1c75bf68e631",
+          "relevance": 0.17
+        },
+        {
+          "chunkId": "8387761a957b",
+          "relevance": 0.38
+        },
+        {
+          "chunkId": "815e2b6c59f5",
+          "relevance": 0.19
+        },
+        {
+          "chunkId": "fc20638e7421",
+          "relevance": 0.2
+        },
+        {
+          "chunkId": "0e903fb9ce37",
+          "relevance": 0.23
+        },
+        {
+          "chunkId": "70e0bccf50d1",
+          "relevance": 0.14
+        },
+        {
+          "chunkId": "287c7a8b186f",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "6b38f2947bd3",
+          "relevance": 0.08
+        }
+      ],
+      "usage": {
+        "inputTokens": 13335,
+        "outputTokens": 722
+      },
+      "latencyMs": 177,
+      "requests": [
+        {
+          "latencyMs": 175,
+          "inputTokens": 5778,
+          "outputTokens": 282
+        },
+        {
+          "latencyMs": 157,
+          "inputTokens": 5362,
+          "outputTokens": 292
+        },
+        {
+          "latencyMs": 177,
+          "inputTokens": 2195,
           "outputTokens": 148
         }
       ]
@@ -3100,11 +5054,11 @@
       "judgments": [
         {
           "chunkId": "f884a38bcc44",
-          "relevance": 0.15
+          "relevance": 0.16
         },
         {
           "chunkId": "8ab6d7178d8d",
-          "relevance": 0.43
+          "relevance": 0.42
         },
         {
           "chunkId": "54135770d2ca",
@@ -3112,11 +5066,11 @@
         },
         {
           "chunkId": "23c4004cbd8c",
-          "relevance": 0.19
+          "relevance": 0.17
         },
         {
           "chunkId": "f8b1d02069a2",
-          "relevance": 0.28
+          "relevance": 0.3
         },
         {
           "chunkId": "442d65a9b49a",
@@ -3124,7 +5078,7 @@
         },
         {
           "chunkId": "79ef0c3d42a3",
-          "relevance": 0.24
+          "relevance": 0.31
         },
         {
           "chunkId": "f64236e2af5f",
@@ -3132,7 +5086,7 @@
         },
         {
           "chunkId": "fd22fd8fa403",
-          "relevance": 0.09
+          "relevance": 0.08
         },
         {
           "chunkId": "4a5df7f9e496",
@@ -3144,11 +5098,11 @@
         },
         {
           "chunkId": "c927b57147be",
-          "relevance": 0.66
+          "relevance": 0.63
         },
         {
           "chunkId": "c60af671ca26",
-          "relevance": 0.73
+          "relevance": 0.76
         },
         {
           "chunkId": "07c5d47cdf4c",
@@ -3156,7 +5110,7 @@
         },
         {
           "chunkId": "f3280a484b70",
-          "relevance": 0.03
+          "relevance": 0.04
         },
         {
           "chunkId": "406389473d5d",
@@ -3164,11 +5118,11 @@
         },
         {
           "chunkId": "a737c0428c71",
-          "relevance": 0.02
+          "relevance": 0.03
         },
         {
           "chunkId": "30a8181abc45",
-          "relevance": 0.02
+          "relevance": 0.03
         },
         {
           "chunkId": "fb6a5ed2c392",
@@ -3184,7 +5138,7 @@
         },
         {
           "chunkId": "4345d3630743",
-          "relevance": 0.04
+          "relevance": 0.06
         },
         {
           "chunkId": "70b92491e54b",
@@ -3211,15 +5165,15 @@
         "inputTokens": 6297,
         "outputTokens": 484
       },
-      "latencyMs": 164,
+      "latencyMs": 177,
       "requests": [
         {
-          "latencyMs": 158,
+          "latencyMs": 145,
           "inputTokens": 3832,
           "outputTokens": 282
         },
         {
-          "latencyMs": 163,
+          "latencyMs": 176,
           "inputTokens": 2465,
           "outputTokens": 202
         }

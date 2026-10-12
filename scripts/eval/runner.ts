@@ -3,7 +3,8 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { JEV_QUESTION_VERSION } from "../../src/config.ts";
 import { JevDecisionProvider, jevModel } from "../../src/jev/provider.ts";
 import { scanRepository, type SkipReason } from "../../src/repository/files.ts";
@@ -560,7 +561,46 @@ async function writeNew(dir: string, name: string, content: { json: string; md: 
 
 const stamp = (date: Date) => `${date.toISOString().slice(0, 19).replace(/:/g, "-")}Z`;
 
+/**
+ * The version of the installed `@typesafe-ai/sdk`, found through Node module resolution so it also works when
+ * `node_modules` lives in a parent directory (a worktree nested in the repository). The package's `exports` need not
+ * expose `package.json`, so this resolves the entry point and walks up to the package's own manifest.
+ */
+export async function installedSdkVersion(): Promise<string> {
+  try {
+    let dir = dirname(createRequire(import.meta.url).resolve("@typesafe-ai/sdk"));
+    for (;;) {
+      try {
+        const manifest = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (manifest.name === "@typesafe-ai/sdk") return manifest.version ?? "unknown";
+      } catch {
+        // No readable manifest at this level; keep walking up.
+      }
+      const parent = dirname(dir);
+      if (parent === dir) return "unknown";
+      dir = parent;
+    }
+  } catch {
+    return "unknown";
+  }
+}
+
+/** Runs the evaluation and writes `<stamp>.json` and `.md` under `outDir`, never over an earlier run. */
 export async function runEval(options: EvalOptions): Promise<EvalOutput & { jsonPath: string; markdownPath: string }> {
+  const output = await evaluate(options);
+  await mkdir(options.outDir, { recursive: true });
+  const { jsonPath, markdownPath } = await writeNew(options.outDir, stamp(new Date(output.run.startedAt)), {
+    json: `${JSON.stringify(output, null, 2)}\n`,
+    md: renderReport(output),
+  });
+  return { ...output, jsonPath, markdownPath };
+}
+
+/** Runs the evaluation and returns it without writing any report file (`--record` still writes its recording). */
+export async function evaluate(options: EvalOptions): Promise<EvalOutput> {
   validateOptions(options);
   const log = options.log ?? ((line: string) => process.stderr.write(`${line}\n`));
   const now = options.now ?? (() => new Date());
@@ -619,7 +659,7 @@ export async function runEval(options: EvalOptions): Promise<EvalOutput & { json
   entries.sort((a, b) => compareText(a.fixture, b.fixture) || compareText(a.id, b.id));
   const results = summarize(entries, baseline, modes);
 
-  const sdkVersion = await packageVersion(join(REPO_ROOT, "node_modules/@typesafe-ai/sdk/package.json"));
+  const sdkVersion = await installedSdkVersion();
   const model = recording?.model ?? jevModel();
   const commit = git("rev-parse", "HEAD");
   if (options.record) {
@@ -664,11 +704,5 @@ export async function runEval(options: EvalOptions): Promise<EvalOutput & { json
         }
       : {}),
   };
-  const output: EvalOutput = { run, results };
-  await mkdir(options.outDir, { recursive: true });
-  const { jsonPath, markdownPath } = await writeNew(options.outDir, stamp(startedAt), {
-    json: `${JSON.stringify(output, null, 2)}\n`,
-    md: renderReport(output),
-  });
-  return { ...output, jsonPath, markdownPath };
+  return { run, results };
 }
