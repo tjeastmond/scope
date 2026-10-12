@@ -1,5 +1,5 @@
 // The Jev API key must never reach output, logs, written files or tracked documents.
-// There is no cache yet (M6, issue #68): when the cache directory exists it must join the audit below.
+// Scope persists nothing (the M6 cache was removed in issue #192): if persistence returns (#198), it must join the audit below.
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";

@@ -81,68 +81,6 @@ to it on its own).
 | 8         | `Jev request not sent:` a request too large for Jev's limits                                               |
 | 130       | `Cancelled:` interrupted with Ctrl-C (128 + SIGINT); stdout stays empty and no guidance line is printed    |
 
-## Local cache (`.scope/`)
-
-Scope keeps derived data in `.scope/` at the repository root. It creates `.scope/.gitignore` so git ignores the
-directory, and it never edits your own `.gitignore`. You can delete the directory at any time; Scope rebuilds what it
-needs on the next run. Cached entries are signed with a random per-user key that Scope creates at
-`~/.local/state/scope/cache-key` (or under `$XDG_STATE_HOME`), outside any project, so a cache planted in a repository
-is never trusted. `--no-cache` (or `SCOPE_CACHE=off`) makes a run neither read nor write it.
-
-Three commands control the store (none needs a task, Jev or credentials):
-
-```bash
-scope cache status  [--repo <path>] [--format text|json]   # size, entries, versions, last update, retention bounds
-scope cache clear   [--repo <path>] --yes                  # delete everything Scope stored in .scope/
-scope cache rebuild [--repo <path>]                        # reanalyze every file and rewrite the analysis cache
-```
-
-`status` is read-only and creates nothing. `clear` has no prompt: it needs `--yes`, never follows a symlinked `.scope/`
-or store directory, deletes only Scope's own files inside `.scope/` (files it did not create are left and reported)
-and never touches the integrity key. `rebuild` rewrites analysis data only (unless the cache is stale, from another root or Scope version, which resets
-the whole store as any run does); `clear` removes everything. To run a task
-that is literally the word `cache`, write `scope -- cache`.
-
-The cache also keeps a bounded run history of Jev runs: the redacted task, chunk ids and content fingerprints, Jev
-scores and the selection, signed with the same per-user key; never source code or keys. `--no-jev` runs are not
-recorded. Bound it with `SCOPE_HISTORY_MAX_RUNS` and `SCOPE_HISTORY_MAX_DAYS`, or turn it off with
-`SCOPE_HISTORY_MAX_RUNS=0`.
-
-Scope also reuses a Jev decision, but only when the task text, the candidates and their full contents, the SDK, model
-and question versions all match an earlier run within `SCOPE_DECISIONS_MAX_DAYS` (default 7 days). A similar task always
-gets a fresh Jev review. A reused decision is never silent: the output says `Decisions reused from <time>` (JSON:
-`decisionsReusedFrom`). Run with `--fresh` to ask Jev again, or set `SCOPE_DECISIONS_MAX=0` to turn reuse off. A
-reused decision makes no Jev request, so it needs no credentials and records no history run.
-
-With the cache on, a Jev run also adds up to five labeled candidates (`memory: ...` origin) from similar earlier tasks:
-chunks that feedback or Jev marked as relevant and that still exist unchanged. Fresh candidates are never displaced;
-`SCOPE_MEMORY=off` turns this off.
-
-Retrieval weights may be adapted within 0.8 to 1.2 times the baseline, only after a held-out evaluation improves recall.
-`scope cache status` shows which set is active; `scope cache reset-weights` returns to the baseline, as does
-`SCOPE_ADAPTIVE=off`.
-
-Retention bounds for the data features keep are shown by `status` and can be set with `SCOPE_HISTORY_MAX_RUNS`
-(default 200), `SCOPE_HISTORY_MAX_DAYS` (90), `SCOPE_DECISIONS_MAX` (500), `SCOPE_DECISIONS_MAX_DAYS` (7),
-`SCOPE_FEEDBACK_MAX` (2000) and `SCOPE_FEEDBACK_MAX_DAYS` (365). Each takes a whole number from 0 (keep none) up to
-10 times its default; an invalid value is ignored with a warning.
-
-## Feedback
-
-Every Jev result with the cache on shows a `Run <id>` line. Tell Scope what turned out to be useful, irrelevant or
-missing with `scope feedback`; it is recorded (signed, bounded by `SCOPE_FEEDBACK_MAX` and `SCOPE_FEEDBACK_MAX_DAYS`)
-and counted by `scope cache status`, and does not change any result yet:
-
-```bash
-scope feedback 1700000000000-0123abcd --useful <chunk-id> --irrelevant <chunk-id> --missing src/util/retry.ts:1-5
-scope feedback --agent my-agent --file feedback.json    # or --file - for standard input
-# feedback.json: { "runId": "...", "useful": ["..."], "irrelevant": ["..."], "missing": ["path:1-5", "symbol"], "agent": "..." }
-```
-
-Without `--agent` the feedback is attributed to you; with it, to that agent. `--missing` takes `path:start-end`, a
-repository-relative `path`, or a symbol name (a path is tried first). A chunk that changed since the run is recorded
-with a warning. Nothing is stored but ids, paths, ranges and names: no source and no task text.
-
 ## Status
 
 Early development. See [docs/scope-implementation-plan.md](docs/scope-implementation-plan.md).

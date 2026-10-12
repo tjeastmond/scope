@@ -32,7 +32,7 @@ Scope stops at context selection. It does not solve the task, modify source, gen
 | Selection         | Jev relevance decides what is relevant; TypeScript adds supporting declarations, merges overlapping ranges, and orders output deterministically. There is no size limit. |
 | Size              | None. Scope returns everything relevant (issue #164 removed the token budget and all token estimation).                                                                  |
 | Output            | Text, Markdown, and versioned JSON, with optional explanations.                                                                                                          |
-| Persistence       | In-memory analysis for the first prototype; late V1 milestone adds repository-local chunk caching and retrieval memory with incremental updates.                         |
+| Persistence       | In-memory analysis on every run; nothing is written to the repository. Persistent caching is deferred (issue #198).                                                      |
 
 **Static analysis discovers structure. Jev judges relevance. TypeScript makes the final selection.**
 
@@ -53,11 +53,7 @@ Suggested source modules: `repository/`, `analyzers/`, `graph/`, `retrieval/`, `
 
 ```bash
 scope "<task>" [--repo <path>]
-      [--format text|markdown|json] [--output <path>] [--no-jev] [--explain] [--no-cache]
-
-scope cache status  [--repo <path>] [--format text|json]
-scope cache clear   [--repo <path>] --yes
-scope cache rebuild [--repo <path>]
+      [--format text|markdown|json] [--output <path>] [--no-jev] [--explain]
 ```
 
 - Default repository: current working directory.
@@ -68,8 +64,6 @@ scope cache rebuild [--repo <path>]
 - `--output` writes the selected context artifact; it does not edit repository source.
 - The ordinary command sends shortlisted source context to TypeSafe/Jev. Document this default behavior and credential setup.
 - `--no-jev` is an explicit diagnostic/benchmark baseline, running deterministic-only selection without credentials or network access. It is not the primary product path.
-- `--no-cache` (or `SCOPE_CACHE=off`) runs without reading or writing the local analysis cache in `.scope/`; the CLI uses the cache by default.
-- `scope cache status|clear|rebuild` inspect and control the local store (#80). A subcommand is recognised only when `cache` is the first argument (`scope -- cache` runs a task named "cache"). They need no task, Jev or credentials. `status` is read-only; `clear` requires `--yes` (no interactive prompt), refuses symlinked `.scope/` or store directories and deletes only Scope's files inside `.scope/`; `rebuild` reanalyzes everything and rewrites analysis data only, except that a stale cache (another root or version keys) is reset entirely as on any run (usage error under `SCOPE_CACHE=off`).
 - Default execution fails clearly if Jev cannot complete; it does not silently substitute deterministic results. A user can explicitly rerun with `--no-jev`.
 - Reject empty tasks, invalid formats, and inaccessible repositories with actionable errors.
 
@@ -202,37 +196,9 @@ Keep retrieval scores and selection reasons separate from source records. A resu
 
 **Acceptance:** default operation invokes Jev with configured credentials; failures are visible and never silently downgraded; `--no-jev` never contacts Jev or requires credentials; fake-provider tests cover success and failures; live tests verify candidate identification, response mapping, batching, and usage; a single candidate too large for one request fails clearly.
 
-## Milestone 6 — Persistent chunk cache and retrieval memory
+## Milestone 6 — Persistent chunk cache and retrieval memory (removed)
 
-**Outcome:** Scope remembers code it has already analyzed, refreshes that knowledge as the local repository changes, and uses prior retrieval experience to find relevant context faster for Jev.
-
-This is how Scope improves with use: it accumulates a current structural map and evidence about useful context. Jev remains the relevance decision layer. Memory updates Scope's local data and retrieval behavior; they do not retrain Jev or autonomously rewrite Scope's implementation.
-
-```text
-First task → parse source → cache chunks and relationships → Jev review → record selection
-Later task → validate cached source fingerprints → refresh changed files
-           → retrieve from cached index and prior task associations
-           → Jev reviews current candidates → relevance-selected output → update memory
-```
-
-- [ ] Add a repository-scoped, versioned local store for file fingerprints, normalized chunks, relationships, lexical indexes, and retrieval history. SQLite is a candidate implementation; choose a Node 24-compatible storage approach after a small compatibility check.
-- [ ] Put generated data in a documented ignored local directory, proposed `.scope/`; partition by repository identity and store schema, parser, and grammar versions.
-- [ ] Authenticate cached analysis entries with an HMAC under a random per-user key stored outside the project at `$XDG_STATE_HOME/scope/cache-key` (default `~/.local/state/scope/cache-key`, mode 0600), so a planted or cloned `.scope/` is a miss. It is the one file Scope writes outside the repository; it is never printed, and deleting it only costs a cold run.
-- [ ] Cache source-derived chunks after analysis, including IDs, content fingerprints, names, ranges, and references. Derive the initial warm index from real source rather than prior task selections alone.
-- [ ] On each run, detect new, changed, renamed, and deleted files, including uncommitted changes. Reparse affected files and refresh impacted relationships; remove stale entries and recompute line ranges from current source.
-- [ ] Reuse parsing and indexing for unchanged files. Invalidate affected cache data when parser, grammar, or ignore rules change.
-- [ ] Record task-to-chunk associations, Jev relevance judgments, selection decisions, and bounded request metadata with source fingerprints and decision configuration provenance.
-- [ ] Use related prior tasks, recurring symbols, and confirmed useful relationships as additional candidate discovery signals. Combine history with fresh retrieval so unfamiliar tasks and new files remain discoverable.
-- [ ] Keep source-analysis reuse separate from decision reuse: similar tasks still receive fresh Jev review. Reuse a completed decision only for an exact matching task, candidate payload, source fingerprints, SDK/model configuration, and question version under a documented expiry policy.
-- [ ] Provide a simple feedback mechanism for users or consuming agents to mark selected chunks useful, missing, or irrelevant. Treat agent feedback as attributed observations; validate referenced chunks against current source.
-- [ ] Distinguish feedback from Scope's own predictions. Repeated selection or a high Jev score alone is not proof of usefulness; do not amplify it as confirmed success.
-- [ ] Version any adaptive retrieval weights, bound their influence, and evaluate proposed changes against held-out tasks before promotion. Preserve a baseline and rollback path.
-- [ ] Include cache hits, refreshed files, reused decisions, memory-assisted candidate reasons, and feedback provenance in explanations and JSON metadata.
-- [ ] Add cache inspection, clearing, and forced-rebuild controls; bound history size and retention. Never persist API keys. Cache corruption must trigger a safe rebuild rather than stale output.
-- [ ] Test cold versus warm equivalence for source inventories, edit/rename/delete invalidation, branch switches, version changes, interrupted writes, concurrent runs, repository isolation, and explicit cache clearing.
-- [ ] Benchmark repeated identical tasks, related tasks, and unseen tasks for parsing time, candidate recall, end-to-end latency, and Jev usage. Report measured improvements rather than assuming memory helps.
-
-**Acceptance:** unchanged code is reused without reparsing; changed code produces current content and exact ranges; deleted code never appears from stale memory; the default path still uses Jev or a disclosed exact decision-cache hit; history does not suppress discovery of unseen code; warm-run speedups and feedback-driven retrieval changes have benchmark evidence without unacceptable quality regressions.
+**History:** this milestone originally added a repository-local analysis cache in `.scope/`, exact Jev decision reuse, retrieval memory from similar earlier tasks, a feedback command, adaptive retrieval weights, and `scope cache` controls (issues #177–#191). TJ removed the whole layer in issue #192 because its own benchmark found small gains for the added complexity: a cold run was slower with the cache, memory helped one task by one chunk offline and none live, the adaptive gate promoted nothing, and feedback changed nothing about later runs. Scope is a stateless pipeline again: every run scans, parses, retrieves, asks Jev (or uses `--no-jev`), selects and renders, and writes nothing except an explicit `--output` file. Caching will be revisited in issue #198.
 
 ## Milestone 7 — Benchmark harness, evaluation, and release
 
@@ -247,7 +213,6 @@ Later task → validate cached source fingerprints → refresh changed files
 - [ ] Use the same eligible scanned source for the full-repository baseline; disclose scan exclusions.
 - [ ] Report Jev input/output usage separately from selected-context size. Include combined token consumption and price-based cost only where current pricing and usage are known.
 - [ ] Repeat live Jev evaluations to show variability; record SDK/model identifiers where available, versions, scoring configuration, fixture revision, and timestamps.
-- [ ] Compare cold and warm runs and memory enabled versus disabled; isolate parsing savings, exact decision reuse, and feedback-assisted candidate improvements. Keep held-out labels and test answers out of retrieval memory.
 - [ ] Publish per-task results and aggregates, including regressions and cases where Jev provides no improvement.
 - [ ] Set proposed release gates: zero deterministic output drift on fixed inputs; establish recall/precision thresholds after baseline measurement and before final tuning.
 - [ ] Add CI for installation, build, type checking, linting, formatting, Bun tests, offline evaluation, and Node 24/26 packaged CLI smoke tests.
@@ -275,21 +240,21 @@ Do not trade required recall for impressive size reduction without showing both.
 - **Integration:** real Tree-sitter parsing of mixed fixtures through the complete pipeline with a fake decision provider in CI; no parser mocks. Include malformed source, unknown languages, empty repositories, oversized chunks, cycles, and very large chunks.
 - **Runtime/package:** execute built and packed CLI artifacts with Node 24 and 26. Bun test success alone does not prove Node compatibility or native parser installation.
 - **Golden evaluation:** human-labeled context expectations and stable offline reports. Introduce fixtures during milestones 2–3, then complete the harness in milestone 7.
-- **Cache and memory:** incremental invalidation, cold/warm source equivalence, decision-cache provenance, feedback attribution, rollback, and isolation between repositories and evaluation splits.
 - **Live contract:** explicit opt-in Jev suite using credentials; never part of ordinary PR CI. Required for milestone 1 integration acceptance and V1 release evidence. Keep it small and record usage.
 - **Read-only behavior:** ensure selection does not modify source files or execute repository code.
 
 ## V1 exclusions
 
 - Code implementation, patch generation, automatic source modification, task-solving LLM calls, autonomous agent loops, and target-repository test execution.
-- Embeddings, vector databases, and full compiler-grade cross-language analysis. Repository-local persistent caching and retrieval memory are included in milestone 6.
-- Jev model training and autonomous rewriting of Scope's implementation. Improvement in V1 means incremental indexing and evidence-backed retrieval adaptation.
+- Embeddings, vector databases, and full compiler-grade cross-language analysis.
+- Persistent caching and retrieval memory (removed in #192; revisit in #198).
+- Jev model training and autonomous rewriting of Scope's implementation.
 - MCP server, IDE plugin, web UI, interactive terminal UI, daemon, and watch mode.
 - Conversation compaction, agent execution integrations, and automatic implementation workflows.
 - Any size budget, token estimation, or cost-aware (knapsack) selection (removed in issue #164).
 
 ## Delivery sequence and definition of done
 
-Start with milestone 1 to prove the real Jev-powered flow. Milestones 2–3 improve the source context and candidate supply feeding that flow. Milestone 4 completes the context artifact, milestone 5 hardens the existing integration, milestone 6 adds incremental caching and retrieval memory, and milestone 7 measures quality and prepares release. Introduce labeled tasks early. Offline baseline evaluations explicitly use `--no-jev`; default-path CI tests use a fake provider, while real SDK evidence remains required for integration acceptance.
+Start with milestone 1 to prove the real Jev-powered flow. Milestones 2–3 improve the source context and candidate supply feeding that flow. Milestone 4 completes the context artifact, milestone 5 hardens the existing integration, milestone 6 (caching and retrieval memory) was removed in #192, and milestone 7 measures quality and prepares release. Introduce labeled tasks early. Offline baseline evaluations explicitly use `--no-jev`; default-path CI tests use a fake provider, while real SDK evidence remains required for integration acceptance.
 
-V1 is complete when a user can install the Node CLI, configure Jev credentials, provide a task and repository, and obtain a traceable Jev-reranked context artifact containing everything relevant to the task by default; `--no-jev` provides offline selection without credentials; Jev reranking has tested failure handling; persistent chunk memory stays current as source changes; and the evaluation report exposes quality, cold/warm performance, savings, and external-service overhead. No implementation or execution of the user's requested code change belongs in this release.
+V1 is complete when a user can install the Node CLI, configure Jev credentials, provide a task and repository, and obtain a traceable Jev-reranked context artifact containing everything relevant to the task by default; `--no-jev` provides offline selection without credentials; Jev reranking has tested failure handling; and the evaluation report exposes quality, savings, and external-service overhead. No implementation or execution of the user's requested code change belongs in this release.

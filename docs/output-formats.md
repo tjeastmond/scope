@@ -34,10 +34,7 @@ Selection is relevance-only and the same for every format; there is no size limi
 For every chunk in the result, including supporting declarations pulled in for coherence, the evidence is: the
 deterministic retrieval signals (names sorted), Jev's relevance (or `not judged`), the ranking score, its origin and
 the reason it was included. Origin is `direct` (dependency distance 0),
-`expanded from <location>` (a graph neighbour of that chunk, distance 1), `supporting declaration for <locations>`, or
-a memory form (#74): `memory: similar task <runId>` (a chunk confirmed useful in, or selected by, a similar earlier
-run) or `memory: missing in similar task <runId>` (reported missing for one). Memory chunks also carry a `memory`
-signal (1, or 0.5 when only Jev selected them).
+`expanded from <location>` (a graph neighbour of that chunk, distance 1) or `supporting declaration for <locations>`.
 Under `--explain` the below-threshold candidates are also listed, most relevant first; without it they are only
 counted.
 
@@ -58,7 +55,7 @@ followed by the source, then the report sections below.
 
 Text and Markdown share one set of facts (`src/output/report.ts`):
 
-- **Summary:** mode, number of regions, a `Decisions reused from <time>` line when a stored Jev decision was reused (always shown), `retrievalConfigVersion` when present, and `jevQuestionVersion` (the version of the Jev question text and criteria; absent in `no-jev` mode). The artifact reports no size. With `--explain` the summary also shows Jev's request count, wall-clock latency and token usage (`Jev requests`, `Jev latency`, `Jev tokens`), kept out of the default output.
+- **Summary:** mode, number of regions, `retrievalConfigVersion` when present, and `jevQuestionVersion` (the version of the Jev question text and criteria; absent in `no-jev` mode). The artifact reports no size. With `--explain` the summary also shows Jev's request count, wall-clock latency and token usage (`Jev requests`, `Jev latency`, `Jev tokens`), kept out of the default output.
 - **Left out (below relevance minimum):** with `--explain`, every candidate that scored below the minimum, most
   relevant first, with location and `relevance` or `score`. Without it they are only counted, never listed.
 - Empty sections are omitted. `relevance` is Jev's judgment; `score` is a ranking signal. Neither is a probability or
@@ -66,8 +63,7 @@ Text and Markdown share one set of facts (`src/output/report.ts`):
 - JSON keeps its structure and lists every skip in full.
 
 Golden files for all three formats live in `tests/golden/`; regenerate with
-`UPDATE_GOLDEN=1 bun test tests/golden.test.ts` and review the diff. The cold, warm and decision-reuse runs of a cached
-repository are pinned in `tests/golden/cache/` (`UPDATE_GOLDEN=1 bun test tests/golden-cache.test.ts`).
+`UPDATE_GOLDEN=1 bun test tests/golden.test.ts` and review the diff.
 
 ## Markdown
 
@@ -88,67 +84,31 @@ repository are pinned in `tests/golden/cache/` (`UPDATE_GOLDEN=1 bun test tests/
 [`scope-result.schema.json`](scope-result.schema.json) (JSON Schema 2020-12, `additionalProperties: false` everywhere).
 
 ```
-{ schemaVersion: 2, mode, task,
+{ schemaVersion: 3, mode, task,
   regions: [{ file, language, startLine, endLine, content,
               chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
-                         memory?, signals?, origin? }] }],
+                         signals?, origin? }] }],
   warnings, skipped: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
-  retrievalConfigVersion?, jevQuestionVersion?, decisionsReusedFrom?, runId?,
-  cache?: { versions, cold, files: { reused, refreshed, removed, refreshedPaths, refreshedTruncated? },
-            decision?: { reused, expiresAt? }, memory?: { candidates, disabled? }, weights?: { version } },
+  retrievalConfigVersion?, jevQuestionVersion?,
   jev?: { requestCount?, latencyMs, usage: { inputTokens, outputTokens },
           requests?: [{ latencyMs, inputTokens, outputTokens }] },
   explain? }
 ```
 
 Source content appears once, on the region; chunk entries carry provenance only. `relevance` is absent in `no-jev`
-mode, and so is `jevQuestionVersion` (an additive field; `schemaVersion` stays 2). `signals` and `origin` on a chunk,
+mode, and so is `jevQuestionVersion` (an additive field; `schemaVersion` stays 3). `signals` and `origin` on a chunk,
 and the top-level `explain`, appear only with `--explain`.
-
-`decisionsReusedFrom` (ISO 8601 UTC, additive; `schemaVersion` stays 2) is present only when the run reused a stored Jev
-decision instead of asking Jev (identical task, candidates and versions; see docs/cache-design.md). Such a run has no
-`jev` block, since no request was made.
-
-`runId` (additive; `schemaVersion` stays 2) is the id of the run's history record, the handle for `scope feedback`
-(see docs/cache-design.md). It is present when the cache is on and the run's record was committed; a run that reused a
-stored decision reports the id of the run that made it, only while that run's history record still exists. It is absent for `--no-jev`, with the cache off, with no
-candidates, and when the record could not be written. Text and Markdown show it as a summary line:
-`Run <runId> (scope feedback <runId> --useful <chunk-id> ...)`.
-
-`cache` (additive; `schemaVersion` stays 2: adding an optional key is not breaking, and the schema's
-`additionalProperties: false` only forbids keys it does not declare) says what the cache did for the run (#79; see
-"What a run reports" in docs/cache-design.md). It is absent when the cache is off or could not be opened.
-
-- `versions`: the version keys the store is partitioned by (`store`, `scope`, `analyzer`, `treeSitter` and one
-  `grammar:<package>` per grammar package); no paths or secrets. `cold` is true when the run started from an empty or
-  reset store.
-- `files`: `reused` (analysis read from the cache), `refreshed` (new or changed files parsed), `removed` (cache entries
-  dropped because the file is gone or excluded now), and `refreshedPaths` (repository-relative, sorted, at most 50;
-  `refreshedTruncated: true` when there were more). The counts are exact; `--no-jev` runs report this part too.
-- Jev runs only: `decision.reused` (with `expiresAt`, the ISO 8601 UTC time the reused decision stops being reusable;
-  the time it was made is the top-level `decisionsReusedFrom`), `memory.candidates` (chunks memory added, with
-  `disabled` as `env` for `SCOPE_MEMORY=off` or a zero bound, or `no-history` when there was nothing to remember) and
-  `weights.version` (the active adaptive set, or `baseline`).
-
-A chunk memory added also carries `memory`: `source` (`missing`, `useful` or `selected`: why a similar earlier run
-offered it), that run's `runId`, the task `similarity` (0 to 1), and, when feedback on the similar runs concerns the
-chunk, `feedback` counts plus the distinct `sources` (`user`, `agent:<name>`, at most 10). It is a per-chunk reason, so
-it appears with or without `--explain`.
-
-Text and Markdown show one summary line, for example
-`cache: 41 files reused, 2 refreshed, 0 removed; Jev decision reused from <time>`. With `--explain` they also list the
-version keys, the refreshed paths and, under each memory-assisted chunk, `Memory:` and `Memory feedback:` lines.
 
 `jev` reports Jev's external-service overhead, separately from the selected context. It is present only when Jev was
 called and reported usage (absent with `--no-jev` and when there were no candidates to judge). `latencyMs` is the wall
 clock of the whole Jev decision in milliseconds; requests run concurrently, so it is not the sum of the per-request
 latencies. `usage` is the input and output token counts as reported by Jev, summed over every request. `requestCount`
 is the number of requests sent, and `requests` (`--explain` only) lists each request's own latency and tokens in
-request order. No monetary cost is reported because pricing is not verified. Additive; `schemaVersion` stays 2.
+request order. No monetary cost is reported because pricing is not verified. Additive; `schemaVersion` stays 3.
 
 ### schemaVersion
 
-`schemaVersion` is `2`. Version 2 removed the token budget and every size field of version 1 (`budget`, `estimator`,
+`schemaVersion` is `3`. Version 3 removes the run id and the cache, reuse, memory, feedback and weights fields that the removed M6 layer (issue #192) had added as optional keys. Version 2 removed the token budget and every size field of version 1 (`budget`, `estimator`,
 `estimatedTokens`, `characters`, `lines`, per-chunk and per-skip `estimatedTokens`, `unmetCoherence`, and the skip
 `reason` and `minimumBudget`). It is bumped on any breaking change: removing or renaming a key, changing a key's type or
 meaning, or narrowing an enum. Adding an optional key is not breaking but must be added to the schema in the same

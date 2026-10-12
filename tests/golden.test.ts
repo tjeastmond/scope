@@ -55,7 +55,7 @@ const skip = (n: number) => ({
 });
 
 const result: ScopeResult = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   mode: "jev",
   task: "Validate invoice totals",
   chunks: [pick(total, 0.91, 0.91), pick(due, undefined, 0.4)],

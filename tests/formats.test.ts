@@ -90,7 +90,7 @@ function hostileResult(overrides: Partial<ScopeResult> = {}): ScopeResult {
     return { file: `src/f${i}.ts`, language: "typescript", startLine: 1, endLine: 1, content, chunkIds: [id] };
   });
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode: "no-jev",
     task: "hostile ``` task\nwith `ticks` and\r\nnewlines\u0000",
     chunks,

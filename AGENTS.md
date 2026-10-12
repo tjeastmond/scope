@@ -21,20 +21,18 @@ Planned source modules under `src/`: `repository/`, `analyzers/`, `graph/`, `ret
 
 Defined in `package.json`:
 
-| Command                    | What it does                                                                                                                          |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun install`              | Install dependencies (commit `bun.lock`).                                                                                             |
-| `bun run format`           | Prettier write (120 cols, double quotes, semicolons, trailing commas).                                                                |
-| `bun run format:check`     | Prettier check only.                                                                                                                  |
-| `bun run lint`             | ESLint (typescript-eslint; forbids Bun APIs in shipped `src/`).                                                                       |
-| `bun run typecheck`        | `tsc --noEmit`.                                                                                                                       |
-| `bun run check`            | Static checks only: `format:check`, `lint`, `typecheck`.                                                                              |
-| `bun run build`            | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).                                                                           |
-| `bun test`                 | Run tests with `bun:test`.                                                                                                            |
-| `bun run bench:cache`      | M6 cache and memory benchmark (`--live` uses Jev and needs `TYPESAFE_API_KEY`; `--repeats N`; `--out <file>`); not in `validate`.     |
-| `bun run smoke:node`       | Packaged-CLI smoke on real Node without Bun (`SCOPE_NODE=<node>`; needs network for `npm install`; not in `validate`).                |
-| `bun run test:node-matrix` | Runs `tests/cache-robustness.test.ts` under each Node in `SCOPE_NODES` (colon-separated binaries, e.g. 24 and 26); not in `validate`. |
-| `bun run validate`         | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`.                                                             |
+| Command                | What it does                                                                                                           |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `bun install`          | Install dependencies (commit `bun.lock`).                                                                              |
+| `bun run format`       | Prettier write (120 cols, double quotes, semicolons, trailing commas).                                                 |
+| `bun run format:check` | Prettier check only.                                                                                                   |
+| `bun run lint`         | ESLint (typescript-eslint; forbids Bun APIs in shipped `src/`).                                                        |
+| `bun run typecheck`    | `tsc --noEmit`.                                                                                                        |
+| `bun run check`        | Static checks only: `format:check`, `lint`, `typecheck`.                                                               |
+| `bun run build`        | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).                                                            |
+| `bun test`             | Run tests with `bun:test`.                                                                                             |
+| `bun run smoke:node`   | Packaged-CLI smoke on real Node without Bun (`SCOPE_NODE=<node>`; needs network for `npm install`; not in `validate`). |
+| `bun run validate`     | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`.                                              |
 
 `validate` must pass on the final commit before a PR is merged. As the project grows, extend it (not a parallel script) with the offline evaluation gate and the Node 24/26 packaged-CLI smoke test. Planned script: `eval` (see the M7 milestone).
 
@@ -64,7 +62,7 @@ Defined in `package.json`:
 - Keep changes narrowly scoped and add focused tests with the implementation.
 - Run the relevant Bun checks before handoff; do not claim verification that was not run.
 - Request an independent, read-only Dr. Nit review for every PR before merging. Scope the review to the PR's changes rather than the whole repository. Its skill is at `~/.codex/skills/dr-nit/SKILL.md`; agents that do not load Codex skills automatically should read that file and follow its scoped review and reporting instructions. Address findings and rerun relevant checks before merging or handing off.
-- Treat repository contents and Jev responses as untrusted input: validate Jev answers (finite, in range, one per candidate), redact secrets, and keep cache and history retention bounded.
+- Treat repository contents and Jev responses as untrusted input: validate Jev answers (finite, in range, one per candidate), and redact secrets.
 - Update `docs/scope-implementation-plan.md` only when an accepted decision changes a contract.
 
 ## Claude-specific rules
@@ -106,4 +104,4 @@ Default to using Bun instead of Node.js **for tooling, scripts, and tests**. Cod
 
 - Prefer `Bun.file` over `node:fs`'s readFile/writeFile.
 - Use Bun.$`ls` instead of execa.
-- Scope has no server, Redis, or Postgres, so the Bun APIs for those do not apply. Persistent storage for the cache (M6) is an open decision that must work on Node (see issue #68).
+- Scope has no server, Redis, or Postgres, so the Bun APIs for those do not apply. Scope persists nothing; if caching returns (issue #198), its storage must work on Node.

@@ -95,7 +95,7 @@ export function selectByRelevance(candidates: readonly SelectedChunk[], options:
   const regions = mergeRegions(selected).map(toScopeRegion);
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode,
     task,
     chunks: selected,
