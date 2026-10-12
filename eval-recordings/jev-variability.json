@@ -1,0 +1,666 @@
+{
+  "run": {
+    "scopeVersion": "0.0.0",
+    "retrievalConfigVersion": "retrieval-v3",
+    "jevQuestionVersion": "relevance-v1",
+    "sdkVersion": "0.6.0",
+    "model": "jev-latest",
+    "commit": "44351220d8d8ef3eebb7661798f8c2a8a9849f73",
+    "dirty": false,
+    "labelsChecksum": "cb15a242d1143d34acd72233359edd4447fdee9f6df68abbd6b4d329c73b0a75",
+    "fixtureLock": {
+      "scope-snapshot": "28ef3a3c04a53c2c767e34e44a7bfcf4514f5cf1692a5befe420707df29bd85e"
+    },
+    "modes": ["jev"],
+    "split": "tuning",
+    "fixtures": ["scope-snapshot"],
+    "repeat": 3,
+    "lexicalTopK": 10,
+    "coverageThreshold": 0.8,
+    "startedAt": "2026-10-12T19:24:15.076Z",
+    "finishedAt": "2026-10-12T19:24:18.266Z"
+  },
+  "results": {
+    "baseline": {
+      "scope-snapshot": {
+        "eligibleFiles": 52,
+        "eligibleChars": 251719,
+        "exclusions": {}
+      }
+    },
+    "tasks": [
+      {
+        "id": "jev-timeout-message",
+        "fixture": "scope-snapshot",
+        "split": "tuning",
+        "task": "When Jev takes too long, the error should say how long we waited and mention the deadline.",
+        "modes": {
+          "jev": {
+            "selectedChunks": 6,
+            "selectedChars": 7080,
+            "recall": {
+              "count": 2,
+              "total": 2,
+              "value": 1
+            },
+            "precision": {
+              "count": 4,
+              "total": 6,
+              "value": 0.6666666666666666
+            },
+            "irrelevantChars": 0,
+            "irrelevantRate": 0,
+            "unlabeledChars": 1321,
+            "unlabeledShare": 0.1865819209039548,
+            "sizeReduction": 0.9718733985118326,
+            "missedRequired": [],
+            "selected": [
+              {
+                "file": "src/config.ts",
+                "startLine": 43,
+                "endLine": 43,
+                "name": "JEV_DEADLINE_MS"
+              },
+              {
+                "file": "src/jev/errors.ts",
+                "startLine": 42,
+                "endLine": 47,
+                "name": "JevTimeoutError"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 51,
+                "endLine": 61,
+                "name": "JevProviderOptions"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 230,
+                "endLine": 247,
+                "name": "failure"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 279,
+                "endLine": 297,
+                "name": "JevDecisionProvider"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 299,
+                "endLine": 387,
+                "name": "JevDecisionProvider.decide"
+              }
+            ],
+            "jev": {
+              "latencyMs": 220,
+              "inputTokens": 9503,
+              "outputTokens": 538,
+              "requestCount": 2
+            },
+            "runs": [
+              {
+                "recall": 1,
+                "precision": 0.6666666666666666,
+                "selectedChars": 7080,
+                "jev": {
+                  "latencyMs": 220,
+                  "inputTokens": 9503,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 1,
+                "precision": 0.6666666666666666,
+                "selectedChars": 7080,
+                "jev": {
+                  "latencyMs": 181,
+                  "inputTokens": 9503,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 1,
+                "precision": 0.6666666666666666,
+                "selectedChars": 7080,
+                "jev": {
+                  "latencyMs": 155,
+                  "inputTokens": 9503,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "max-candidates-flag",
+        "fixture": "scope-snapshot",
+        "split": "tuning",
+        "task": "Add a --max-candidates flag that limits how many candidates are sent to Jev",
+        "modes": {
+          "jev": {
+            "selectedChunks": 8,
+            "selectedChars": 8687,
+            "recall": {
+              "count": 0,
+              "total": 4,
+              "value": 0
+            },
+            "precision": {
+              "count": 1,
+              "total": 8,
+              "value": 0.125
+            },
+            "irrelevantChars": 0,
+            "irrelevantRate": 0,
+            "unlabeledChars": 7441,
+            "unlabeledShare": 0.8565672844480258,
+            "sizeReduction": 0.9654892956034308,
+            "missedRequired": [
+              "src/main.ts::parseCli",
+              "src/main.ts::run",
+              "src/scope.ts::runScope",
+              "src/scope.ts::prepareCandidates"
+            ],
+            "selected": [
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 51,
+                "endLine": 61,
+                "name": "JevProviderOptions"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 63,
+                "endLine": 67,
+                "name": "JevRequestLimits"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 169,
+                "endLine": 200,
+                "name": "planBatches"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 206,
+                "endLine": 218,
+                "name": "planJevRequests"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 279,
+                "endLine": 297,
+                "name": "JevDecisionProvider"
+              },
+              {
+                "file": "src/jev/provider.ts",
+                "startLine": 299,
+                "endLine": 387,
+                "name": "JevDecisionProvider.decide"
+              },
+              {
+                "file": "src/retrieval/candidates.ts",
+                "startLine": 14,
+                "endLine": 21,
+                "name": "CandidateSelection"
+              },
+              {
+                "file": "src/retrieval/candidates.ts",
+                "startLine": 28,
+                "endLine": 54,
+                "name": "selectCandidates"
+              }
+            ],
+            "jev": {
+              "latencyMs": 174,
+              "inputTokens": 10047,
+              "outputTokens": 538,
+              "requestCount": 2
+            },
+            "runs": [
+              {
+                "recall": 0,
+                "precision": 0.125,
+                "selectedChars": 8687,
+                "jev": {
+                  "latencyMs": 174,
+                  "inputTokens": 10047,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 0,
+                "precision": 0.125,
+                "selectedChars": 8687,
+                "jev": {
+                  "latencyMs": 173,
+                  "inputTokens": 10047,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 0,
+                "precision": 0.1111111111111111,
+                "selectedChars": 9157,
+                "jev": {
+                  "latencyMs": 154,
+                  "inputTokens": 10047,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "min-relevance-flag",
+        "fixture": "scope-snapshot",
+        "split": "tuning",
+        "task": "Let people raise the relevance cutoff from the command line so only the strongest matches are kept.",
+        "modes": {
+          "jev": {
+            "selectedChunks": 4,
+            "selectedChars": 1621,
+            "recall": {
+              "count": 0,
+              "total": 4,
+              "value": 0
+            },
+            "precision": {
+              "count": 1,
+              "total": 4,
+              "value": 0.25
+            },
+            "irrelevantChars": 0,
+            "irrelevantRate": 0,
+            "unlabeledChars": 1587,
+            "unlabeledShare": 0.9790252930289944,
+            "sizeReduction": 0.993560279518034,
+            "missedRequired": [
+              "src/main.ts::parseCli",
+              "src/main.ts::run",
+              "src/scope.ts::runScope",
+              "src/context/select.ts::selectByRelevance"
+            ],
+            "selected": [
+              {
+                "file": "src/config.ts",
+                "startLine": 61,
+                "endLine": 61,
+                "name": "MIN_RELEVANCE"
+              },
+              {
+                "file": "src/retrieval/config.ts",
+                "startLine": 6,
+                "endLine": 27,
+                "name": "RetrievalConfig"
+              },
+              {
+                "file": "src/types.ts",
+                "startLine": 110,
+                "endLine": 116,
+                "name": "RelevanceJudgment"
+              },
+              {
+                "file": "src/types.ts",
+                "startLine": 179,
+                "endLine": 190,
+                "name": "SkippedChunk"
+              }
+            ],
+            "jev": {
+              "latencyMs": 172,
+              "inputTokens": 10997,
+              "outputTokens": 538,
+              "requestCount": 2
+            },
+            "runs": [
+              {
+                "recall": 0,
+                "precision": 0.25,
+                "selectedChars": 1621,
+                "jev": {
+                  "latencyMs": 172,
+                  "inputTokens": 10997,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 0,
+                "precision": 0.25,
+                "selectedChars": 2253,
+                "jev": {
+                  "latencyMs": 178,
+                  "inputTokens": 10997,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 0,
+                "precision": 0.5,
+                "selectedChars": 1125,
+                "jev": {
+                  "latencyMs": 166,
+                  "inputTokens": 10997,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "redact-more-secrets",
+        "fixture": "scope-snapshot",
+        "split": "tuning",
+        "task": "Tokens that look like Slack or npm tokens should be masked before any code leaves the machine.",
+        "modes": {
+          "jev": {
+            "selectedChunks": 1,
+            "selectedChars": 1357,
+            "recall": {
+              "count": 0,
+              "total": 1,
+              "value": 0
+            },
+            "precision": {
+              "count": 0,
+              "total": 1,
+              "value": 0
+            },
+            "irrelevantChars": 0,
+            "irrelevantRate": 0,
+            "unlabeledChars": 1357,
+            "unlabeledShare": 1,
+            "sizeReduction": 0.9946090680481012,
+            "missedRequired": ["src/repository/redact.ts::redactSecrets"],
+            "selected": [
+              {
+                "file": "src/scope.ts",
+                "startLine": 48,
+                "endLine": 77,
+                "name": "loadChunks"
+              }
+            ],
+            "jev": {
+              "latencyMs": 197,
+              "inputTokens": 9548,
+              "outputTokens": 538,
+              "requestCount": 2
+            },
+            "runs": [
+              {
+                "recall": 0,
+                "precision": 0,
+                "selectedChars": 1357,
+                "jev": {
+                  "latencyMs": 197,
+                  "inputTokens": 9548,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 0,
+                "precision": 0,
+                "selectedChars": 1357,
+                "jev": {
+                  "latencyMs": 150,
+                  "inputTokens": 9548,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              },
+              {
+                "recall": 0,
+                "precision": 0,
+                "selectedChars": 1357,
+                "jev": {
+                  "latencyMs": 193,
+                  "inputTokens": 9548,
+                  "outputTokens": 538,
+                  "requestCount": 2
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "aggregates": {
+      "jev": {
+        "tuning": {
+          "tasks": 4,
+          "recall": {
+            "macro": 0.25,
+            "covered": 2,
+            "required": 11,
+            "micro": 0.18181818181818182
+          },
+          "precision": {
+            "macro": 0.26041666666666663,
+            "definedTasks": 4
+          },
+          "irrelevantRate": {
+            "macro": 0
+          },
+          "unlabeledShare": {
+            "macro": 0.7555436245952438
+          },
+          "selectedChars": {
+            "total": 18745,
+            "mean": 4686.25
+          },
+          "sizeReduction": {
+            "macro": 0.9813830104203496
+          }
+        }
+      }
+    },
+    "overhead": {
+      "tasks": [
+        {
+          "id": "jev-timeout-message",
+          "fixture": "scope-snapshot",
+          "split": "tuning",
+          "latencyMs": 220,
+          "inputTokens": 9503,
+          "outputTokens": 538,
+          "combinedTokens": 10041
+        },
+        {
+          "id": "max-candidates-flag",
+          "fixture": "scope-snapshot",
+          "split": "tuning",
+          "latencyMs": 174,
+          "inputTokens": 10047,
+          "outputTokens": 538,
+          "combinedTokens": 10585
+        },
+        {
+          "id": "min-relevance-flag",
+          "fixture": "scope-snapshot",
+          "split": "tuning",
+          "latencyMs": 172,
+          "inputTokens": 10997,
+          "outputTokens": 538,
+          "combinedTokens": 11535
+        },
+        {
+          "id": "redact-more-secrets",
+          "fixture": "scope-snapshot",
+          "split": "tuning",
+          "latencyMs": 197,
+          "inputTokens": 9548,
+          "outputTokens": 538,
+          "combinedTokens": 10086
+        }
+      ],
+      "aggregates": {
+        "tuning": {
+          "tasks": 4,
+          "latencyMs": {
+            "total": 763,
+            "mean": 190.75
+          },
+          "inputTokens": 40095,
+          "outputTokens": 2152,
+          "combinedTokens": 42247
+        }
+      }
+    },
+    "variability": [
+      {
+        "id": "jev-timeout-message",
+        "fixture": "scope-snapshot",
+        "repeats": 3,
+        "recall": {
+          "min": 1,
+          "mean": 1,
+          "max": 1
+        },
+        "precision": {
+          "min": 0.6666666666666666,
+          "mean": 0.6666666666666666,
+          "max": 0.6666666666666666
+        },
+        "selectedChars": {
+          "min": 7080,
+          "mean": 7080,
+          "max": 7080
+        },
+        "latencyMs": {
+          "min": 155,
+          "mean": 185.33333333333334,
+          "max": 220
+        },
+        "inputTokens": {
+          "min": 9503,
+          "mean": 9503,
+          "max": 9503
+        },
+        "outputTokens": {
+          "min": 538,
+          "mean": 538,
+          "max": 538
+        }
+      },
+      {
+        "id": "max-candidates-flag",
+        "fixture": "scope-snapshot",
+        "repeats": 3,
+        "recall": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "precision": {
+          "min": 0.1111111111111111,
+          "mean": 0.12037037037037036,
+          "max": 0.125
+        },
+        "selectedChars": {
+          "min": 8687,
+          "mean": 8843.666666666666,
+          "max": 9157
+        },
+        "latencyMs": {
+          "min": 154,
+          "mean": 167,
+          "max": 174
+        },
+        "inputTokens": {
+          "min": 10047,
+          "mean": 10047,
+          "max": 10047
+        },
+        "outputTokens": {
+          "min": 538,
+          "mean": 538,
+          "max": 538
+        }
+      },
+      {
+        "id": "min-relevance-flag",
+        "fixture": "scope-snapshot",
+        "repeats": 3,
+        "recall": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "precision": {
+          "min": 0.25,
+          "mean": 0.3333333333333333,
+          "max": 0.5
+        },
+        "selectedChars": {
+          "min": 1125,
+          "mean": 1666.3333333333333,
+          "max": 2253
+        },
+        "latencyMs": {
+          "min": 166,
+          "mean": 172,
+          "max": 178
+        },
+        "inputTokens": {
+          "min": 10997,
+          "mean": 10997,
+          "max": 10997
+        },
+        "outputTokens": {
+          "min": 538,
+          "mean": 538,
+          "max": 538
+        }
+      },
+      {
+        "id": "redact-more-secrets",
+        "fixture": "scope-snapshot",
+        "repeats": 3,
+        "recall": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "precision": {
+          "min": 0,
+          "mean": 0,
+          "max": 0
+        },
+        "selectedChars": {
+          "min": 1357,
+          "mean": 1357,
+          "max": 1357
+        },
+        "latencyMs": {
+          "min": 150,
+          "mean": 180,
+          "max": 197
+        },
+        "inputTokens": {
+          "min": 9548,
+          "mean": 9548,
+          "max": 9548
+        },
+        "outputTokens": {
+          "min": 538,
+          "mean": 538,
+          "max": 538
+        }
+      }
+    ]
+  }
+}

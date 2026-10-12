@@ -5,7 +5,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks } from "../src/scope.ts";
-import { FIXTURES, loadLabeledTasks, resolve, TASKS, type LabeledTask } from "../tests/helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks, resolve, TASKS, type LabeledTask } from "./eval/labels.ts";
 
 interface TaskRecall {
   fixture: string;

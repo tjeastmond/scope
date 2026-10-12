@@ -6,7 +6,7 @@ import { scoreChunks, type ChunkScore, type ScoringWeights } from "../src/retrie
 import { extractTaskTerms } from "../src/retrieval/terms.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk } from "../src/types.ts";
-import { FIXTURES, loadLabeledTasks, resolve } from "./helpers/labels.ts";
+import { FIXTURES, loadLabeledTasks, resolve } from "../scripts/eval/labels.ts";
 
 const { chunks } = await loadChunks(join(FIXTURES, "mixed-app"));
 const indexes = buildIndexes(chunks);

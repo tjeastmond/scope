@@ -32,9 +32,11 @@ Defined in `package.json`:
 | `bun run build`        | Compile `src/` to `dist/` for Node (`tsconfig.build.json`).                                                            |
 | `bun test`             | Run tests with `bun:test`.                                                                                             |
 | `bun run smoke:node`   | Packaged-CLI smoke on real Node without Bun (`SCOPE_NODE=<node>`; needs network for `npm install`; not in `validate`). |
+| `bun run eval`         | Evaluation harness (`scripts/eval/`): lexical, no-jev, jev modes, record/replay; not in `validate`.                    |
+| `bun run eval:freeze`  | Freeze `tasks/*.json` into `tasks/labels.freeze.json` before heldout runs.                                             |
 | `bun run validate`     | The pre-merge gate: `format:check`, `lint`, `typecheck`, `build`, `test`.                                              |
 
-`validate` must pass on the final commit before a PR is merged. As the project grows, extend it (not a parallel script) with the offline evaluation gate and the Node 24/26 packaged-CLI smoke test. Planned script: `eval` (see the M7 milestone).
+`validate` must pass on the final commit before a PR is merged. As the project grows, extend it (not a parallel script) with the offline evaluation gate and the Node 24/26 packaged-CLI smoke test.
 
 ## Work tracking
 

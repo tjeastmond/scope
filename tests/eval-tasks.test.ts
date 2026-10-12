@@ -2,14 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { loadChunks } from "../src/scope.ts";
-import { hashFixture, readLock } from "./helpers/fixture-hash.ts";
-import { FIXTURES, labelsOf, loadLabeledTasks, resolve, TASKS, type LabeledTask } from "./helpers/labels.ts";
+import { hashFixture, readLock } from "../scripts/eval/fixture-hash.ts";
+import {
+  FIXTURES,
+  labelsOf,
+  listTaskFixtures,
+  loadLabeledTasks,
+  resolve,
+  type LabeledTask,
+} from "../scripts/eval/labels.ts";
 
-const LOCK = "fixtures.lock.json";
-const fixtures = (await readdir(TASKS))
-  .filter((file) => file.endsWith(".json") && file !== LOCK)
-  .map((file) => file.slice(0, -5))
-  .sort();
+const fixtures = await listTaskFixtures();
 const loaded = new Map(
   await Promise.all(
     fixtures.map(

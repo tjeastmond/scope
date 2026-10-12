@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { loadLabeledTasks } from "./helpers/labels.ts";
+import { loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 test("the recall script prints per-task, per-split and aggregate candidate recall", async () => {
   const proc = Bun.spawn(["bun", join(import.meta.dir, "../scripts/recall.ts"), "mixed-app"], {

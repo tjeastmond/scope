@@ -6,7 +6,7 @@ import { FORMATS, renderFormat, type OutputFormat } from "../src/output/index.ts
 import type { CodeChunk, ScopeResult, SelectedChunk } from "../src/types.ts";
 import { runScope } from "../src/scope.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
-import { loadLabeledTasks } from "./helpers/labels.ts";
+import { loadLabeledTasks } from "../scripts/eval/labels.ts";
 
 /**
  * Golden files pin the exact bytes of each format for one hand-built result that exercises every section: summary,

@@ -5,7 +5,7 @@ import { analyzeFile } from "../src/analyzers/index.ts";
 import { scanRepository, type SkippedPath } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import { loadChunks } from "../src/scope.ts";
-import { FIXTURES, resolve } from "./helpers/labels.ts";
+import { FIXTURES, resolve } from "../scripts/eval/labels.ts";
 
 const ROOT = join(FIXTURES, "mixed-app");
 const CRLF_FILE = "api/src/util/csv.ts";
