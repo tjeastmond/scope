@@ -1,0 +1,11 @@
+sources:
+  - name: engineering-blog
+    url: https://example.org/engineering/feed.xml
+    format: rss
+  - name: release-notes
+    url: https://example.org/releases.atom
+    format: atom
+  - name: status-updates
+    url: https://status.example.org/feed.json
+    format: jsonfeed
+    poll_interval_seconds: 300

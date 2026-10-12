@@ -1,0 +1,80 @@
+[
+  {
+    "id": "tighten-replay-window",
+    "split": "tuning",
+    "task": "Stripe webhooks that were signed more than a minute ago should be rejected; tighten how old a delivery is allowed to be.",
+    "required": ["src/webhooks/signature.ts::verifySignature"],
+    "useful": ["src/webhooks/signature.ts::parseSignatureHeader", "src/stripe/handler.ts::handleStripeWebhook"],
+    "irrelevant": [
+      "src/email/format.ts::format",
+      "src/dates/utils.ts::format",
+      "src/users/profile.ts::renderProfile",
+      "src/email/sender.ts::deliver",
+      "src/logger.ts::Logger.info"
+    ]
+  },
+  {
+    "id": "billing-calls-retry",
+    "split": "tuning",
+    "task": "Marking an invoice as paid fails whenever the billing service has a blip. Make that call survive short outages using the same backoff we use elsewhere.",
+    "required": ["src/stripe/handler.ts::markInvoicePaid", "src/util/retry.ts::withRetry"],
+    "useful": [
+      "src/stripe/handler.ts::cancelSubscription",
+      "src/util/retry.ts::computeBackoff",
+      "src/util/retry.ts::RetryOptions"
+    ],
+    "irrelevant": [
+      "src/email/sender.ts::sendWithRetry",
+      "src/users/profile.ts::renderProfile",
+      "src/dates/utils.ts::addDays",
+      "src/email/format.ts::format"
+    ]
+  },
+  {
+    "id": "duplicate-events",
+    "split": "tuning",
+    "task": "Stripe sometimes delivers the same event twice. Make sure we never act on one event two times, even when both copies arrive at once.",
+    "required": ["src/stripe/handler.ts::handleStripeWebhook"],
+    "useful": [
+      "src/stripe/handler.ts::processEvent",
+      "src/stripe/types.ts::StripeEvent",
+      "src/stripe/types.ts::WebhookResult"
+    ],
+    "irrelevant": [
+      "src/logger.ts::Logger.warn",
+      "src/util/retry.ts::withRetry",
+      "src/email/sender.ts::sendWithRetry",
+      "src/users/profile.ts::UserProfile"
+    ]
+  },
+  {
+    "id": "log-accepted-events",
+    "split": "heldout",
+    "task": "Write an info line with the event type and id for every webhook we accept.",
+    "required": ["src/stripe/handler.ts::handleStripeWebhook", "src/logger.ts::Logger.info"],
+    "useful": ["src/stripe/handler.ts::processEvent", "src/logger.ts::logger"],
+    "irrelevant": [
+      "src/email/format.ts::format",
+      "src/dates/utils.ts::addDays",
+      "src/users/profile.ts::renderProfile",
+      "src/email/sender.ts::deliver"
+    ]
+  },
+  {
+    "id": "handle-refunds",
+    "split": "heldout",
+    "task": "When a customer is refunded in Stripe, tell the billing service so the invoice shows as refunded.",
+    "required": ["src/stripe/handler.ts::processEvent"],
+    "useful": [
+      "src/stripe/handler.ts::markInvoicePaid",
+      "src/stripe/handler.ts::cancelSubscription",
+      "src/stripe/types.ts::StripeEvent"
+    ],
+    "irrelevant": [
+      "src/webhooks/signature.ts::sign",
+      "src/webhooks/signature.ts::parseSignatureHeader",
+      "src/email/sender.ts::sendWithRetry",
+      "src/dates/utils.ts::format"
+    ]
+  }
+]

@@ -1,2 +1,3 @@
-# Fixtures are decoy apps for tests and evaluation, not part of Scope itself.
+# Fixtures are decoy apps for tests and evaluation, and tasks/ holds their answer labels; neither is part of Scope itself.
 fixtures/
+tasks/

@@ -1,0 +1,14 @@
+{
+  "refreshIntervalSeconds": 30,
+  "defaultTimeRange": "1h",
+  "widgets": [
+    { "id": "requests", "title": "Requests per second", "unit": "rps" },
+    { "id": "latency", "title": "p95 latency", "unit": "ms" },
+    { "id": "errors", "title": "Error rate", "unit": "percent" },
+    { "id": "uptime", "title": "Uptime", "unit": "percent" }
+  ],
+  "alerts": {
+    "pageSize": 25,
+    "hideAcknowledged": true
+  }
+}

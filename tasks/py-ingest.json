@@ -1,0 +1,103 @@
+[
+  {
+    "id": "retry-after-header",
+    "split": "tuning",
+    "task": "When a feed server answers 429 with a Retry-After header, wait as long as it asks instead of our fixed schedule.",
+    "required": ["src/feedflow/fetch.py::fetch_feed", "src/feedflow/fetch.py::backoff_delay"],
+    "useful": [
+      "src/feedflow/fetch.py::RETRYABLE_STATUS",
+      "src/feedflow/fetch.py::FetchError",
+      "src/feedflow/settings.py::Settings"
+    ],
+    "irrelevant": [
+      "src/feedflow/scheduler.py::jitter",
+      "src/feedflow/scheduler.py::Scheduler.record_failure",
+      "src/feedflow/text.py::truncate",
+      "src/feedflow/storage/memory.py::MemoryStorage.save_items",
+      "src/feedflow/dedupe.py::normalize_url"
+    ]
+  },
+  {
+    "id": "pause-failing-sources",
+    "split": "tuning",
+    "task": "A feed that has failed five times in a row should be left alone for an hour before we try it again.",
+    "required": [
+      "src/feedflow/scheduler.py::Scheduler.next_run",
+      "src/feedflow/scheduler.py::Scheduler.record_failure"
+    ],
+    "useful": [
+      "src/feedflow/scheduler.py::SourceState",
+      "src/feedflow/scheduler.py::Scheduler.due",
+      "src/feedflow/pipeline.py::run_once"
+    ],
+    "irrelevant": [
+      "src/feedflow/fetch.py::backoff_delay",
+      "src/feedflow/fetch.py::fetch_feed",
+      "src/feedflow/metrics.py::record",
+      "src/feedflow/parsers/rss.py::RssParser.parse",
+      "src/feedflow/text.py::strip_html"
+    ]
+  },
+  {
+    "id": "longer-summaries",
+    "split": "tuning",
+    "task": "Item summaries get cut off too early. Allow 1000 characters before the ellipsis shows up.",
+    "required": ["src/feedflow/settings.py::DEFAULT_MAX_SUMMARY_CHARS", "config/ingest.toml::items"],
+    "useful": [
+      "src/feedflow/text.py::truncate",
+      "src/feedflow/text.py::clean_summary",
+      "src/feedflow/settings.py::load_settings"
+    ],
+    "irrelevant": [
+      "src/feedflow/metrics.py::shorten",
+      "src/feedflow/fetch.py::build_headers",
+      "src/feedflow/dedupe.py::item_fingerprint",
+      "src/feedflow/storage/sqlite.py::SqliteStorage.close"
+    ]
+  },
+  {
+    "id": "atom-updated-fallback",
+    "split": "heldout",
+    "task": "Some Atom feeds only give an updated date, so their items come through with no date at all. Use updated when there is no published date.",
+    "required": ["src/feedflow/parsers/atom.py::AtomParser.parse_entry"],
+    "useful": ["src/feedflow/parsers/atom.py::parse_timestamp", "src/feedflow/parsers/base.py::BaseParser.ensure_utc"],
+    "irrelevant": [
+      "src/feedflow/parsers/rss.py::parse_pubdate",
+      "src/feedflow/parsers/jsonfeed.py::parse_date_published",
+      "src/feedflow/scheduler.py::Scheduler.next_run",
+      "src/feedflow/text.py::normalize_whitespace",
+      "src/feedflow/dedupe.py::normalize_url"
+    ]
+  },
+  {
+    "id": "ignore-tracking-params",
+    "split": "heldout",
+    "task": "The same article keeps getting stored twice because the links differ only by utm_ tracking parameters.",
+    "required": ["src/feedflow/dedupe.py::normalize_url"],
+    "useful": ["src/feedflow/dedupe.py::item_fingerprint", "src/feedflow/dedupe.py::dedupe_items"],
+    "irrelevant": [
+      "src/feedflow/parsers/rss.py::RssParser.parse_item",
+      "src/feedflow/storage/memory.py::MemoryStorage.save_items",
+      "src/feedflow/text.py::strip_html",
+      "src/feedflow/metrics.py::snapshot"
+    ]
+  },
+  {
+    "id": "prune-old-items",
+    "split": "heldout",
+    "task": "Once a run finishes, remove stored items that are older than the number of days we are configured to keep.",
+    "required": [
+      "src/feedflow/settings.py::Settings",
+      "src/feedflow/pipeline.py::run_once",
+      "src/feedflow/storage/base.py::Storage",
+      "src/feedflow/storage/sqlite.py::SCHEMA"
+    ],
+    "useful": ["src/feedflow/storage/sqlite.py::SqliteStorage.save_items", "config/ingest.toml::items"],
+    "irrelevant": [
+      "src/feedflow/dedupe.py::item_fingerprint",
+      "src/feedflow/parsers/atom.py::AtomParser.parse",
+      "src/feedflow/fetch.py::build_headers",
+      "src/feedflow/scheduler.py::jitter"
+    ]
+  }
+]

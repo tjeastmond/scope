@@ -37,7 +37,7 @@ const fixtures =
   process.argv.length > 2
     ? process.argv.slice(2)
     : (await readdir(TASKS))
-        .filter((f) => f.endsWith(".json"))
+        .filter((f) => f.endsWith(".json") && f !== "fixtures.lock.json")
         .map((f) => f.slice(0, -5))
         .sort();
 const all = (await Promise.all(fixtures.map(measure))).flat();

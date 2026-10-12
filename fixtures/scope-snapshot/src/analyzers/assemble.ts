@@ -1,0 +1,163 @@
+import { makeChunkId } from "../chunk-id.ts";
+import type { AnalysisResult, ChunkKind, CodeChunk, Language, Reference } from "../types.ts";
+
+/** A container (class, namespace) of at most this many lines stays one chunk and its members are not chunks. */
+export const SMALL_CONTAINER_LINES = 5;
+
+/** A region an extractor found, as a 1-based inclusive line range. */
+export interface Region {
+  startLine: number;
+  endLine: number;
+  kind: ChunkKind;
+  name?: string | undefined;
+  /** The container this region is a member of. It must be another region of the same call, listed before this one. */
+  parent?: Region | undefined;
+}
+
+/** A reference an extractor found: a `Reference` whose location is just a 1-based line in the file being analyzed. */
+export type RawReference = Omit<Reference, "from" | "targetChunkId"> & { line: number };
+
+/**
+ * A reference belongs to every chunk whose line range contains its line. One that lies in no chunk (a top-level
+ * `import` or `export ... from`, a `require` in a top-level statement that declares nothing) is file-level context
+ * and is attached to every chunk of the file; see docs/chunk-model.md, "References".
+ */
+function referenceAttacher(
+  file: string,
+  references: readonly RawReference[],
+  ranges: readonly { startLine: number; endLine: number }[],
+): (startLine: number, endLine: number) => Reference[] {
+  const size = Math.max(0, ...references.map((r) => r.line), ...ranges.map((r) => r.endLine)) + 2;
+  // Difference array over lines marks which lines any chunk covers; refs are bucketed by line (as indices, to keep order).
+  const depth = new Int32Array(size);
+  for (const { startLine, endLine } of ranges) {
+    depth[startLine] = (depth[startLine] ?? 0) + 1;
+    depth[endLine + 1] = (depth[endLine + 1] ?? 0) - 1;
+  }
+  const covered = new Uint8Array(size);
+  for (let line = 1, open = 0; line < size; line++) {
+    open += depth[line] ?? 0;
+    covered[line] = open > 0 ? 1 : 0;
+  }
+  const byLine = new Map<number, number[]>();
+  const fileLevel: number[] = [];
+  references.forEach(({ line }, index) => {
+    if (!covered[line]) fileLevel.push(index);
+    else {
+      const bucket = byLine.get(line);
+      if (bucket) bucket.push(index);
+      else byLine.set(line, [index]);
+    }
+  });
+  return (startLine, endLine) => {
+    const picked = [...fileLevel];
+    for (let line = startLine; line <= endLine; line++) for (const index of byLine.get(line) ?? []) picked.push(index);
+    return picked
+      .sort((a, b) => a - b)
+      .map((index) => {
+        const { line, ...rest } = references[index] as RawReference;
+        return { ...rest, from: { file, line } };
+      });
+  };
+}
+
+/**
+ * Applies the container policy (docs/chunk-model.md, "Containers"). A region that is some other region's `parent` is
+ * a container: when it is small, or its members share lines with it or with each other, it stays whole and its
+ * members (all descendants) are dropped; otherwise its range shrinks to the header, from its first line to the last
+ * non-blank line before its first member, and the members keep their own ranges. The result never overlaps within a
+ * file, so a parent link is the only relation between a header and its members.
+ */
+function applyContainerPolicy(
+  regions: readonly Region[],
+  lines: readonly string[],
+): { region: Region; endLine: number }[] {
+  const children = new Map<Region, Region[]>();
+  for (const region of regions) {
+    if (!region.parent) continue;
+    const siblings = children.get(region.parent);
+    if (siblings) siblings.push(region);
+    else children.set(region.parent, [region]);
+  }
+  const dropped = new Set<Region>();
+  const headerEnds = new Map<Region, number>();
+  for (const region of regions) {
+    const members = children.get(region);
+    if (!members || dropped.has(region)) continue;
+    const ordered = [...members].sort((a, b) => a.startLine - b.startLine);
+    const first = ordered[0];
+    if (!first) continue;
+    let end = first.startLine - 1;
+    while (end > region.startLine && (lines[end - 1] ?? "").trim() === "") end--;
+    const separate =
+      region.endLine - region.startLine + 1 > SMALL_CONTAINER_LINES &&
+      end >= region.startLine &&
+      first.startLine > region.startLine &&
+      ordered.every((member, index) => index === 0 || member.startLine > (ordered[index - 1] as Region).endLine);
+    if (separate) {
+      headerEnds.set(region, end);
+      continue;
+    }
+    const stack = [...members];
+    for (let next = stack.pop(); next; next = stack.pop()) {
+      dropped.add(next);
+      stack.push(...(children.get(next) ?? []));
+    }
+  }
+  return regions
+    .filter((region) => !dropped.has(region))
+    .map((region) => ({ region, endLine: headerEnds.get(region) ?? region.endLine }));
+}
+
+/**
+ * Turns regions into chunks: `content` is the exact source lines of each range (split on `\n` only), identical
+ * regions (for example two `<nav></nav>` on one line) collapse to one so chunk ids stay unique, and `broken` adds the
+ * syntax-error warning, which counts the extracted `unit`s. Regions with a `parent` follow the container policy and
+ * their chunks carry `parentId` and `containerName`. `references` are attached by line (see `referenceAttacher`).
+ */
+export function assembleChunks(
+  file: string,
+  source: string,
+  language: Language,
+  regions: readonly Region[],
+  broken: boolean,
+  unit = "chunks",
+  references: readonly RawReference[] = [],
+): AnalysisResult {
+  const lines = source.split("\n");
+  const ids = new Map<Region, string>();
+  const placed = applyContainerPolicy(regions, lines);
+  const ranges = placed.map(({ region, endLine }) => ({ startLine: region.startLine, endLine }));
+  const attach = referenceAttacher(file, references, ranges);
+  const chunks = placed.map(({ region, endLine }): CodeChunk => {
+    const { startLine, kind, name } = region;
+    const content = lines.slice(startLine - 1, endLine).join("\n");
+    const id = makeChunkId({ file, startLine, endLine, kind, name });
+    ids.set(region, id);
+    const parentId = region.parent ? ids.get(region.parent) : undefined;
+    return {
+      id,
+      file,
+      language,
+      kind,
+      ...(name === undefined ? {} : { name }),
+      startLine,
+      endLine,
+      content,
+      references: attach(startLine, endLine),
+      ...(parentId === undefined || region.parent === undefined
+        ? {}
+        : { parentId, ...(region.parent.name === undefined ? {} : { containerName: region.parent.name }) }),
+    };
+  });
+  const unique = [...new Map(chunks.map((chunk) => [chunk.id, chunk])).values()];
+  const warnings = broken
+    ? [`${file}: syntax errors; extracted ${unique.length} ${unit} from the parseable regions`]
+    : [];
+  return { chunks: unique, warnings, ...(broken ? { partial: true } : {}) };
+}
+
+/** Collapses runs of whitespace to single spaces, for names taken from source text. */
+export function collapse(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}

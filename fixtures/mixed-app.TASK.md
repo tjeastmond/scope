@@ -20,7 +20,7 @@ lists is a chunk label:
 - A bare `path` (no `::`) labels a whole-file chunk and is valid only for a file that analyzes to exactly one chunk.
 
 Every label must resolve to exactly one chunk and no label may appear twice across the three lists of a task. This is
-enforced by `tests/mixed-fixture.test.ts`.
+enforced by `tests/eval-tasks.test.ts`.
 
 | List         | Meaning                                                    |
 | ------------ | ---------------------------------------------------------- |
