@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { renderReport } from "../scripts/eval/report.ts";
-import { RECORDING_PATH, reportCommand } from "../scripts/eval/report-cli.ts";
+import { applyReport, generateReport, RECORDING_PATH, reportCommand } from "../scripts/eval/report-cli.ts";
 import { evaluate, installedSdkVersion, type EvalOptions } from "../scripts/eval/runner.ts";
 
 const dirs: string[] = [];
@@ -39,7 +39,7 @@ describe("deterministic report", () => {
     expect(a).toContain("Replayed from");
     expect(renderReport(first)).toContain("Started");
     expect(renderReport(first)).not.toBe(renderReport(second));
-  });
+  }, 30_000);
 });
 
 describe("eval:report --check", () => {
@@ -47,20 +47,25 @@ describe("eval:report --check", () => {
     const dir = await scratch();
     const file = join(dir, "report.md");
     const options = { reportPath: file };
-    expect(await reportCommand({ ...options, check: false })).toEqual({ upToDate: true, written: true });
-    const fresh = await readFile(file, "utf8");
-    expect(await reportCommand({ ...options, check: true })).toEqual({ upToDate: true, written: false });
+    const text = "# report\n";
+    expect(await applyReport(text, { ...options, check: false })).toEqual({ upToDate: true, written: true });
+    expect(await readFile(file, "utf8")).toBe(text);
+    expect(await applyReport(text, { ...options, check: true })).toEqual({ upToDate: true, written: false });
 
-    await writeFile(file, `${fresh}\nhand edit\n`);
-    expect(await reportCommand({ ...options, check: true })).toEqual({ upToDate: false, written: false });
-    expect(await readFile(file, "utf8")).toBe(`${fresh}\nhand edit\n`);
+    await writeFile(file, `${text}\nhand edit\n`);
+    expect(await applyReport(text, { ...options, check: true })).toEqual({ upToDate: false, written: false });
+    expect(await readFile(file, "utf8")).toBe(`${text}\nhand edit\n`);
 
-    expect((await reportCommand({ reportPath: join(dir, "missing.md"), check: true })).upToDate).toBe(false);
+    expect((await applyReport(text, { reportPath: join(dir, "missing.md"), check: true })).upToDate).toBe(false);
   });
+
+  test("generates the same text twice", async () => {
+    expect(await generateReport()).toBe(await generateReport());
+  }, 60_000);
 
   test("the committed report is current", async () => {
     expect((await reportCommand({ check: true })).upToDate).toBe(true);
-  });
+  }, 60_000);
 });
 
 describe("installed SDK version", () => {

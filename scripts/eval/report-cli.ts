@@ -29,16 +29,20 @@ export async function generateReport(replay: string = RECORDING_PATH): Promise<s
   return NOTE + renderReport(output, { deterministic: true });
 }
 
-/** Writes the report, or in check mode compares it with the file on disk without writing. */
-export async function reportCommand(options: { check: boolean; reportPath?: string; replay?: string }) {
+/** Writes `text` to the report, or in check mode compares it with the file on disk without writing. */
+export async function applyReport(text: string, options: { check: boolean; reportPath?: string }) {
   const reportPath = options.reportPath ?? REPORT_PATH;
-  const text = await generateReport(options.replay);
   if (options.check) {
     const current = await readFile(reportPath, "utf8").catch(() => undefined);
     return { upToDate: current === text, written: false };
   }
   await writeFile(reportPath, text);
   return { upToDate: true, written: true };
+}
+
+/** Generates the report and writes it, or in check mode compares it with the file on disk. */
+export async function reportCommand(options: { check: boolean; reportPath?: string; replay?: string }) {
+  return applyReport(await generateReport(options.replay), options);
 }
 
 if (import.meta.main) {
