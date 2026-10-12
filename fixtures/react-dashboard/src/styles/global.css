@@ -1,0 +1,17 @@
+:root {
+  --surface: #ffffff;
+  --text: #1c2128;
+  --muted: #6b7280;
+  --accent: #2563eb;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--text);
+}
+
+button {
+  cursor: pointer;
+}

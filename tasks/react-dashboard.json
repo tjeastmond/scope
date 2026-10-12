@@ -1,0 +1,99 @@
+[
+  {
+    "id": "poll-interval-from-config",
+    "split": "tuning",
+    "task": "The dashboard should fetch new numbers at the interval set in the dashboard config instead of a hardcoded 30 seconds.",
+    "required": ["src/hooks/useMetrics.ts::useMetrics", "src/config.ts::getConfig"],
+    "useful": [
+      "src/hooks/useInterval.ts::useInterval",
+      "public/dashboard.config.json::refreshIntervalSeconds",
+      "src/config.ts::loadConfig",
+      "src/config.ts::DashboardConfig"
+    ],
+    "irrelevant": [
+      "src/lib/dates.ts::formatTimestamp",
+      "src/components/Sparkline.tsx::Sparkline",
+      "src/styles/alerts.module.css::.badge",
+      "src/hooks/useLocalStorage.ts::useLocalStorage",
+      "src/components/AlertBadge.tsx::AlertBadge"
+    ]
+  },
+  {
+    "id": "hide-acknowledged-alerts",
+    "split": "tuning",
+    "task": "Alerts people have already dealt with keep cluttering the alerts page. Hide them by default and let people switch them back on.",
+    "required": ["src/store/selectors.ts::selectVisibleAlerts", "src/store/store.ts::DashboardState"],
+    "useful": [
+      "src/store/store.ts::dashboardStore",
+      "src/pages/AlertsPage.tsx::AlertsPage",
+      "src/components/AlertList.tsx::AlertList",
+      "src/store/selectors.ts::selectCriticalCount"
+    ],
+    "irrelevant": [
+      "src/components/Sparkline.tsx::Sparkline",
+      "src/lib/format.ts::formatPercent",
+      "src/api/client.ts::apiPost",
+      "src/hooks/useInterval.ts::useInterval",
+      "src/styles/metric-card.module.css::.card"
+    ]
+  },
+  {
+    "id": "alert-age-over-a-day",
+    "split": "tuning",
+    "task": "Alerts say how long ago they fired, like 5 min ago, but anything older than a day shows something silly like 36 h ago. Show days instead.",
+    "required": ["src/lib/dates.ts::formatDuration"],
+    "useful": ["src/components/AlertList.tsx::AlertList"],
+    "irrelevant": [
+      "src/lib/format.ts::formatDuration",
+      "src/lib/format.ts::formatDelta",
+      "src/lib/format.ts::formatValue",
+      "src/store/store.ts::createStore",
+      "src/api/metrics.ts::fetchMetrics"
+    ]
+  },
+  {
+    "id": "bearer-token",
+    "split": "heldout",
+    "task": "Send the signed-in user's bearer token along with every request we make to the backend.",
+    "required": ["src/api/client.ts::apiGet", "src/api/client.ts::apiPost"],
+    "useful": ["src/api/client.ts::buildUrl", "src/api/client.ts::API_BASE", "src/api/client.ts::ApiError"],
+    "irrelevant": [
+      "src/lib/dates.ts::rangeToMs",
+      "src/components/MetricCard.tsx::MetricCard",
+      "src/store/selectors.ts::selectMetricById",
+      "src/styles/layout.module.css::.nav",
+      "src/pages/SettingsPage.tsx::SettingsPage"
+    ]
+  },
+  {
+    "id": "plain-number-format",
+    "split": "heldout",
+    "task": "Request-rate cards show 1.2k; people would rather see 1,234 with a thousands separator.",
+    "required": ["src/lib/format.ts::formatNumber"],
+    "useful": ["src/lib/format.ts::formatValue", "src/components/MetricCard.tsx::MetricCard"],
+    "irrelevant": [
+      "src/lib/dates.ts::formatTimestamp",
+      "src/api/client.ts::ApiError",
+      "src/store/selectors.ts::selectVisibleAlerts",
+      "src/hooks/useInterval.ts::useInterval",
+      "src/components/Layout.tsx::Layout"
+    ]
+  },
+  {
+    "id": "remember-time-range",
+    "split": "heldout",
+    "task": "Whichever time range someone picked should still be selected after they reload the page.",
+    "required": [
+      "src/components/TimeRangePicker.tsx::TimeRangePicker",
+      "src/hooks/useLocalStorage.ts::useLocalStorage"
+    ],
+    "useful": ["src/store/store.ts::dashboardStore", "src/store/store.ts::DashboardState", "src/config.ts::getConfig"],
+    "irrelevant": [
+      "src/components/Sparkline.tsx::Sparkline",
+      "src/lib/format.ts::formatDelta",
+      "src/api/client.ts::apiGet",
+      "src/styles/alerts.module.css::.critical",
+      "src/components/AlertBadge.tsx::AlertBadge"
+    ]
+  }
+]

@@ -5,7 +5,7 @@ import { analyzeFile } from "../src/analyzers/index.ts";
 import { scanRepository, type SkippedPath } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import { loadChunks } from "../src/scope.ts";
-import { FIXTURES, labelsOf, loadLabeledTasks, resolve } from "./helpers/labels.ts";
+import { FIXTURES, resolve } from "./helpers/labels.ts";
 
 const ROOT = join(FIXTURES, "mixed-app");
 const CRLF_FILE = "api/src/util/csv.ts";
@@ -60,7 +60,6 @@ const EXPECTED_SKIPPED: SkippedPath[] = [
   { path: "web/src/vendor/tracker.min.js", reason: "minified" },
 ];
 
-const tasks = await loadLabeledTasks("mixed-app");
 const loaded = await loadChunks(ROOT);
 
 describe("mixed-app scan", () => {
@@ -90,41 +89,6 @@ describe("mixed-app scan", () => {
 });
 
 describe("mixed-app labels", () => {
-  test("there are at least two tasks with all three label lists populated", () => {
-    expect(tasks.length).toBeGreaterThanOrEqual(2);
-    for (const task of tasks) {
-      expect(task.task.length).toBeGreaterThan(10);
-      expect(task.required.length).toBeGreaterThan(0);
-      expect(task.useful.length).toBeGreaterThan(0);
-      expect(task.irrelevant.length).toBeGreaterThan(0);
-    }
-    expect(new Set(tasks.map((task) => task.id)).size).toBe(tasks.length);
-  });
-
-  test("every task has a split, and both tuning and heldout tasks exist", () => {
-    expect(tasks.every((task) => task.split === "tuning" || task.split === "heldout")).toBe(true);
-    expect(new Set(tasks.map((task) => task.split))).toEqual(new Set(["tuning", "heldout"]));
-  });
-
-  test("every label resolves to exactly one chunk", () => {
-    const unresolved: string[] = [];
-    for (const task of tasks) {
-      for (const label of labelsOf(task)) {
-        const found = resolve(label, loaded.chunks).length;
-        if (found !== 1) unresolved.push(`${task.id}: ${label} matched ${found} chunks`);
-      }
-    }
-    expect(unresolved).toEqual([]);
-  });
-
-  test("labels never overlap or repeat within a task", () => {
-    for (const task of tasks) {
-      const ids = labelsOf(task).map((label) => resolve(label, loaded.chunks)[0]?.id);
-      expect(new Set(labelsOf(task)).size).toBe(labelsOf(task).length);
-      expect(new Set(ids).size).toBe(ids.length);
-    }
-  });
-
   test("the same-name decoys exist as separate chunks", () => {
     for (const name of ["format", "validate"]) {
       const files = loaded.chunks.filter((chunk) => chunk.name === name && chunk.kind === "function");

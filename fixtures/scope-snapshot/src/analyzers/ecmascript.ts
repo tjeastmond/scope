@@ -1,0 +1,300 @@
+import type { Node } from "web-tree-sitter";
+import type { AnalysisResult, Analyzer, ChunkKind, Language } from "../types.ts";
+import { assembleChunks, type Region } from "./assemble.ts";
+import { classifyFile } from "../repository/language.ts";
+import { extractEcmascriptReferences } from "./ecmascript-references.ts";
+import { type Grammar, parserFor } from "./parser.ts";
+
+/** The grammar for a file: `.tsx` needs its own, JavaScript (JSX included) and TypeScript have one each. */
+function grammarFor(path: string, language: Language): Grammar {
+  return path.toLowerCase().endsWith(".tsx") ? "tsx" : language === "javascript" ? "javascript" : "typescript";
+}
+
+const CLASS_TYPES = new Set(["class_declaration", "abstract_class_declaration", "class"]);
+const FUNCTION_TYPES = new Set([
+  "function_declaration",
+  "generator_function_declaration",
+  "function_signature",
+  "function_expression",
+  "function",
+  "generator_function",
+  "arrow_function",
+]);
+/** Declarations that are one chunk each, with the kind it gets. Enums are `type` chunks. */
+const SIMPLE_KINDS: Record<string, ChunkKind> = {
+  interface_declaration: "interface",
+  type_alias_declaration: "type",
+  enum_declaration: "type",
+};
+const METHOD_SIGNATURES = new Set(["method_signature", "abstract_method_signature"]);
+const FIELD_TYPES = new Set(["public_field_definition", "field_definition"]);
+/** Transparent wrappers around a value: `(() => 1)`, `fn as T`, `fn satisfies T`. */
+const VALUE_WRAPPERS = new Set(["parenthesized_expression", "as_expression", "satisfies_expression"]);
+const JSX_TYPES = ["jsx_element", "jsx_self_closing_element", "jsx_fragment"];
+const COMPONENT_TYPE = /\b(?:FC|FunctionComponent|VFC|VoidFunctionComponent)\b/;
+const TEST_MODIFIERS = new Set(["only", "skip", "todo", "concurrent", "failing"]);
+
+/** One declaration. `start`/`end` are the nodes whose rows bound the chunk (wrappers and decorators included). */
+interface Found {
+  start: Node;
+  end: Node;
+  kind: ChunkKind;
+  name: string;
+  /** A body-less overload or abstract signature; merged into the implementation that follows it. */
+  signature?: boolean;
+  /** Marks a static class member so it can be told apart from an instance member of the same name. */
+  isStatic?: boolean;
+  /** The class or namespace this declaration is a member of; see the container policy in `assemble.ts`. */
+  parent?: Found;
+}
+
+function namedChildren(node: Node): Node[] {
+  return node.namedChildren.filter((child): child is Node => child !== null && child.type !== "comment");
+}
+
+function unwrapValue(node: Node | null): Node | null {
+  let current = node;
+  while (current && VALUE_WRAPPERS.has(current.type)) current = namedChildren(current)[0] ?? null;
+  return current;
+}
+
+function hasJsx(node: Node): boolean {
+  return node.descendantsOfType(JSX_TYPES).length > 0;
+}
+
+/** A function or arrow is a component when it is named like one (or default-exported) and renders JSX or is `FC`-typed. */
+function functionKind(node: Node, name: string, typeAnnotation?: Node | null, isDefaultExport = false): ChunkKind {
+  if (node.type === "function_signature") return "function";
+  const componentName = isDefaultExport || name === "default" || /^[A-Z]/.test(name);
+  const typed = typeAnnotation !== undefined && typeAnnotation !== null && COMPONENT_TYPE.test(typeAnnotation.text);
+  return componentName && (typed || hasJsx(node)) ? "component" : "function";
+}
+
+/** `get `/`set ` for accessors so a getter and setter sharing a name and line get distinct chunk identities. */
+function accessorPrefix(member: Node): string {
+  const accessor = member.children.find((child) => child?.type === "get" || child?.type === "set");
+  return accessor ? `${accessor.type} ` : "";
+}
+
+/** Class members as `Class.member` method chunks. Overload signatures are merged by the caller. */
+function classMembers(classNode: Node, className: string, parent: Found): (Found | undefined)[] {
+  const body = classNode.childForFieldName("body");
+  const entries: (Found | undefined)[] = [];
+  // Method decorators are siblings of the method inside the class body, so they are folded into its range here.
+  let decorator: Node | undefined;
+  for (const member of body ? namedChildren(body) : []) {
+    if (member.type === "decorator") {
+      decorator ??= member;
+      continue;
+    }
+    const start = decorator ?? member;
+    decorator = undefined;
+    const isMethod = member.type === "method_definition" || METHOD_SIGNATURES.has(member.type);
+    const name = (member.childForFieldName("name") ?? member.childForFieldName("property"))?.text;
+    const value = FIELD_TYPES.has(member.type) ? unwrapValue(member.childForFieldName("value")) : null;
+    const memberIsFunction = value !== null && FUNCTION_TYPES.has(value.type);
+    if (member.hasError || !name || name === "constructor" || !(isMethod || memberIsFunction)) {
+      entries.push(undefined);
+      continue;
+    }
+    entries.push({
+      start,
+      end: member,
+      kind: "method",
+      parent,
+      name: `${className}.${accessorPrefix(member)}${name}`,
+      signature: METHOD_SIGNATURES.has(member.type),
+      isStatic: member.children.some((child) => child?.type === "static"),
+    });
+  }
+  // A static and an instance member can share a name; keep their chunk identities distinct.
+  const instanceNames = new Set(entries.flatMap((entry) => (entry && !entry.isStatic ? [entry.name] : [])));
+  return entries.map((entry) =>
+    entry?.isStatic && instanceNames.has(entry.name)
+      ? { ...entry, name: `${className}.static ${entry.name.slice(className.length + 1)}` }
+      : entry,
+  );
+}
+
+/** `class` chunk plus its members. */
+function classEntries(classNode: Node, name: string, range: Node): (Found | undefined)[] {
+  const header: Found = { start: range, end: range, kind: "class", name };
+  return [header, ...classMembers(classNode, name, header)];
+}
+
+/** `const f = () => ...`, `const C = class {}` and exported constants, one per identifier declarator. */
+function variableEntries(declaration: Node, range: Node, exported: boolean): (Found | undefined)[] {
+  const found: (Found | undefined)[] = [];
+  for (const declarator of namedChildren(declaration)) {
+    const id = declarator.childForFieldName("name");
+    if (declarator.type !== "variable_declarator" || id?.type !== "identifier") continue;
+    const value = unwrapValue(declarator.childForFieldName("value"));
+    const spec = { start: range, end: range, name: id.text };
+    if (value && FUNCTION_TYPES.has(value.type))
+      found.push({ ...spec, kind: functionKind(value, id.text, declarator.childForFieldName("type")) });
+    else if (value && CLASS_TYPES.has(value.type)) found.push(...classEntries(value, id.text, range));
+    else if (exported) found.push({ ...spec, kind: "config" });
+  }
+  return found;
+}
+
+/** The called name of `describe(...)`, `it.only(...)` and similar; `describe`, `it` or `test`. */
+function testCall(statement: Node): { callee: string; title: string } | undefined {
+  const call = statement.type === "expression_statement" ? namedChildren(statement)[0] : undefined;
+  if (call?.type !== "call_expression") return undefined;
+  const fn = call.childForFieldName("function");
+  let callee = fn;
+  while (callee?.type === "member_expression" && TEST_MODIFIERS.has(callee.childForFieldName("property")?.text ?? "")) {
+    callee = callee.childForFieldName("object");
+  }
+  if (callee?.type !== "identifier" || !["describe", "it", "test"].includes(callee.text)) return undefined;
+  const first = call.childForFieldName("arguments")?.namedChildren.find((child) => child?.type !== "comment");
+  if (!first) return undefined;
+  const quoted = first.type === "string" || (first.type === "template_string" && !first.text.includes("${"));
+  return { callee: callee.text, title: quoted ? first.text.slice(1, -1) : first.text };
+}
+
+/**
+ * A `namespace`/`module` is a `section` container named by its path (`A.B`, or the string without quotes), and the
+ * declarations in its body are members named `Namespace.member`. Declarations without a body, and `declare global`,
+ * give nothing.
+ */
+function namespaceEntries(node: Node, range: Node): (Found | undefined)[] {
+  const body = node.childForFieldName("body");
+  const nameNode = node.childForFieldName("name");
+  if (!body || !nameNode) return [];
+  const name = nameNode.type === "string" ? nameNode.text.slice(1, -1) : nameNode.text;
+  const container: Found = { start: range, end: range, kind: "section", name };
+  const members: (Found | undefined)[] = [];
+  for (const statement of namedChildren(body)) {
+    const found = statement.hasError ? [] : statementEntries(statement);
+    for (const entry of found) {
+      if (entry) {
+        entry.parent ??= container;
+        entry.name = `${name}.${entry.name}`;
+      }
+    }
+    members.push(...(found.length > 0 ? found : [undefined]));
+  }
+  return [container, ...members];
+}
+
+/** The declarations of one top-level statement. Statements that declare nothing give an empty array. */
+function statementEntries(statement: Node): (Found | undefined)[] {
+  const exported = statement.type === "export_statement";
+  let inner: Node | null = exported
+    ? (statement.childForFieldName("declaration") ?? statement.childForFieldName("value"))
+    : statement;
+  if (inner?.type === "ambient_declaration") inner = namedChildren(inner)[0] ?? null;
+  const isDefault = exported && statement.childForFieldName("value") !== null;
+  const isDefaultExport = exported && statement.children.some((child) => child?.type === "default");
+  if (isDefault) inner = unwrapValue(inner);
+  if (!inner) return [];
+  const spec = { start: statement, end: statement };
+  const name = inner.childForFieldName("name")?.text ?? (isDefault ? "default" : undefined);
+
+  if (!isDefault && inner.type === "expression_statement" && namedChildren(inner)[0]?.type === "internal_module") {
+    inner = namedChildren(inner)[0] ?? inner;
+  }
+  if (inner.type === "internal_module" || inner.type === "module") return namespaceEntries(inner, statement);
+
+  if (CLASS_TYPES.has(inner.type)) return name ? classEntries(inner, name, statement) : [];
+  if (FUNCTION_TYPES.has(inner.type))
+    return name
+      ? [
+          {
+            ...spec,
+            kind: functionKind(inner, name, undefined, isDefaultExport),
+            name,
+            signature: inner.type === "function_signature",
+          },
+        ]
+      : [];
+  const kind = SIMPLE_KINDS[inner.type];
+  if (kind) return name ? [{ ...spec, kind, name }] : [];
+  if (inner.type === "lexical_declaration" || inner.type === "variable_declaration")
+    return variableEntries(inner, statement, exported);
+  if (isDefault && inner.type !== "identifier") return [{ ...spec, kind: "config", name: "default" }];
+  const test = exported ? undefined : testCall(statement);
+  if (test)
+    return [
+      test.callee === "describe"
+        ? { ...spec, kind: "section", name: `describe: ${test.title}` }
+        : { ...spec, kind: "function", name: `test: ${test.title}` },
+    ];
+  return [];
+}
+
+/**
+ * Merges runs of same-name signatures into the implementation that directly follows them (or into one chunk when no
+ * implementation follows). `undefined` entries break adjacency.
+ */
+function mergeOverloads(entries: (Found | undefined)[]): Found[] {
+  const found: Found[] = [];
+  let run: Found | undefined;
+  const flush = () => {
+    if (run) found.push({ ...run, signature: undefined });
+    run = undefined;
+  };
+  for (const entry of entries) {
+    if (!entry) flush();
+    else if (entry.signature) {
+      if (run?.name === entry.name && run.kind === entry.kind) run = { ...run, end: entry.end };
+      else {
+        flush();
+        run = entry;
+      }
+    } else if (run?.name === entry.name && run.kind === entry.kind) {
+      found.push({ ...entry, start: run.start });
+      run = undefined;
+    } else {
+      flush();
+      found.push(entry);
+    }
+  }
+  flush();
+  return found;
+}
+
+/**
+ * Extracts declaration-level chunks from one JavaScript or TypeScript source file. `content` is the exact source lines
+ * the declaration spans, and line numbers are 1-based and inclusive. The chunk language is the one given, by default the path's.
+ */
+export async function extractEcmascript(
+  path: string,
+  source: string,
+  language: Language = classifyFile(path).language === "javascript" ? "javascript" : "typescript",
+): Promise<AnalysisResult> {
+  const grammar = grammarFor(path, language);
+  const parser = await parserFor(grammar);
+  const tree = parser.parse(source);
+  if (!tree) throw new Error(`Tree-sitter could not parse ${path}`);
+  try {
+    const entries = namedChildren(tree.rootNode).flatMap((statement) => {
+      const found = statement.hasError ? [] : statementEntries(statement);
+      return found.length > 0 ? found : [undefined];
+    });
+    const found = mergeOverloads(entries);
+    const byFound = new Map<Found, Region>();
+    const regions = found.map((entry): Region => {
+      const region: Region = {
+        startLine: entry.start.startPosition.row + 1,
+        endLine: entry.end.endPosition.row + 1,
+        kind: entry.kind,
+        name: entry.name,
+        parent: entry.parent ? byFound.get(entry.parent) : undefined,
+      };
+      byFound.set(entry, region);
+      return region;
+    });
+    const references = extractEcmascriptReferences(tree.rootNode);
+    return assembleChunks(path, source, language, regions, tree.rootNode.hasError, "declarations", references);
+  } finally {
+    tree.delete();
+  }
+}
+
+export const ecmascriptAnalyzer: Analyzer = {
+  languages: ["typescript", "javascript"],
+  analyze: (file, language) => extractEcmascript(file.path, file.source, language),
+};

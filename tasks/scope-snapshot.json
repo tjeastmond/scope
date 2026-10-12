@@ -1,0 +1,114 @@
+[
+  {
+    "id": "max-candidates-flag",
+    "split": "tuning",
+    "task": "Add a --max-candidates flag that limits how many candidates are sent to Jev",
+    "required": ["src/main.ts::parseCli", "src/config.ts::MAX_CANDIDATES"],
+    "useful": [
+      "src/main.ts::CliOptions",
+      "src/main.ts::run",
+      "src/scope.ts::ScopeOptions",
+      "src/scope.ts::prepareCandidates",
+      "src/scope.ts::runScope",
+      "src/retrieval/candidates.ts::selectCandidates",
+      "src/retrieval/config.ts::RetrievalConfig"
+    ],
+    "irrelevant": [
+      "src/output/markdown.ts::fenceFor",
+      "src/graph/tests.ts::isTestFile",
+      "src/analyzers/sql.ts::lex",
+      "src/repository/redact.ts::redactSecrets",
+      "src/jev/errors.ts::JevAuthError"
+    ]
+  },
+  {
+    "id": "redact-more-secrets",
+    "split": "tuning",
+    "task": "Tokens that look like Slack or npm tokens should be masked before any code leaves the machine.",
+    "required": ["src/repository/redact.ts::redactSecrets"],
+    "useful": ["src/jev/provider.ts::judgedCode", "src/repository/files.ts::nameSkipReason"],
+    "irrelevant": [
+      "src/analyzers/sql.ts::lex",
+      "src/graph/resolve.ts::resolvePython",
+      "src/retrieval/terms.ts::stem",
+      "src/output/json.ts::toJsonChunk",
+      "src/context/regions.ts::mergeRegions"
+    ]
+  },
+  {
+    "id": "min-relevance-flag",
+    "split": "tuning",
+    "task": "Let people raise the relevance cutoff from the command line so only the strongest matches are kept.",
+    "required": ["src/config.ts::MIN_RELEVANCE", "src/context/select.ts::selectByRelevance", "src/main.ts::parseCli"],
+    "useful": [
+      "src/main.ts::CliOptions",
+      "src/scope.ts::runScope",
+      "src/scope.ts::ScopeOptions",
+      "src/jev/validate.ts::validateRelevance"
+    ],
+    "irrelevant": [
+      "src/analyzers/markdown.ts::findHeadings",
+      "src/graph/imports.ts::edgeFor",
+      "src/output/file.ts::prepareOutput",
+      "src/repository/language.ts::classifyFile",
+      "src/retrieval/indexes.ts::bm25"
+    ]
+  },
+  {
+    "id": "jev-timeout-message",
+    "split": "tuning",
+    "task": "When Jev takes too long, the error should say how long we waited and mention the deadline.",
+    "required": ["src/jev/errors.ts::JevTimeoutError", "src/jev/provider.ts::JevDecisionProvider.decide"],
+    "useful": [
+      "src/config.ts::JEV_DEADLINE_MS",
+      "src/config.ts::JEV_ATTEMPT_TIMEOUT_MS",
+      "src/main.ts::describeError",
+      "src/jev/provider.ts::failure",
+      "src/exit-codes.ts::exitCodeFor"
+    ],
+    "irrelevant": [
+      "src/analyzers/style.ts::scssRegions",
+      "src/graph/tests.ts::testEdges",
+      "src/output/markdown.ts::renderMarkdown",
+      "src/retrieval/score.ts::pathSignals",
+      "src/analyzers/python.ts::collect"
+    ]
+  },
+  {
+    "id": "skip-generated-folders",
+    "split": "heldout",
+    "task": "Don't look inside vendored or generated folders such as vendor/ and generated/ when scanning a repository.",
+    "required": ["src/repository/files.ts::scanRepository"],
+    "useful": [
+      "src/repository/files.ts::isIgnored",
+      "src/repository/files.ts::nameSkipReason",
+      "src/repository/files.ts::SkipReason",
+      "src/repository/files.ts::Rules"
+    ],
+    "irrelevant": [
+      "src/output/json.ts::renderJson",
+      "src/retrieval/rank.ts::rankCandidates",
+      "src/jev/validate.ts::validateJudgments",
+      "src/analyzers/text.ts::windowsOver",
+      "src/context/coherence.ts::requiredSupports"
+    ]
+  },
+  {
+    "id": "score-in-markdown",
+    "split": "heldout",
+    "task": "In the markdown output, show each region's relevance next to its path.",
+    "required": ["src/output/markdown.ts::renderRegion", "src/output/markdown.ts::renderMarkdown"],
+    "useful": [
+      "src/context/regions.ts::toScopeRegion",
+      "src/output/report.ts::scoreLabel",
+      "src/types.ts::ScopeRegion"
+    ],
+    "irrelevant": [
+      "src/output/text.ts::renderRegion",
+      "src/output/text.ts::byLocation",
+      "src/graph/imports.ts::importEdges",
+      "src/analyzers/sql.ts::classify",
+      "src/repository/root.ts::resolveRepository"
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+[worker]
+database_path = "var/feedflow.db"
+user_agent = "feedflow/0.4 (+https://example.org/bot)"
+poll_interval_seconds = 900
+
+[http]
+timeout_seconds = 10
+max_retries = 3
+
+[items]
+max_summary_chars = 400
+keep_days = 90
