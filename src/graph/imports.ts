@@ -4,13 +4,26 @@ import type { GraphEdge, ImportResolver } from "./types.ts";
 const IDENTIFIER = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 const DOTS_ONLY = /^\.+$/;
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const WORD = /[\p{L}\p{N}_$]+/gu;
 
-/** Whole-word, textual: shadowing and comments are not considered. */
-function mentions(content: string, name: string): boolean {
-  return new RegExp(`(?<![\\p{L}\\p{N}_$])${escapeRegExp(name)}(?![\\p{L}\\p{N}_$])`, "u").test(content);
+/** Whether a chunk mentions a name as a whole word. Whole-word, textual: shadowing and comments are not considered. */
+type Mentions = (chunk: CodeChunk, name: string) => boolean;
+
+/**
+ * A `Mentions` that reads each chunk's maximal runs of identifier characters once, rather than once per reference.
+ * `name` is an identifier, so it occurs as a whole word exactly when it equals one of those runs. Create one per use so
+ * the memo never outlives the chunks it was built from.
+ */
+function mentionsMemo(): Mentions {
+  const wordsOf = new Map<CodeChunk, ReadonlySet<string>>();
+  return (chunk, name) => {
+    let words = wordsOf.get(chunk);
+    if (!words) {
+      words = new Set(chunk.content.match(WORD));
+      wordsOf.set(chunk, words);
+    }
+    return words.has(name);
+  };
 }
 
 /** A name that can be looked up in code: an identifier other than `default` (not `*`, a path or dynamic source). */
@@ -32,10 +45,10 @@ function exportedName(ref: Reference): string | undefined {
  * every chunk of the file, so it belongs to the chunks that mention the imported name; one without a usable name, or
  * that no chunk mentions (an unused import), is anchored on the first chunk of the file (see `importEdges`).
  */
-function owns(chunk: CodeChunk, first: CodeChunk, ref: Reference): boolean {
+function owns(chunk: CodeChunk, first: CodeChunk, ref: Reference, mentions: Mentions): boolean {
   if (ref.from.line >= chunk.startLine && ref.from.line <= chunk.endLine) return true;
   const binding = bindingName(ref);
-  return binding ? mentions(chunk.content, binding) : chunk === first;
+  return binding ? mentions(chunk, binding) : chunk === first;
 }
 
 const refKey = (ref: Reference) => `${ref.kind}|${ref.from.line}|${ref.name}|${ref.specifier ?? ""}`;
@@ -90,10 +103,11 @@ export function importEdges(index: ImportIndex, resolve: ImportResolver): GraphE
   const edges: GraphEdge[] = [];
   for (const chunks of index.byFile.values()) {
     const first = chunks[0]!;
-    const claimed = new Set(chunks.flatMap((c) => c.references.filter((r) => owns(c, first, r)).map(refKey)));
+    const mentions = mentionsMemo();
+    const claimed = new Set(chunks.flatMap((c) => c.references.filter((r) => owns(c, first, r, mentions)).map(refKey)));
     for (const chunk of chunks) {
       for (const ref of chunk.references) {
-        if (owns(chunk, first, ref) || (chunk === first && !claimed.has(refKey(ref)))) {
+        if (owns(chunk, first, ref, mentions) || (chunk === first && !claimed.has(refKey(ref)))) {
           edges.push(edgeFor(chunk, ref, index, resolve));
         }
       }

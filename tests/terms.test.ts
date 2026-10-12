@@ -2,6 +2,41 @@ import { describe, expect, test } from "bun:test";
 import { splitIdentifier, stem, tokenizeText } from "../src/retrieval/terms.ts";
 
 describe("splitIdentifier", () => {
+  test("splits each letter/digit run the same way wherever it sits in a longer text", () => {
+    expect(splitIdentifier("parseHTTPResponse_v2.json/fooBar İstanbul cafe\u0301s")).toEqual([
+      "parse",
+      "http",
+      "response",
+      "v",
+      "2",
+      "json",
+      "foo",
+      "bar",
+      "i",
+      "stanbul",
+      "cafe",
+      "s",
+    ]);
+  });
+
+  test("lowercases capital sigma with its whole-text context, across separators and combining marks", () => {
+    expect(splitIdentifier("ΑΣ'Α")).toEqual(["ασ", "α"]);
+    expect(splitIdentifier("Α\u0301Σ")).toEqual(["α", "ς"]);
+    expect(splitIdentifier("ΟΔΟΣ_ΑΣ")).toEqual(["οδος", "ας"]);
+  });
+
+  test("splits a run with more words than a call accepts arguments", () => {
+    const words = splitIdentifier("a1".repeat(400_000));
+    expect(words.length).toBe(800_000);
+    expect(words.slice(0, 4)).toEqual(["a", "1", "a", "1"]);
+  });
+
+  test("returns a fresh array, so a caller's changes never leak into later calls", () => {
+    const words = splitIdentifier("fooBar");
+    words.push("leaked");
+    expect(splitIdentifier("fooBar")).toEqual(["foo", "bar"]);
+  });
+
   const cases: [string, string[]][] = [
     ["listByStatus", ["list", "by", "status"]],
     ["InvoiceService", ["invoice", "service"]],
