@@ -1,11 +1,10 @@
 // Candidate recall: the share of each task's required labels that retrieval puts in the shortlist before Jev sees it,
 // so it bounds what Jev can select. Usage: bun scripts/recall.ts [fixture ...] (default: every tasks/*.json).
 
-import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { selectCandidates } from "../src/retrieval/candidates.ts";
 import { loadChunks } from "../src/scope.ts";
-import { FIXTURES, loadLabeledTasks, resolve, TASKS, type LabeledTask } from "./eval/labels.ts";
+import { FIXTURES, listTaskFixtures, loadLabeledTasks, resolve, type LabeledTask } from "./eval/labels.ts";
 
 interface TaskRecall {
   fixture: string;
@@ -33,13 +32,7 @@ async function measure(fixture: string): Promise<TaskRecall[]> {
   return results;
 }
 
-const fixtures =
-  process.argv.length > 2
-    ? process.argv.slice(2)
-    : (await readdir(TASKS))
-        .filter((f) => f.endsWith(".json") && f !== "fixtures.lock.json")
-        .map((f) => f.slice(0, -5))
-        .sort();
+const fixtures = process.argv.length > 2 ? process.argv.slice(2) : await listTaskFixtures();
 const all = (await Promise.all(fixtures.map(measure))).flat();
 
 for (const { fixture, task, found, missed } of all) {
