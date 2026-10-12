@@ -26,6 +26,10 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
+      # The subprocess tests run the built CLI on the runner's Node, which must be 24+.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - run: bun install --frozen-lockfile
       - run: bun run validate
 
