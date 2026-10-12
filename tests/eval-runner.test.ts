@@ -5,7 +5,13 @@ import { join } from "node:path";
 import { loadChunks } from "../src/scope.ts";
 import { EvalError } from "../scripts/eval/freeze.ts";
 import { FIXTURES } from "../scripts/eval/labels.ts";
-import { readRecording, recordingProvider, replayProvider, type RecordedDecision } from "../scripts/eval/recording.ts";
+import {
+  inputFingerprint,
+  readRecording,
+  recordingProvider,
+  replayProvider,
+  type RecordedDecision,
+} from "../scripts/eval/recording.ts";
 import { renderReport } from "../scripts/eval/report.ts";
 import { LEXICAL_TOP_K, lexicalSelect, runEval, validateOptions, type EvalOptions } from "../scripts/eval/runner.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
@@ -110,6 +116,14 @@ describe("record and replay", () => {
     await expect(replay.decide({ task: "remove retries", candidates })).rejects.toThrow(EvalError);
     const edited = [{ ...candidates[0]!, content: `${candidates[0]!.content}\n// edited` }, ...candidates.slice(1)];
     await expect(replay.decide({ task: "add retries", candidates: edited })).rejects.toThrow(EvalError);
+  });
+
+  test("the fingerprint changes with what Jev would be sent, such as the truncation limit", async () => {
+    const { chunks } = await loadChunks(join(FIXTURES, "webhook-service"));
+    const request = { task: "add retries", candidates: chunks.slice(0, 3) };
+    expect(inputFingerprint(request)).toBe(inputFingerprint(request));
+    expect(inputFingerprint(request, { candidateMaxChars: 10 })).not.toBe(inputFingerprint(request));
+    expect(inputFingerprint(request, { batchMaxQuestions: 1 })).not.toBe(inputFingerprint(request));
   });
 });
 

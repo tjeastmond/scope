@@ -3,14 +3,14 @@
 
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { JEV_QUESTION_VERSION } from "../../src/config.ts";
+import { planJevRequests, type JevRequestLimits } from "../../src/jev/provider.ts";
 import type { DecisionProvider, DecisionRequest, DecisionResult } from "../../src/types.ts";
 import { EvalError } from "./freeze.ts";
 
 export interface RecordedDecision {
   /** Candidate chunk ids in the order the provider received them. */
   candidateIds: string[];
-  /** {@link inputFingerprint} of the request: a replay with any other task text, candidate code or question fails. */
+  /** {@link inputFingerprint} of the request: a replay whose Jev request bodies would differ in any way fails. */
   fingerprint: string;
   /** Relevance per candidate. The provider's raw answers are not kept. */
   judgments: { chunkId: string; relevance: number }[];
@@ -31,12 +31,17 @@ export interface Recording {
 }
 
 /**
- * sha256 over what Jev judged: the question version, the task text and each candidate's id and content, in order.
- * Labels are not part of it, so relabeling and rescoring still replay.
+ * sha256 over the exact request bodies Jev is sent for this task and these candidates: task text, candidate metadata and
+ * truncated code, question wording, batching and model. Labels are not part of it, so relabeling and rescoring still
+ * replay.
  */
-export function inputFingerprint({ task, candidates }: Pick<DecisionRequest, "task" | "candidates">): string {
-  const input = [JEV_QUESTION_VERSION, task, candidates.map((chunk) => [chunk.id, chunk.content])];
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+export function inputFingerprint(
+  { task, candidates }: Pick<DecisionRequest, "task" | "candidates">,
+  limits?: JevRequestLimits,
+): string {
+  return createHash("sha256")
+    .update(JSON.stringify(planJevRequests(task, candidates, limits)))
+    .digest("hex");
 }
 
 /** Wraps a provider and stores its decision for `taskId` in `into`. A failing provider records nothing. */
@@ -83,7 +88,7 @@ export function replayProvider(recording: Recording, taskId: string): DecisionPr
       }
       if (inputFingerprint(request) !== recorded.fingerprint)
         throw new EvalError(
-          `The task text, candidate code or Jev question for task ${taskId} changed since it was recorded; record again.`,
+          `The Jev requests for task ${taskId} changed since it was recorded (task text, candidate code, questions, batching or model); record again.`,
         );
       return {
         judgments: recorded.judgments.map(({ chunkId, relevance }) => ({ chunkId, relevance })),
