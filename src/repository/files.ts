@@ -143,7 +143,10 @@ const isInside = (root: string, path: string) => {
   return rel !== ".." && !rel.startsWith(`..${sep}`);
 };
 
-/** Reads a `.gitignore` or `.scopeignore`, refusing one over the size limit: dropping its rules would silently un-ignore files. */
+/**
+ * Reads a `.gitignore` or `.scopeignore`, refusing one over the size limit: dropping its rules would silently un-ignore
+ * files.
+ */
 async function readIgnoreFile(path: string, maxBytes: number): Promise<string> {
   if ((await stat(path)).size > maxBytes)
     throw new Error(`${path} is larger than ${maxBytes} bytes; refusing to scan.`);
@@ -151,12 +154,12 @@ async function readIgnoreFile(path: string, maxBytes: number): Promise<string> {
 }
 
 /**
- * Walks the repository and decides which files are eligible to be read and sent. Dependency and build directories
- * are never entered, `.gitignore` rules apply on the way down, then a root `.scopeignore` subtracts further (a negation never re-includes secrets or the
- * built-in exclusions), and every excluded path is reported with a reason. Entries are visited in sorted order, so a
- * limit truncates the same way on every run. Symlinks are never followed: the target of an in-repository link is
- * scanned under its own path, and following the alias would let it dodge the secret, `.gitignore` and directory
- * exclusions that apply to the target. Only binary sniffing reads file content.
+ * Walks the repository and decides which files are eligible to be read and sent. Dependency and build directories are
+ * never entered, `.gitignore` rules apply on the way down, then a root `.scopeignore` subtracts further (a negation in
+ * either never re-includes secrets or the built-in exclusions), and every excluded path is reported with a reason.
+ * Entries are visited in sorted order, so a limit truncates the same way on every run. Symlinks are never followed: the
+ * target of an in-repository link is scanned under its own path, and following the alias would let it dodge the secret,
+ * `.gitignore` and directory exclusions that apply to the target. Only binary sniffing reads file content.
  */
 export async function scanRepository(
   root: string,
