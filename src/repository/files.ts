@@ -7,6 +7,7 @@ import { MAX_FILE_BYTES, MAX_SCAN_BYTES, MAX_SCAN_DEPTH, MAX_SCAN_FILES } from "
 /** Why a path was left out of the scan. Add members here as new eligibility rules arrive. */
 export type SkipReason =
   | "gitignored"
+  | "scopeignore"
   | "secret"
   | "binary"
   | "unreadable"
@@ -142,7 +143,7 @@ const isInside = (root: string, path: string) => {
   return rel !== ".." && !rel.startsWith(`..${sep}`);
 };
 
-/** Reads a `.gitignore`, refusing one over the size limit: dropping its rules would silently un-ignore files. */
+/** Reads a `.gitignore` or `.scopeignore`, refusing one over the size limit: dropping its rules would silently un-ignore files. */
 async function readIgnoreFile(path: string, maxBytes: number): Promise<string> {
   if ((await stat(path)).size > maxBytes)
     throw new Error(`${path} is larger than ${maxBytes} bytes; refusing to scan.`);
@@ -151,7 +152,7 @@ async function readIgnoreFile(path: string, maxBytes: number): Promise<string> {
 
 /**
  * Walks the repository and decides which files are eligible to be read and sent. Dependency and build directories
- * are never entered, `.gitignore` rules apply on the way down (a negation never re-includes secrets or the
+ * are never entered, `.gitignore` rules apply on the way down, then a root `.scopeignore` subtracts further (a negation never re-includes secrets or the
  * built-in exclusions), and every excluded path is reported with a reason. Entries are visited in sorted order, so a
  * limit truncates the same way on every run. Symlinks are never followed: the target of an in-repository link is
  * scanned under its own path, and following the alias would let it dodge the secret, `.gitignore` and directory
@@ -174,6 +175,9 @@ export async function scanRepository(
     stopped = true;
     warnings.push(message);
   };
+  // The root `.scopeignore` can only subtract: it is consulted after every other exclusion, so its negations cannot
+  // re-include a secret, a `.gitignore`d path or a built-in directory.
+  let scopeignore: Ignore | undefined;
   const walk = async (directory: string, inherited: readonly Rules[]) => {
     const skipDirectory = (reason: SkipReason) => skipped.push({ path: `${directory}/`, reason });
     const entries = await readdir(join(root, directory), { withFileTypes: true }).catch(() => undefined);
@@ -182,6 +186,9 @@ export async function scanRepository(
     const gitignore = entries.some((entry) => entry.name === ".gitignore" && entry.isFile())
       ? await readIgnoreFile(join(root, directory, ".gitignore"), limits.maxFileBytes)
       : "";
+    if (!directory && entries.some((entry) => entry.name === ".scopeignore" && entry.isFile())) {
+      scopeignore = ignore().add(await readIgnoreFile(join(root, ".scopeignore"), limits.maxFileBytes));
+    }
     const rules = gitignore ? [...inherited, { base: directory, matcher: ignore().add(gitignore) }] : inherited;
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const entry of entries) {
@@ -209,6 +216,7 @@ export async function scanRepository(
         if (SKIPPED_DIRECTORIES.has(entry.name)) skip("dependency-or-build-directory");
         else if (secrets.ignores(path)) skip("secret");
         else if (isIgnored(rules, `${path}/`)) skip("gitignored");
+        else if (scopeignore?.ignores(`${path}/`)) skip("scopeignore");
         else if (path.split("/").length > limits.maxDepth) tooDeep ??= path;
         else await walk(path, rules);
       } else if (entry.name === ".git") {
@@ -218,6 +226,7 @@ export async function scanRepository(
         const reason = nameSkipReason(entry.name, path);
         if (reason) skip(reason);
         else if (isIgnored(rules, path)) skip("gitignored");
+        else if (scopeignore?.ignores(path)) skip("scopeignore");
         else {
           const size = (await stat(join(root, path)).catch(() => undefined))?.size;
           const unusable =
