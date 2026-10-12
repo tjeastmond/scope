@@ -11,7 +11,12 @@ export interface RetrievalConfig {
    * defaults sum to 1.0, which keeps a total score in [0, 1], but only finiteness and non-negativity are enforced.
    */
   weights: { symbol: number; lexical: number; path: number; dependency: number; test: number; proximity: number };
-  /** Maximum candidates passed on to Jev (plan target: 20-30). */
+  /**
+   * Multiplier in (0, 1] on the lexical signals (symbol, lexical, path) of test-file chunks when the task does not
+   * mention tests, so tests do not crowd the source out of the shortlist. 1 turns the demotion off.
+   */
+  testDemotion: number;
+  /** Maximum candidates passed on to Jev (plan target 20-30, raised to 40 after measuring candidate recall, issue #196). */
   shortlistSize: number;
   /** When the best candidate's total score is below this (in [0, 1]), the shortlist is called weak in a warning. */
   weakShortlistTotal: number;
@@ -29,9 +34,10 @@ export interface RetrievalConfig {
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export const DEFAULT_RETRIEVAL_CONFIG: Readonly<RetrievalConfig> = Object.freeze({
-  version: "retrieval-v3",
+  version: "retrieval-v4",
   weights: Object.freeze({ symbol: 0.3, lexical: 0.2, path: 0.15, dependency: 0.2, test: 0.1, proximity: 0.05 }),
-  shortlistSize: 30,
+  testDemotion: 0.2,
+  shortlistSize: 40,
   weakShortlistTotal: 0.1,
   expansion: Object.freeze({ seedCount: 5, maxNeighborsPerSeed: 4, maxExpanded: 10 }),
 });
@@ -51,6 +57,7 @@ export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> =
   const config: RetrievalConfig = {
     version: overrides.version ?? base.version,
     weights: { ...base.weights, ...overrides.weights },
+    testDemotion: overrides.testDemotion ?? base.testDemotion,
     shortlistSize: overrides.shortlistSize ?? base.shortlistSize,
     weakShortlistTotal: overrides.weakShortlistTotal ?? base.weakShortlistTotal,
     expansion: { ...base.expansion, ...overrides.expansion },
@@ -66,6 +73,9 @@ export function resolveRetrievalConfig(overrides: DeepPartial<RetrievalConfig> =
   }
   if (!Number.isFinite(config.weakShortlistTotal) || config.weakShortlistTotal < 0 || config.weakShortlistTotal > 1) {
     throw new RetrievalConfigError("weakShortlistTotal", `must be a number in [0, 1]: ${config.weakShortlistTotal}`);
+  }
+  if (!Number.isFinite(config.testDemotion) || config.testDemotion <= 0 || config.testDemotion > 1) {
+    throw new RetrievalConfigError("testDemotion", `must be a number in (0, 1]: ${config.testDemotion}`);
   }
   requirePositiveInteger("shortlistSize", config.shortlistSize);
   for (const [name, value] of Object.entries(config.expansion)) requirePositiveInteger(`expansion.${name}`, value);

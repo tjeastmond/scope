@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { DEFAULT_RETRIEVAL_CONFIG, resolveRetrievalConfig } from "../src/retrieval/config.ts";
 import { generateCandidates, dedupeCandidates } from "../src/retrieval/generate.ts";
 import { buildIndexes } from "../src/retrieval/indexes.ts";
 import type { Candidate } from "../src/retrieval/rank.ts";
@@ -99,5 +100,44 @@ describe("generateCandidates is deterministic", async () => {
         }
       }
     }
+  });
+});
+
+describe("generateCandidates test demotion", () => {
+  const src = {
+    ...chunk("src/retryDelay.ts", "retryDelay", 1, 3),
+    content: "export function retryDelay() { return 1; }",
+  };
+  const spec = { ...chunk("tests/retry.test.ts", "retryDelay", 1, 3), content: "export function retryDelay() {}" };
+  const symbolOf = (task: string, file: string) =>
+    generateCandidates(task, [src, spec]).find((c) => c.chunkId.startsWith(file))?.signals.symbol;
+
+  test("test chunks are demoted when the task does not mention tests", () => {
+    expect(symbolOf("Change `retryDelay`", "src/")).toBe(1);
+    expect(symbolOf("Change `retryDelay`", "tests/")).toBeCloseTo(DEFAULT_RETRIEVAL_CONFIG.testDemotion, 10);
+  });
+
+  test("and left alone when it does", () => {
+    expect(symbolOf("Fix the test for `retryDelay`", "tests/")).toBe(1);
+  });
+
+  test("the graph signals of a test chunk that depends on the best match are demoted the same way", () => {
+    const linked = {
+      ...spec,
+      references: [
+        {
+          kind: "call" as const,
+          from: { file: spec.file, line: 2 },
+          name: "retryDelay",
+          targetChunkId: src.id,
+          evidence: "exact" as const,
+        },
+      ],
+    };
+    const config = resolveRetrievalConfig({ expansion: { seedCount: 1 } });
+    const dependencyOf = (task: string) =>
+      generateCandidates(task, [src, linked], config).find((c) => c.chunkId === linked.id)?.signals.dependency;
+    expect(dependencyOf("Change `retryDelay`")).toBeCloseTo(config.testDemotion, 10);
+    expect(dependencyOf("Mock `retryDelay`")).toBe(1);
   });
 });

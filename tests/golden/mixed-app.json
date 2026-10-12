@@ -245,10 +245,28 @@
   ],
   "skipped": [
     {
+      "chunkId": "82e55bb97599",
+      "file": "api/src/broken/report.ts",
+      "startLine": 4,
+      "endLine": 6,
+      "name": "summarize",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
       "chunkId": "5cc408734908",
       "file": "api/src/broken/report.ts",
       "startLine": 8,
       "endLine": 10,
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
+      "chunkId": "881351bf28c6",
+      "file": "api/src/models/invoice.ts",
+      "startLine": 4,
+      "endLine": 8,
+      "name": "Billing.InvoiceInput",
       "relevance": 0.1,
       "score": 0.1
     },
@@ -280,20 +298,20 @@
       "score": 0.1
     },
     {
-      "chunkId": "3ee66ff74cae",
-      "file": "api/tests/invoiceService.test.ts",
-      "startLine": 5,
-      "endLine": 17,
-      "name": "describe: InvoiceService",
+      "chunkId": "9e336173d2c3",
+      "file": "api/src/services/invoiceService.ts",
+      "startLine": 18,
+      "endLine": 23,
+      "name": "InvoiceService.markPaid",
       "relevance": 0.1,
       "score": 0.1
     },
     {
-      "chunkId": "ccdf3c712735",
-      "file": "api/tests/invoiceService.test.ts",
-      "startLine": 19,
-      "endLine": 21,
-      "name": "test: validate rejects a missing customer",
+      "chunkId": "55aabea59ceb",
+      "file": "api/src/util/csv.ts",
+      "startLine": 8,
+      "endLine": 14,
+      "name": "toCsv",
       "relevance": 0.1,
       "score": 0.1
     },
@@ -312,6 +330,15 @@
       "startLine": 1,
       "endLine": 5,
       "name": "select from invoices",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
+      "chunkId": "d56d342b4921",
+      "file": "db/queries/invoices.sql",
+      "startLine": 7,
+      "endLine": 8,
+      "name": "update invoices",
       "relevance": 0.1,
       "score": 0.1
     },
@@ -352,6 +379,15 @@
       "score": 0.1
     },
     {
+      "chunkId": "c2435e8575fd",
+      "file": "docs/api.md",
+      "startLine": 11,
+      "endLine": 13,
+      "name": "HTTP API > GET /health",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
       "chunkId": "88803b81dbf5",
       "file": "docs/architecture.md",
       "startLine": 1,
@@ -379,11 +415,38 @@
       "score": 0.1
     },
     {
+      "chunkId": "5aff94021b5e",
+      "file": "README.md",
+      "startLine": 1,
+      "endLine": 12,
+      "name": "Ledgerly",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
+      "chunkId": "2685e358fb57",
+      "file": "README.md",
+      "startLine": 6,
+      "endLine": 12,
+      "name": "Ledgerly > Layout",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
       "chunkId": "3fced31f4f33",
       "file": "web/src/App.tsx",
       "startLine": 5,
       "endLine": 14,
       "name": "App",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
+      "chunkId": "c0c49b5f60f8",
+      "file": "web/src/components/Greeting.tsx",
+      "startLine": 13,
+      "endLine": 19,
+      "name": "Greeting",
       "relevance": 0.1,
       "score": 0.1
     },
@@ -406,11 +469,28 @@
       "score": 0.1
     },
     {
+      "chunkId": "8519d269978e",
+      "file": "web/src/main.tsx",
+      "startLine": 1,
+      "endLine": 4,
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
       "chunkId": "b04233fb7927",
       "file": "web/src/styles/invoice.module.css",
       "startLine": 1,
       "endLine": 5,
       "name": ".list",
+      "relevance": 0.1,
+      "score": 0.1
+    },
+    {
+      "chunkId": "452806c6d24c",
+      "file": "web/src/styles/invoice.module.css",
+      "startLine": 13,
+      "endLine": 16,
+      "name": ".overdue",
       "relevance": 0.1,
       "score": 0.1
     },
@@ -424,7 +504,7 @@
       "score": 0.1
     }
   ],
-  "retrievalConfigVersion": "retrieval-v3",
+  "retrievalConfigVersion": "retrieval-v4",
   "jevQuestionVersion": "relevance-v1",
   "jev": {
     "requestCount": 1,

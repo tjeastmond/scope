@@ -98,9 +98,29 @@ describe("extractTaskTerms variants", () => {
   });
 });
 
+describe("extractTaskTerms related words", () => {
+  test.each(["Add a --max-items flag", "Let people set it from the command line", "cli"])(
+    "CLI wording in %p brings in the argument-parsing vocabulary",
+    (task) => {
+      expect(extractTaskTerms(task).related).toEqual(expect.arrayContaining(["arg", "argv", "option"]));
+    },
+  );
+
+  test("masking wording brings in the redaction vocabulary", () => {
+    expect(extractTaskTerms("Secrets should be masked in the output").related).toEqual(["redact"]);
+  });
+
+  test("a task without such wording has none, and a related word the task already uses is not repeated", () => {
+    expect(extractTaskTerms("Show the due date in the invoice list").related).toEqual([]);
+    const { related } = extractTaskTerms("Add an option parser flag");
+    expect(related).not.toContain("option");
+    expect(related).toContain("argv");
+  });
+});
+
 describe("extractTaskTerms general", () => {
   test.each(["", "   ", "\n\t "])("empty or whitespace-only task %p yields empty arrays", (task) => {
-    expect(extractTaskTerms(task)).toEqual({ exact: [], words: [], variants: [] });
+    expect(extractTaskTerms(task)).toEqual({ exact: [], words: [], variants: [], related: [] });
   });
 
   test("is deterministic", () => {

@@ -7,7 +7,7 @@ import type { CodeChunk } from "../types.ts";
 import { DEFAULT_RETRIEVAL_CONFIG, type RetrievalConfig } from "./config.ts";
 import { buildIndexes, type RetrievalIndexes } from "./indexes.ts";
 import { rankCandidates, type Candidate } from "./rank.ts";
-import { scoreChunks } from "./score.ts";
+import { mentionsTests, scoreChunks } from "./score.ts";
 import { extractTaskTerms } from "./terms.ts";
 
 /**
@@ -38,6 +38,8 @@ export function generateCandidates(
   config: RetrievalConfig = DEFAULT_RETRIEVAL_CONFIG,
 ): Candidate[] {
   const indexes = buildIndexes(chunks);
-  const lexical = scoreChunks(extractTaskTerms(task), indexes, config.weights);
-  return dedupeCandidates(rankCandidates(lexical, buildGraph(chunks), indexes, config), indexes);
+  const terms = extractTaskTerms(task);
+  const testDemotion = mentionsTests(terms) ? 1 : config.testDemotion;
+  const lexical = scoreChunks(terms, indexes, config.weights, testDemotion);
+  return dedupeCandidates(rankCandidates(lexical, buildGraph(chunks), indexes, config, testDemotion), indexes);
 }

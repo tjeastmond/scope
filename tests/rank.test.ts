@@ -40,8 +40,13 @@ const ONE_SEED = resolveRetrievalConfig({ expansion: { seedCount: 1 } });
 /** A direct match scored only by the symbol signal. */
 const direct = (c: CodeChunk, symbol = 1): ChunkScore => weighSignals(c.id, { ...ZERO, symbol }, CONFIG.weights);
 
-function rank(chunks: CodeChunk[], seeds: ChunkScore[], config: RetrievalConfig = CONFIG): Candidate[] {
-  return rankCandidates(seeds, buildGraph(chunks), buildIndexes(chunks), config);
+function rank(
+  chunks: CodeChunk[],
+  seeds: ChunkScore[],
+  config: RetrievalConfig = CONFIG,
+  testDemotion?: number,
+): Candidate[] {
+  return rankCandidates(seeds, buildGraph(chunks), buildIndexes(chunks), config, testDemotion);
 }
 const byId = (list: Candidate[]) => new Map(list.map((c) => [c.chunkId, c]));
 const expandedIds = (list: Candidate[]) => list.filter((c) => c.origin !== "direct").map((c) => c.chunkId);
@@ -122,6 +127,15 @@ describe("rankCandidates on synthetic repositories", () => {
   const testChunk = chunk("api/service.test.ts", "checksRunService");
   const unrelated = chunk("zzz/other.ts", "other");
   const chunks = [source, dep, weak, testChunk, unrelated];
+
+  test("a linked test chunk's graph signals are scaled by the test demotion, a source chunk's are not", () => {
+    const plain = byId(rank(chunks, [direct(source)])).get(testChunk.id)!;
+    const demoted = byId(rank(chunks, [direct(source)], CONFIG, 0.2));
+    expect(plain.signals).toMatchObject({ test: 1, proximity: 1 });
+    expect(demoted.get(testChunk.id)!.signals).toMatchObject({ test: 0.2, proximity: 0.2 });
+    expect(demoted.get(testChunk.id)!.total).toBeCloseTo(plain.total * 0.2, 10);
+    expect(demoted.get(dep.id)!.signals.dependency).toBe(1);
+  });
 
   test("seeds are direct with dependency 0; neighbours are expanded from the seed over exact or heuristic edges", () => {
     const map = byId(rank(chunks, [direct(source)]));
