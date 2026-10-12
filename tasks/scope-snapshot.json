@@ -3,13 +3,16 @@
     "id": "max-candidates-flag",
     "split": "tuning",
     "task": "Add a --max-candidates flag that limits how many candidates are sent to Jev",
-    "required": ["src/main.ts::parseCli", "src/config.ts::MAX_CANDIDATES"],
-    "useful": [
-      "src/main.ts::CliOptions",
+    "required": [
+      "src/main.ts::parseCli",
       "src/main.ts::run",
-      "src/scope.ts::ScopeOptions",
-      "src/scope.ts::prepareCandidates",
       "src/scope.ts::runScope",
+      "src/scope.ts::prepareCandidates"
+    ],
+    "useful": [
+      "src/config.ts::MAX_CANDIDATES",
+      "src/main.ts::CliOptions",
+      "src/scope.ts::ScopeOptions",
       "src/retrieval/candidates.ts::selectCandidates",
       "src/retrieval/config.ts::RetrievalConfig"
     ],
@@ -39,10 +42,15 @@
     "id": "min-relevance-flag",
     "split": "tuning",
     "task": "Let people raise the relevance cutoff from the command line so only the strongest matches are kept.",
-    "required": ["src/config.ts::MIN_RELEVANCE", "src/context/select.ts::selectByRelevance", "src/main.ts::parseCli"],
-    "useful": [
-      "src/main.ts::CliOptions",
+    "required": [
+      "src/main.ts::parseCli",
+      "src/main.ts::run",
       "src/scope.ts::runScope",
+      "src/context/select.ts::selectByRelevance"
+    ],
+    "useful": [
+      "src/config.ts::MIN_RELEVANCE",
+      "src/main.ts::CliOptions",
       "src/scope.ts::ScopeOptions",
       "src/jev/validate.ts::validateRelevance"
     ],
@@ -58,12 +66,12 @@
     "id": "jev-timeout-message",
     "split": "tuning",
     "task": "When Jev takes too long, the error should say how long we waited and mention the deadline.",
-    "required": ["src/jev/errors.ts::JevTimeoutError", "src/jev/provider.ts::JevDecisionProvider.decide"],
+    "required": ["src/jev/provider.ts::failure", "src/jev/provider.ts::JevDecisionProvider.decide"],
     "useful": [
+      "src/jev/errors.ts::JevTimeoutError",
       "src/config.ts::JEV_DEADLINE_MS",
       "src/config.ts::JEV_ATTEMPT_TIMEOUT_MS",
       "src/main.ts::describeError",
-      "src/jev/provider.ts::failure",
       "src/exit-codes.ts::exitCodeFor"
     ],
     "irrelevant": [

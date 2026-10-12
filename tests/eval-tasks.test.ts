@@ -56,7 +56,9 @@ describe("evaluation set", () => {
   test("the scope-snapshot set includes the max-candidates-flag task", () => {
     const task = loaded.get("scope-snapshot")?.tasks.find((candidate) => candidate.id === "max-candidates-flag");
     expect(task?.split).toBe("tuning");
-    expect(task?.required).toEqual(expect.arrayContaining(["src/main.ts::parseCli", "src/config.ts::MAX_CANDIDATES"]));
+    expect(task?.required).toEqual(
+      expect.arrayContaining(["src/main.ts::parseCli", "src/scope.ts::prepareCandidates"]),
+    );
   });
 });
 

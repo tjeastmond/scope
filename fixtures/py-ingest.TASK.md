@@ -20,7 +20,7 @@ changes the content revision in `tasks/fixtures.lock.json`; see `docs/evaluation
 | `retry-after-header`      | tuning  | Honor a `Retry-After` header on HTTP 429 instead of the fixed backoff.  |
 | `pause-failing-sources`   | tuning  | Leave a source alone for an hour after five consecutive failures.       |
 | `longer-summaries`        | tuning  | Raise the summary length limit to 1000 characters.                      |
-| `atom-missing-timezone`   | heldout | Treat Atom timestamps without a zone as UTC.                            |
+| `atom-updated-fallback`   | heldout | Fall back to an Atom entry's `updated` date when `published` is missing. |
 | `ignore-tracking-params`  | heldout | Dedupe links that differ only by `utm_` parameters.                     |
 | `prune-old-items`         | heldout | Delete stored items older than the configured retention after each run. |
 

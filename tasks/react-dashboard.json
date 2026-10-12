@@ -22,10 +22,13 @@
     "id": "hide-acknowledged-alerts",
     "split": "tuning",
     "task": "Alerts people have already dealt with keep cluttering the alerts page. Hide them by default and let people switch them back on.",
-    "required": ["src/store/selectors.ts::selectVisibleAlerts", "src/store/store.ts::DashboardState"],
+    "required": [
+      "src/store/selectors.ts::selectVisibleAlerts",
+      "src/store/store.ts::DashboardState",
+      "src/pages/AlertsPage.tsx::AlertsPage"
+    ],
     "useful": [
       "src/store/store.ts::dashboardStore",
-      "src/pages/AlertsPage.tsx::AlertsPage",
       "src/components/AlertList.tsx::AlertList",
       "src/store/selectors.ts::selectCriticalCount"
     ],
