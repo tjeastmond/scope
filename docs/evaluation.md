@@ -180,3 +180,38 @@ revisions, options); a per-fixture baseline table (eligible files and characters
 per-task and aggregate tables per mode with tuning and heldout kept separate; the paired Jev-impact table; Jev overhead;
 variability when repeating; regressions (jev recall below no-jev) and no-improvement cases. Row order is fixed, so the
 same results render the same report.
+
+## Release gates
+
+`bun run eval:gate` is the offline release gate and the last step of `bun run validate`, so CI runs it. It replays the
+committed recording (`eval-recordings/jev-baseline.json`), needs no key and no network, and exits 1 on any failure. It
+fails when:
+
+- `docs/evaluation-report.md` differs from a fresh offline evaluation (zero drift on fixed inputs). Run
+  `bun run eval:report`, and record Jev again if the candidates changed.
+- A threshold below is missed. A missing aggregate or value counts as a failure, never a pass.
+
+The thresholds live in `scripts/eval/gates.ts` as plain fractions. They come from the committed report: retrieval-v4,
+recording on main at 676e65b, pooled required recall (covered over required, summed across tasks), with precision and
+size reduction as means over tasks.
+
+| Gate                                 | Tuning | Heldout | Measured (tuning / heldout)    |
+| ------------------------------------ | ------ | ------- | ------------------------------ |
+| jev pooled required recall, at least | 0.85   | 0.70    | 30/33 (0.91) / 15/20 (0.75)    |
+| jev mean precision, at least         | 0.55   | 0.45    | 63.1% / 54.6%                  |
+| jev mean size reduction, at least    | 0.80   | 0.80    | about 90% on both              |
+| no-jev pooled required recall        | 0.95   | 0.75    | 33/33 (1.00) / 16/20 (0.80)    |
+| jev precision exceeds no-jev         | yes    | yes     | 63.1% vs 14.8%, 54.6% vs 11.9% |
+
+Rationale:
+
+- **Floors sit a little below the measurement.** A real regression fails, while one task flipping after a re-recording
+  (3 to 5 percentage points of recall on this set) does not.
+- **Heldout is lower** because it is never tuned on, so its numbers are the honest estimate and carry more noise.
+- **No-jev recall is the candidate-recall proxy.** Jev can only keep what the static shortlist offers, so no-jev
+  recall bounds jev recall from above; a drop there means retrieval lost candidates.
+- **Jev must earn its place.** Its mean precision must beat no-jev on each split, or the added call buys nothing.
+- **Size reduction** guards the point of Scope: a selection far smaller than the eligible code. There is no size
+  budget (token budgets were removed), so this gate is a measure, not a limit on output.
+
+Thresholds change only with a written reason in the same pull request, normally alongside a regenerated report.
