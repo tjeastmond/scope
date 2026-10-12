@@ -80,7 +80,11 @@ export async function loadChunks(
     else for (const message of analysis.warnings) warnFile(file, message);
   }
   const summary = textOnlySummary(textOnly, detailed);
-  if (summary) warnings.push(summary);
+  if (summary) {
+    warnings.push(summary);
+    // One message covers all these files; the CLI counts them as a kind of its own in the stderr summary.
+    for (const file of textOnly) fileWarnings.push({ file, kind: "plain-text", message: summary });
+  }
   return { chunks, warnings, fileWarnings };
 }
 

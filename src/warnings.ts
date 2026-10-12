@@ -1,6 +1,6 @@
 /** What went wrong with one file during the scan; the key of the one-line stderr summary. */
 export type FileWarningKind =
-  "syntax-error" | "no-chunks" | "analyzer-failed" | "jsonc" | "binary" | "text-fallback" | "other";
+  "syntax-error" | "no-chunks" | "analyzer-failed" | "jsonc" | "binary" | "text-fallback" | "plain-text" | "other";
 
 /** A per-file scan warning: the full message (as it appears in `ScopeResult.warnings`) plus its file and kind. */
 export interface FileWarning {
@@ -32,6 +32,7 @@ const LABELS: Record<FileWarningKind, [one: string, many: string]> = {
   jsonc: ["JSONC", "JSONC"],
   binary: ["binary file", "binary files"],
   "text-fallback": ["text fallback", "text fallbacks"],
+  "plain-text": ["plain text", "plain text"],
   other: ["other", "other"],
 };
 

@@ -108,3 +108,16 @@ test("the summary counts files per kind, orders kinds by count and pluralizes", 
     ]),
   ).toBe("4 files had scan warnings (2 no chunks, 1 syntax error, 1 binary file); rerun with --explain to list them");
 });
+
+test("a repo with every kind of per-file warning, including plain-text files, prints exactly one warning line", async () => {
+  await writeFile(join(repo, "notes.txt"), "just text\n");
+  await writeFile(join(repo, "main.go"), "package main\n");
+  const run = capture();
+  expect(await main(["ok", "--repo", repo, "--no-jev"], run.io)).toBe(0);
+  expect(warningLines(run.stderr())).toEqual([
+    "scope: warning: 5 files had scan warnings (2 syntax errors, 2 plain text, 1 JSONC); rerun with --explain to list them",
+  ]);
+  const explained = capture();
+  expect(await main(["ok", "--repo", repo, "--no-jev", "--explain"], explained.io)).toBe(0);
+  expect(explained.stderr()).toContain("2 file(s) have no analyzer and were read as plain text windows");
+});
