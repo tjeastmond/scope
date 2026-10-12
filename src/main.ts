@@ -31,7 +31,8 @@ Options:
   -h, --help         Show this help
 
 Only the artifact goes to stdout (or to the --output file); warnings, Jev usage and the final "wrote" line go to
-stderr. Per-file scan warnings (syntax errors, empty analyses, ...) are summarized in one line; --explain lists each one. --output refuses to overwrite a source file of the repository and replaces other files atomically.
+stderr. Per-file scan warnings (syntax errors, empty analyses, ...) are summarized in one line; --explain lists each
+one. --output refuses to overwrite a source file of the repository and replaces other files atomically.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
 SCOPE_JEV_PAYLOAD=print prints the exact Jev request bodies to stdout instead of sending them (no key needed).
