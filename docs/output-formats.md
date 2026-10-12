@@ -4,6 +4,12 @@
 blocks of source, no line repeated) and the same provenance. Only the artifact goes to stdout (or to the `--output`
 file); warnings and Jev usage go to stderr, so JSON on stdout is always parseable on its own.
 
+**Warnings on stderr.** Per-file scan warnings (syntax errors, "no chunks", JSONC with comments, text fallbacks, binary
+files, files read as plain text) print as one line, for example `scope: warning: 13 files had scan warnings (8 plain
+text, 3 no chunks, 1 syntax error, 1 JSONC); rerun with --explain to list them`. Warnings that are not about one file
+(a scan limit that truncated the scan) still print individually, and `--explain` prints every warning individually.
+The artifact is unaffected: `warnings` in JSON and the Warnings list in text and markdown always carry every warning.
+
 Selection is relevance-only and the same for every format; there is no size limit (see
 [selection-policy.md](selection-policy.md)). The entry point is `renderFormat(format, result)` in
 `src/output/index.ts`.
@@ -12,8 +18,9 @@ Selection is relevance-only and the same for every format; there is no size limi
 
 - `--output <path>`: write the artifact to a file instead of stdout. The file holds exactly the bytes stdout would have
   received; stdout stays empty. Warnings, Jev usage and a final `scope: wrote <path>` line go to stderr.
-- `--explain`: add the selection evidence described under [Explanation](#explanation---explain). The evidence changes
-  how a result is rendered, never which chunks it contains.
+- `--explain`: add the selection evidence described under [Explanation](#explanation---explain), and list every scan
+  warning on stderr instead of one summary line. The evidence changes how a result is rendered, never which chunks it
+  contains.
 
 ### Output file safety (`--output`)
 

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { classifyFileWarning, type FileWarning } from "./warnings.ts";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
 import { JEV_QUESTION_VERSION } from "./config.ts";
@@ -32,6 +33,8 @@ export interface ScopeRun {
   result: ScopeResult;
   /** Present only when Jev judged the candidates (usage, latency). */
   decision?: DecisionResult;
+  /** The per-file scan warnings, also present in `result.warnings`; the CLI summarizes them unless `--explain`. */
+  fileWarnings: FileWarning[];
 }
 
 export { UsageError };
@@ -48,10 +51,15 @@ const HEAD_CHARS = 1024;
 export async function loadChunks(
   repo: string,
   { detailed = false, signal }: { detailed?: boolean; signal?: AbortSignal } = {},
-): Promise<{ chunks: CodeChunk[]; warnings: string[] }> {
+): Promise<{ chunks: CodeChunk[]; warnings: string[]; fileWarnings: FileWarning[] }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
+  const fileWarnings: FileWarning[] = [];
+  const warnFile = (file: string, message: string) => {
+    warnings.push(message);
+    fileWarnings.push(classifyFileWarning(file, message));
+  };
   const { files, warnings } = await scanRepository(root, {}, signal);
   for (const file of files) {
     if (signal?.aborted) throw new CancelledError();
@@ -59,7 +67,7 @@ export async function loadChunks(
     // The scanner only sniffs the start of a file; a NUL anywhere means binary content. Check the raw bytes, because
     // redaction could remove a NUL inside a credential-like literal. Files that do not look like text have no language.
     if (bytes.includes(0)) {
-      warnings.push(binaryWarning(file));
+      warnFile(file, binaryWarning(file));
       continue;
     }
     const text = bytes.toString("utf8");
@@ -69,20 +77,24 @@ export async function loadChunks(
     const analysis = await analyzeFile({ path: file, source }, language);
     chunks.push(...analysis.chunks);
     if (analysis.textOnly) textOnly.push(file);
-    else warnings.push(...analysis.warnings);
+    else for (const message of analysis.warnings) warnFile(file, message);
   }
   const summary = textOnlySummary(textOnly, detailed);
-  if (summary) warnings.push(summary);
-  return { chunks, warnings };
+  if (summary) {
+    warnings.push(summary);
+    // One message covers all these files; the CLI counts them as a kind of its own in the stderr summary.
+    for (const file of textOnly) fileWarnings.push({ file, kind: "plain-text", message: summary });
+  }
+  return { chunks, warnings, fileWarnings };
 }
 
 /** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */
 async function prepareCandidates(task: string, repo: string, detailed: boolean, signal: AbortSignal | undefined) {
   if (!task.trim()) throw new UsageError("A task description is required.");
-  const { chunks, warnings } = await loadChunks(repo, { detailed, signal });
+  const { chunks, warnings, fileWarnings } = await loadChunks(repo, { detailed, signal });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
-  return { chunks, scanWarnings: warnings, ...selectCandidates(task, chunks) };
+  return { chunks, scanWarnings: warnings, fileWarnings, ...selectCandidates(task, chunks) };
 }
 
 /**
@@ -128,6 +140,7 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const {
     chunks,
     scanWarnings,
+    fileWarnings,
     candidates,
     ranking,
     warning: retrievalWarning,
@@ -167,5 +180,5 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
     ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
-  return { result: { ...result, ...jevMetrics(decision, explain) }, decision };
+  return { result: { ...result, ...jevMetrics(decision, explain) }, decision, fileWarnings };
 }

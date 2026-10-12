@@ -62,8 +62,11 @@ suite("the compiled CLI as a subprocess", () => {
           const parsed = JSON.parse(text(run));
           expect(validate(parsed)).toBe(true);
           expect(parsed.mode).toBe("no-jev");
-          // The same warnings appear in the artifact and on stderr.
-          for (const warning of parsed.warnings) expect(run.stderr).toContain(`scope: warning: ${warning}\n`);
+          // The artifact lists every warning; stderr lists each one only under --explain, else one summary line.
+          expect(run.stderr).toContain("files had scan warnings");
+          const explained = scope(TASK, "--repo", MIXED, "--no-jev", "--format", format, "--explain");
+          for (const warning of JSON.parse(text(explained)).warnings)
+            expect(explained.stderr).toContain(`scope: warning: ${warning}\n`);
         } else {
           expect(text(run).startsWith(format === "markdown" ? "# Scope context" : "Scope context for:")).toBe(true);
         }
@@ -368,7 +371,7 @@ suite("the compiled CLI as a subprocess", () => {
     });
 
     test("a NUL file is skipped with a warning and none of it reaches the artifact", () => {
-      const run = scope(...args("json"));
+      const run = scope(...args("json"), "--explain");
       expect(run.stderr).toContain("late-nul.ts: binary content (NUL byte); skipped");
       expect(text(run)).not.toContain("binaryLate");
       expect(text(run)).not.toContain("\\u0000");
