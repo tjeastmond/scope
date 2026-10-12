@@ -65,7 +65,13 @@ describe("eval:report --check", () => {
 
 describe("installed SDK version", () => {
   test("is read from the installed package", async () => {
-    const manifest = JSON.parse(await readFile("node_modules/@typesafe-ai/sdk/package.json", "utf8")) as {
+    // Found from wherever Bun resolves the package, so a worktree using the parent checkout's node_modules works too.
+    const entry = Bun.resolveSync("@typesafe-ai/sdk", import.meta.dir);
+    const root = entry.slice(
+      0,
+      entry.lastIndexOf("node_modules/@typesafe-ai/sdk/") + "node_modules/@typesafe-ai/sdk".length,
+    );
+    const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as {
       version: string;
     };
     expect(await installedSdkVersion()).toBe(manifest.version);
