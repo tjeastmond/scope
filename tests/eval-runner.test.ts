@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { loadChunks } from "../src/scope.ts";
 import { EvalError } from "../scripts/eval/freeze.ts";
 import { FIXTURES } from "../scripts/eval/labels.ts";
-import { readRecording } from "../scripts/eval/recording.ts";
+import { readRecording, recordingProvider, replayProvider, type RecordedDecision } from "../scripts/eval/recording.ts";
 import { renderReport } from "../scripts/eval/report.ts";
 import { LEXICAL_TOP_K, lexicalSelect, runEval, validateOptions, type EvalOptions } from "../scripts/eval/runner.ts";
 import { fakeProvider } from "./helpers/fake-provider.ts";
@@ -96,5 +96,33 @@ describe("record and replay", () => {
     await writeFile(file, JSON.stringify(recording));
     const error = await runEval({ ...common, modes: ["jev"], replay: file }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(EvalError);
+  });
+
+  test("a replay fails when the task text or a candidate's code changed, even with the same candidate ids", async () => {
+    const { chunks } = await loadChunks(join(FIXTURES, "webhook-service"));
+    const candidates = chunks.slice(0, 3);
+    const tasks: Record<string, RecordedDecision> = {};
+    await recordingProvider(fakeProvider({ fallback: 0.9 }), "t", tasks).decide({ task: "add retries", candidates });
+    const recording = { version: 1, model: "m", sdkVersion: "s", recordedAt: "", commit: "", tasks } as const;
+    const replay = replayProvider(recording, "t");
+
+    await expect(replay.decide({ task: "add retries", candidates })).resolves.toBeDefined();
+    await expect(replay.decide({ task: "remove retries", candidates })).rejects.toThrow(EvalError);
+    const edited = [{ ...candidates[0]!, content: `${candidates[0]!.content}\n// edited` }, ...candidates.slice(1)];
+    await expect(replay.decide({ task: "add retries", candidates: edited })).rejects.toThrow(EvalError);
+  });
+});
+
+describe("output files", () => {
+  test("two runs started in the same second never overwrite each other", async () => {
+    const dir = await scratch();
+    const now = () => new Date("2026-03-03T00:00:00Z");
+    const options = { ...base, fixtures: ["webhook-service"], modes: ["lexical"], outDir: dir, now } as const;
+    const first = await runEval(options);
+    const second = await runEval(options);
+    expect(second.jsonPath).not.toBe(first.jsonPath);
+    expect(second.markdownPath).not.toBe(first.markdownPath);
+    expect(JSON.parse(await readFile(first.jsonPath, "utf8")).run.startedAt).toBe(now().toISOString());
+    expect(await readFile(second.markdownPath, "utf8")).toContain("# ");
   });
 });

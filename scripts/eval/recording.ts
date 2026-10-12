@@ -1,13 +1,17 @@
 // Record and replay of Jev decisions, so a Jev run can be reproduced offline without credentials or network.
 // A recording keeps, per task id, the candidate chunk ids Jev was shown and what it answered.
 
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import type { DecisionProvider, DecisionResult } from "../../src/types.ts";
+import { JEV_QUESTION_VERSION } from "../../src/config.ts";
+import type { DecisionProvider, DecisionRequest, DecisionResult } from "../../src/types.ts";
 import { EvalError } from "./freeze.ts";
 
 export interface RecordedDecision {
   /** Candidate chunk ids in the order the provider received them. */
   candidateIds: string[];
+  /** {@link inputFingerprint} of the request: a replay with any other task text, candidate code or question fails. */
+  fingerprint: string;
   /** Relevance per candidate. The provider's raw answers are not kept. */
   judgments: { chunkId: string; relevance: number }[];
   usage?: DecisionResult["usage"];
@@ -26,6 +30,15 @@ export interface Recording {
   tasks: Record<string, RecordedDecision>;
 }
 
+/**
+ * sha256 over what Jev judged: the question version, the task text and each candidate's id and content, in order.
+ * Labels are not part of it, so relabeling and rescoring still replay.
+ */
+export function inputFingerprint({ task, candidates }: Pick<DecisionRequest, "task" | "candidates">): string {
+  const input = [JEV_QUESTION_VERSION, task, candidates.map((chunk) => [chunk.id, chunk.content])];
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
 /** Wraps a provider and stores its decision for `taskId` in `into`. A failing provider records nothing. */
 export function recordingProvider(
   inner: DecisionProvider,
@@ -37,6 +50,7 @@ export function recordingProvider(
       const decision = await inner.decide(request);
       into[taskId] = {
         candidateIds: request.candidates.map((chunk) => chunk.id),
+        fingerprint: inputFingerprint(request),
         judgments: decision.judgments.map(({ chunkId, relevance }) => ({ chunkId, relevance })),
         ...(decision.usage === undefined ? {} : { usage: decision.usage }),
         ...(decision.latencyMs === undefined ? {} : { latencyMs: decision.latencyMs }),
@@ -50,7 +64,8 @@ export function recordingProvider(
 /** Returns the recorded decision for `taskId`, and fails loudly if the candidates are not the ones recorded. */
 export function replayProvider(recording: Recording, taskId: string): DecisionProvider {
   return {
-    async decide({ candidates }) {
+    async decide(request) {
+      const { candidates } = request;
       const recorded = recording.tasks[taskId];
       if (!recorded) throw new EvalError(`The recording has no decision for task ${taskId}.`);
       const ids = candidates.map((chunk) => chunk.id);
@@ -66,6 +81,10 @@ export function replayProvider(recording: Recording, taskId: string): DecisionPr
             "Retrieval or the chunking changed since it was recorded; record again.",
         );
       }
+      if (inputFingerprint(request) !== recorded.fingerprint)
+        throw new EvalError(
+          `The task text, candidate code or Jev question for task ${taskId} changed since it was recorded; record again.`,
+        );
       return {
         judgments: recorded.judgments.map(({ chunkId, relevance }) => ({ chunkId, relevance })),
         ...(recorded.usage === undefined ? {} : { usage: recorded.usage }),

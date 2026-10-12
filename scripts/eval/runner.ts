@@ -540,6 +540,24 @@ async function packageVersion(path: string): Promise<string> {
   }
 }
 
+/**
+ * Writes `<name>.json` and `<name>.md`, never over an earlier run: a name already taken (two runs in the same second)
+ * gets a `-2`, `-3`, ... suffix. The JSON file is created exclusively, so it claims the name for its report too.
+ */
+async function writeNew(dir: string, name: string, content: { json: string; md: string }) {
+  for (let n = 1; ; n++) {
+    const base = join(dir, n === 1 ? name : `${name}-${n}`);
+    try {
+      await writeFile(`${base}.json`, content.json, { flag: "wx" });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "EEXIST") continue;
+      throw error;
+    }
+    await writeFile(`${base}.md`, content.md, { flag: "wx" });
+    return { jsonPath: `${base}.json`, markdownPath: `${base}.md` };
+  }
+}
+
 const stamp = (date: Date) => `${date.toISOString().slice(0, 19).replace(/:/g, "-")}Z`;
 
 export async function runEval(options: EvalOptions): Promise<EvalOutput & { jsonPath: string; markdownPath: string }> {
@@ -648,10 +666,9 @@ export async function runEval(options: EvalOptions): Promise<EvalOutput & { json
   };
   const output: EvalOutput = { run, results };
   await mkdir(options.outDir, { recursive: true });
-  const base = join(options.outDir, stamp(startedAt));
-  const jsonPath = `${base}.json`;
-  const markdownPath = `${base}.md`;
-  await writeFile(jsonPath, `${JSON.stringify(output, null, 2)}\n`);
-  await writeFile(markdownPath, renderReport(output));
+  const { jsonPath, markdownPath } = await writeNew(options.outDir, stamp(startedAt), {
+    json: `${JSON.stringify(output, null, 2)}\n`,
+    md: renderReport(output),
+  });
   return { ...output, jsonPath, markdownPath };
 }
