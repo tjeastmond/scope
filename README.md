@@ -52,6 +52,16 @@ binary data are never parsed or sent. Credential-looking text inside source (pri
 shapes, quoted values assigned to `apiKey`/`secret`/`token`/`password`) is replaced with `[REDACTED]` before parsing.
 Redaction is best-effort: do not rely on it to protect secrets you have committed to source.
 
+To keep more paths out without touching `.gitignore`, add a `.scopeignore` at the repository root (gitignore syntax;
+root only). Matches are skipped with the reason `scopeignore`. It can only subtract: a `!` negation never re-includes a
+secret, a `.gitignore`d path or a dependency/build directory.
+
+```gitignore
+# .scopeignore
+fixtures/
+docs/generated/
+```
+
 **Credentials.** Set `TYPESAFE_API_KEY` in the environment. Scope reads it only to create the SDK client. It is never
 printed, logged, written to disk or included in error messages.
 

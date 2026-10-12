@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { CancelledError } from "../src/errors.ts";
@@ -232,4 +232,76 @@ test("a cancelled signal stops the traversal with CancelledError", async () => {
   controller.abort();
   const scan = scanRepository(join(import.meta.dir, "../fixtures/mixed-app"), {}, controller.signal);
   await expect(scan).rejects.toThrow(CancelledError);
+});
+
+test("a root .scopeignore excludes files and directories with the scopeignore reason", async () => {
+  const root = await makeRepo({
+    ".scopeignore": "# decoys\nfixtures/\n*.draft.ts\n/only-root.ts\n",
+    "fixtures/app/a.ts": "",
+    "src/note.draft.ts": "",
+    "src/ok.ts": "",
+    "src/only-root.ts": "",
+    "only-root.ts": "",
+  });
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual([".scopeignore", "src/ok.ts", "src/only-root.ts"]);
+  expect(skipped).toEqual([
+    { path: "fixtures/", reason: "scopeignore" },
+    { path: "only-root.ts", reason: "scopeignore" },
+    { path: "src/note.draft.ts", reason: "scopeignore" },
+  ]);
+});
+
+test("a .scopeignore negation re-includes only paths it excluded itself", async () => {
+  const root = await makeRepo({
+    ".scopeignore": "*.draft.ts\n!keep.draft.ts\n",
+    "keep.draft.ts": "",
+    "drop.draft.ts": "",
+  });
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual([".scopeignore", "keep.draft.ts"]);
+  expect(skipped).toEqual([{ path: "drop.draft.ts", reason: "scopeignore" }]);
+});
+
+test("a .scopeignore negation cannot re-include secrets, gitignored paths or built-in directories", async () => {
+  const root = await makeRepo({
+    ".gitignore": "ignored.ts\nprivate/\n",
+    ".scopeignore": "!.env\n!*.pem\n!ignored.ts\n!private/\n!private/**\n!node_modules/\n!dist/\n",
+    ".env": "TOKEN=x\n",
+    "keys/a.pem": "",
+    "ignored.ts": "",
+    "private/x.ts": "",
+    "node_modules/pkg/index.ts": "",
+    "dist/out.ts": "",
+    "src/ok.ts": "",
+  });
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual([".gitignore", ".scopeignore", "src/ok.ts"]);
+  expect(skipped).toEqual([
+    { path: ".env", reason: "secret" },
+    { path: "dist/", reason: "dependency-or-build-directory" },
+    { path: "ignored.ts", reason: "gitignored" },
+    { path: "keys/a.pem", reason: "secret" },
+    { path: "node_modules/", reason: "dependency-or-build-directory" },
+    { path: "private/", reason: "gitignored" },
+  ]);
+});
+
+test("a .scopeignore in a subdirectory is not read", async () => {
+  const root = await makeRepo({ "src/.scopeignore": "a.ts\n", "src/a.ts": "" });
+  const { files } = await scanRepository(root);
+  expect(files).toEqual(["src/.scopeignore", "src/a.ts"]);
+});
+
+test("a symlinked .scopeignore is refused like a symlinked .gitignore: its rules are not applied", async () => {
+  const root = await makeRepo({ "rules.txt": "hidden.ts\n", "hidden.ts": "" });
+  await symlink("rules.txt", join(root, ".scopeignore"));
+  const { files, skipped } = await scanRepository(root);
+  expect(files).toEqual(["hidden.ts", "rules.txt"]);
+  expect(skipped).toEqual([{ path: ".scopeignore", reason: "symlink" }]);
+});
+
+test("fails instead of ignoring an oversized .scopeignore", async () => {
+  const root = await makeRepo({ ".scopeignore": "hidden.ts\n".repeat(20), "hidden.ts": "" });
+  await expect(scanRepository(root, { maxFileBytes: 50 })).rejects.toThrow(/larger than 50 bytes/);
 });
