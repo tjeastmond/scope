@@ -44,7 +44,21 @@ export function testEdges(
   byFile: ReadonlyMap<string, readonly CodeChunk[]>,
   imports: readonly GraphEdge[],
 ): GraphEdge[] {
-  const sources = [...byFile.keys()].filter((file) => !isTestFile(file));
+  // Indexed once: scanning every source and import per test file is quadratic on large repositories.
+  const sourcesByStem = new Map<string, string[]>();
+  for (const file of byFile.keys()) {
+    if (isTestFile(file)) continue;
+    const key = stem(file);
+    const files = sourcesByStem.get(key);
+    if (files) files.push(file);
+    else sourcesByStem.set(key, [file]);
+  }
+  const importsByFile = new Map<string, GraphEdge[]>();
+  for (const edge of imports) {
+    const edges = importsByFile.get(edge.fromFile);
+    if (edges) edges.push(edge);
+    else importsByFile.set(edge.fromFile, [edge]);
+  }
   const edges: GraphEdge[] = [];
   for (const [testFile, chunks] of byFile) {
     if (!isTestFile(testFile)) continue;
@@ -59,12 +73,12 @@ export function testEdges(
       evidence,
     });
     const imported = new Set(
-      imports.filter((e) => e.fromFile === testFile && e.toFile && !isTestFile(e.toFile)).map((e) => e.toFile!),
+      (importsByFile.get(testFile) ?? []).filter((e) => e.toFile && !isTestFile(e.toFile)).map((e) => e.toFile!),
     );
     for (const file of imported) edges.push(make(file, "exact", `test file ${testFile} imports ${file}`));
 
-    const named = sources.filter(
-      (file) => stem(file) === testedStem(testFile) && family(byFile.get(file)![0]!) === family(anchor),
+    const named = (sourcesByStem.get(testedStem(testFile)) ?? []).filter(
+      (file) => family(byFile.get(file)![0]!) === family(anchor),
     );
     if (named.length === 0 || named.some((file) => imported.has(file))) continue;
     const closest = Math.max(...named.map((file) => sharedDirectories(testFile, file)));

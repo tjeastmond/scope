@@ -2,6 +2,29 @@ import { describe, expect, test } from "bun:test";
 import { splitIdentifier, stem, tokenizeText } from "../src/retrieval/terms.ts";
 
 describe("splitIdentifier", () => {
+  test("splits each letter/digit run the same way wherever it sits in a longer text", () => {
+    expect(splitIdentifier("parseHTTPResponse_v2.json/fooBar İstanbul cafe\u0301s")).toEqual([
+      "parse",
+      "http",
+      "response",
+      "v",
+      "2",
+      "json",
+      "foo",
+      "bar",
+      "i",
+      "stanbul",
+      "cafe",
+      "s",
+    ]);
+  });
+
+  test("returns a fresh array, so a caller's changes never leak into later calls", () => {
+    const words = splitIdentifier("fooBar");
+    words.push("leaked");
+    expect(splitIdentifier("fooBar")).toEqual(["foo", "bar"]);
+  });
+
   const cases: [string, string[]][] = [
     ["listByStatus", ["list", "by", "status"]],
     ["InvoiceService", ["invoice", "service"]],

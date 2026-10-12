@@ -285,3 +285,52 @@ describe("determinism", () => {
     expect(reversed.neighbors(id)).toEqual(graph.neighbors(id));
   });
 });
+
+describe("import ownership by whole-word mention", () => {
+  const imported = (name: string, line: number): CodeChunk => ({
+    id: `b:${name}`,
+    file: "b.ts",
+    language: "typescript",
+    kind: "function",
+    name,
+    startLine: line,
+    endLine: line,
+    content: `export function ${name}() {}`,
+    references: [],
+  });
+  const importer = (name: string, line: number, content: string, references: Reference[]): CodeChunk => ({
+    id: `a:${name}`,
+    file: "a.ts",
+    language: "typescript",
+    kind: "function",
+    name,
+    startLine: line,
+    endLine: line,
+    content,
+    references,
+  });
+
+  test("a name counts only as a whole identifier, with _ and $ as identifier characters", () => {
+    const refs: Reference[] = ["format", "$store"].map((name) => ({
+      kind: "import",
+      from: { file: "a.ts", line: 1 },
+      name,
+      specifier: "./b",
+    }));
+    const chunks = [
+      importer("first", 2, "formatDate(x); my_format(); $store$", refs),
+      importer("usesFormat", 3, "return format(x);", refs),
+      importer("usesStore", 4, "$store.get(é$store)", refs),
+      imported("format", 1),
+      imported("$store", 2),
+    ];
+    const { edges } = buildGraph(chunks, { resolveImport: () => ({ file: "b.ts" }) });
+    const owners = (name: string) =>
+      edges
+        .filter((e) => e.kind === "import" && e.name === name)
+        .map((e) => e.from)
+        .sort();
+    expect(owners("format")).toEqual(["a:usesFormat"]);
+    expect(owners("$store")).toEqual(["a:usesStore"]);
+  });
+});

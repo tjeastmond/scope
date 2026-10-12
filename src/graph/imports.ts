@@ -4,13 +4,22 @@ import type { GraphEdge, ImportResolver } from "./types.ts";
 const IDENTIFIER = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 const DOTS_ONLY = /^\.+$/;
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+const WORD = /[\p{L}\p{N}_$]+/gu;
 
-/** Whole-word, textual: shadowing and comments are not considered. */
-function mentions(content: string, name: string): boolean {
-  return new RegExp(`(?<![\\p{L}\\p{N}_$])${escapeRegExp(name)}(?![\\p{L}\\p{N}_$])`, "u").test(content);
+/** Each chunk's maximal identifier-character runs, computed once per chunk rather than once per reference. */
+const wordsOf = new WeakMap<CodeChunk, ReadonlySet<string>>();
+
+/**
+ * Whole-word, textual: shadowing and comments are not considered. `name` is an identifier, so it occurs as a whole word
+ * exactly when it equals one of the chunk's maximal runs of identifier characters.
+ */
+function mentions(chunk: CodeChunk, name: string): boolean {
+  let words = wordsOf.get(chunk);
+  if (!words) {
+    words = new Set(chunk.content.match(WORD));
+    wordsOf.set(chunk, words);
+  }
+  return words.has(name);
 }
 
 /** A name that can be looked up in code: an identifier other than `default` (not `*`, a path or dynamic source). */
@@ -35,7 +44,7 @@ function exportedName(ref: Reference): string | undefined {
 function owns(chunk: CodeChunk, first: CodeChunk, ref: Reference): boolean {
   if (ref.from.line >= chunk.startLine && ref.from.line <= chunk.endLine) return true;
   const binding = bindingName(ref);
-  return binding ? mentions(chunk.content, binding) : chunk === first;
+  return binding ? mentions(chunk, binding) : chunk === first;
 }
 
 const refKey = (ref: Reference) => `${ref.kind}|${ref.from.line}|${ref.name}|${ref.specifier ?? ""}`;
