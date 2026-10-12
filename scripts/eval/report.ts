@@ -33,14 +33,26 @@ function table(header: string[], rows: string[][]): string {
   return [line(header), line(header.map(() => "---")), ...rows.map(line)].join("\n");
 }
 
-function provenance({ run }: EvalOutput): string {
+export interface RenderOptions {
+  /** Omit volatile provenance (clock times, current commit, output paths) so equal inputs render equal bytes. */
+  deterministic?: boolean;
+}
+
+function provenance({ run }: EvalOutput, { deterministic = false }: RenderOptions): string {
   const rows: [string, string][] = [
     ["Scope version", run.scopeVersion],
     ["Retrieval config version", run.retrievalConfigVersion],
     ["Jev question version", run.jevQuestionVersion],
     ["`@typesafe-ai/sdk` version", run.sdkVersion],
     ["Model", run.replay ? `${run.replay.model} (recorded)` : run.model],
-    ["Git commit", `${run.commit}${run.dirty ? " (working tree had uncommitted changes)" : ""}`],
+    ...(deterministic
+      ? []
+      : [
+          ["Git commit", `${run.commit}${run.dirty ? " (working tree had uncommitted changes)" : ""}`] as [
+            string,
+            string,
+          ],
+        ]),
     ["Labels checksum", run.labelsChecksum],
     ["Modes", run.modes.join(", ")],
     ["Split", run.split],
@@ -48,10 +60,11 @@ function provenance({ run }: EvalOutput): string {
     ["Repeat", String(run.repeat)],
     ["Lexical top-k", String(run.lexicalTopK)],
     ["Coverage threshold", String(run.coverageThreshold)],
-    ["Started", run.startedAt],
-    ["Finished", run.finishedAt],
+    ...(deterministic
+      ? []
+      : [["Started", run.startedAt] as [string, string], ["Finished", run.finishedAt] as [string, string]]),
   ];
-  if (run.record) rows.push(["Recorded to", run.record]);
+  if (run.record && !deterministic) rows.push(["Recorded to", run.record]);
   if (run.replay)
     rows.push([
       "Replayed from",
@@ -312,10 +325,10 @@ const NOTES = [
   "- Tuning and heldout tasks are always aggregated separately; the overall row is shown only when both ran.",
 ].join("\n");
 
-export function renderReport(output: EvalOutput): string {
+export function renderReport(output: EvalOutput, options: RenderOptions = {}): string {
   const sections = [
     "# Scope evaluation report",
-    provenance(output),
+    provenance(output, options),
     baselines(output.results.baseline),
     modeSections(output),
     impactSection(output),

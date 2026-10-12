@@ -122,6 +122,25 @@ its unit tests (`tests/eval-*.test.ts`) run in `bun test` and need no network or
   only with `--mode jev`, and not with `--record` or `--replay`. Headline numbers are the first run. The raw files of
   a committed repeated run are `eval-recordings/jev-variability.json` and `.md`.
 
+### The committed report
+
+```sh
+bun run eval:report            # regenerate docs/evaluation-report.md
+bun run eval:report --check    # compare in memory; exit 1 if the committed file is out of date
+```
+
+`docs/evaluation-report.md` is generated, never edited by hand. `eval:report` replays `eval-recordings/jev-baseline.json`
+over every task (modes `lexical`, `no-jev` and `jev`, split `all`, repeat 1), so it needs no key and no network. The
+render is deterministic: it omits the clock times, the current git commit and output paths, and keeps the Scope, retrieval
+and Jev-question versions, labels checksum, fixture hashes, and the recording's model, SDK version, date and commit.
+Running it twice leaves the working tree clean, and `--check` never writes. `tests/eval-report.test.ts` also fails when
+the committed report is stale.
+
+Regenerate after any retrieval, label or Jev-question change, together with a fresh live recording
+(`bun run eval --mode jev --split all --record eval-recordings/jev-baseline.json`, which needs `TYPESAFE_API_KEY`). A
+replay refuses a recording whose candidate sets no longer match, which is the signal to re-record. Jev's latency and
+token counts in the report come from the recording.
+
 ### Split and freeze rules
 
 `--split tuning` needs nothing else. `--split heldout` and `--split all` refuse unless `tasks/labels.freeze.json` exists
