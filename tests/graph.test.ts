@@ -333,4 +333,17 @@ describe("import ownership by whole-word mention", () => {
     expect(owners("format")).toEqual(["a:usesFormat"]);
     expect(owners("$store")).toEqual(["a:usesStore"]);
   });
+
+  test("a rebuilt graph reads chunk content afresh", () => {
+    const ref: Reference = { kind: "import", from: { file: "a.ts", line: 1 }, name: "foo", specifier: "./b" };
+    const consumer = importer("consumer", 3, "foo()", [ref]);
+    const chunks = [importer("first", 2, "", [ref]), consumer, imported("foo", 1)];
+    const ownersOfFoo = () =>
+      buildGraph(chunks, { resolveImport: () => ({ file: "b.ts" }) })
+        .edges.filter((e) => e.kind === "import" && e.name === "foo")
+        .map((e) => e.from);
+    expect(ownersOfFoo()).toEqual(["a:consumer"]);
+    consumer.content = "unused()";
+    expect(ownersOfFoo()).toEqual(["a:first"]);
+  });
 });

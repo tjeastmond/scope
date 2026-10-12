@@ -19,6 +19,12 @@ describe("splitIdentifier", () => {
     ]);
   });
 
+  test("lowercases capital sigma with its whole-text context, across separators and combining marks", () => {
+    expect(splitIdentifier("ΑΣ'Α")).toEqual(["ασ", "α"]);
+    expect(splitIdentifier("Α\u0301Σ")).toEqual(["α", "ς"]);
+    expect(splitIdentifier("ΟΔΟΣ_ΑΣ")).toEqual(["οδος", "ας"]);
+  });
+
   test("returns a fresh array, so a caller's changes never leak into later calls", () => {
     const words = splitIdentifier("fooBar");
     words.push("leaked");

@@ -6,28 +6,35 @@
  * separator (`_`, `-`, `.`, `/`, whitespace). Unicode letters and digits are kept.
  */
 export function splitIdentifier(text: string): string[] {
+  // Capital sigma is the one context-dependent lowercase mapping (final σ/ς looks past separators), so a text containing
+  // it is split whole.
+  if (text.includes("Σ")) return splitWords(text);
   const words: string[] = [];
   for (const run of text.match(WORD_RUN) ?? []) words.push(...splitRun(run));
   return words;
 }
 
-// Case and digit boundaries never cross a separator, so splitting each letter/digit run on its own gives the same words
-// as splitting the whole text. Runs repeat heavily across a repository, so their words are memoized (bounded).
+// Case and digit boundaries never cross a separator, and apart from sigma lowercasing ignores context, so splitting each
+// letter/digit run on its own gives the same words as splitting the whole text. Runs repeat heavily across a repository, so their words are memoized (bounded).
 const WORD_RUN = /[\p{L}\p{N}]+/gu;
 const SPLIT_CACHE_LIMIT = 100_000;
 const splitCache = new Map<string, readonly string[]>();
 
+function splitWords(text: string): string[] {
+  return text
+    .replace(/(\p{Ll})(\p{Lu})/gu, "$1 $2")
+    .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
+    .replace(/(\p{L})(\p{N})/gu, "$1 $2")
+    .replace(/(\p{N})(\p{L})/gu, "$1 $2")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((part) => part.length > 0);
+}
+
 function splitRun(run: string): readonly string[] {
   let words = splitCache.get(run);
   if (words === undefined) {
-    words = run
-      .replace(/(\p{Ll})(\p{Lu})/gu, "$1 $2")
-      .replace(/(\p{Lu})(\p{Lu}\p{Ll})/gu, "$1 $2")
-      .replace(/(\p{L})(\p{N})/gu, "$1 $2")
-      .replace(/(\p{N})(\p{L})/gu, "$1 $2")
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .filter((part) => part.length > 0);
+    words = splitWords(run);
     if (splitCache.size >= SPLIT_CACHE_LIMIT) splitCache.clear();
     splitCache.set(run, words);
   }
