@@ -5,10 +5,10 @@ blocks of source, no line repeated) and the same provenance. Only the artifact g
 file); warnings and Jev usage go to stderr, so JSON on stdout is always parseable on its own.
 
 **Warnings on stderr.** Per-file scan warnings (syntax errors, "no chunks", JSONC with comments, text fallbacks, binary
-files) print as one line, for example `scope: warning: 9 files had scan warnings (4 syntax errors, 3 no chunks, 1 JSONC,
-1 text fallback); rerun with --explain to list them`. Warnings that are not about one file (a scan limit that truncated
-the scan, the plain-text summary) still print individually, and `--explain` prints every warning individually. The
-artifact is unaffected: `warnings` in JSON and the Warnings list in text and markdown always carry every warning.
+files, files read as plain text) print as one line, for example `scope: warning: 13 files had scan warnings (8 plain
+text, 3 no chunks, 1 syntax error, 1 JSONC); rerun with --explain to list them`. Warnings that are not about one file
+(a scan limit that truncated the scan) still print individually, and `--explain` prints every warning individually.
+The artifact is unaffected: `warnings` in JSON and the Warnings list in text and markdown always carry every warning.
 
 Selection is relevance-only and the same for every format; there is no size limit (see
 [selection-policy.md](selection-policy.md)). The entry point is `renderFormat(format, result)` in
