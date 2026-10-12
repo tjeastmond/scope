@@ -22,7 +22,7 @@ candidate**, through the official `@typesafe-ai/sdk`. TypeScript then adds the s
 ## Credentials and data transmission
 
 **What is sent.** The ordinary command (`scope "<task>"`) sends two things to TypeSafe/Jev through the official SDK:
-the task text and, for each shortlisted candidate chunk (at most 30 functions, classes, methods, types), its source
+the task text and, for each shortlisted candidate chunk (at most 40 functions, classes, methods, types), its source
 code plus metadata: repository-relative path, symbol name, kind and line range. Nothing else from your repository is
 sent.
 

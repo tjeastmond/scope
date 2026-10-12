@@ -77,6 +77,30 @@ export interface TaskTerms {
   words: string[];
   /** Lowercase joins of adjacent content words (`due date` -> `duedate`) and of multi-word exact terms. */
   variants: string[];
+  /** Stemmed words that code for the same concept tends to use instead of the task's own (see {@link RELATED_WORDS}). */
+  related: string[];
+}
+
+/**
+ * A deliberately tiny vocabulary bridge: task wording that names a concept whose code rarely uses that wording.
+ * Each entry maps trigger words (stemmed task words, or joined adjacent words like `commandline`) to the stemmed
+ * words the code uses. A user says "flag", "option" or "command line"; the code that handles them says `parseArgs`,
+ * `argv` and `options`. Add an entry only for a general concept that tasks and code word differently, never for one
+ * repository's names.
+ */
+const RELATED_WORDS: readonly { triggers: readonly string[]; related: readonly string[] }[] = [
+  {
+    triggers: ["flag", "option", "arg", "argument", "argv", "commandline", "cli"],
+    related: ["cli", "arg", "argv", "option"],
+  },
+  // Hiding sensitive values: tasks say "mask" or "scrub", code says `redact`.
+  { triggers: ["mask", "scrub", "sanitize", "obfuscate"], related: ["redact"] },
+];
+
+function relatedWords(words: readonly string[], variants: readonly string[]): string[] {
+  const present = new Set([...words, ...variants]);
+  const found = RELATED_WORDS.filter((entry) => entry.triggers.some((trigger) => present.has(trigger)));
+  return [...new Set(found.flatMap((entry) => entry.related))].filter((word) => !words.includes(word));
 }
 
 /**
@@ -183,5 +207,5 @@ export function extractTaskTerms(task: string): TaskTerms {
     .filter((term) => !term.includes("/") && splitIdentifier(term).length >= 2)
     .map((term) => splitIdentifier(term).join(""));
   const variants = [...new Set([...adjacentJoins(prose), ...exactJoins])];
-  return { exact, words, variants };
+  return { exact, words, variants, related: relatedWords(words, variants) };
 }

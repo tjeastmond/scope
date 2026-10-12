@@ -1,6 +1,6 @@
 import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
 
-/** Maximum candidates sent to Jev per run (plan target: 20-30 chunks); the retrieval configuration owns the value. */
+/** Maximum candidates sent to Jev per run (plan target 20-30, raised to 40 for recall: issue #196); the retrieval configuration owns the value. */
 export const MAX_CANDIDATES = DEFAULT_RETRIEVAL_CONFIG.shortlistSize;
 
 /**

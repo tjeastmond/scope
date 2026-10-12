@@ -8,7 +8,7 @@ Show each invoice's due date in the invoice list: render it in the frontend row 
 
 - Mode: jev
 - Regions: 12
-- Retrieval config: ` retrieval-v3 `
+- Retrieval config: ` retrieval-v4 `
 - Jev questions: ` relevance-v1 `
 
 ## Warnings
@@ -179,4 +179,4 @@ export function format(cents: number, currency: string): string {
 
 ## Left out
 
-- 20 candidate(s) scored below the relevance minimum and are not listed.
+- 29 candidate(s) scored below the relevance minimum and are not listed.

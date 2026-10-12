@@ -9,7 +9,7 @@ import { fakeProvider } from "./helpers/fake-provider.ts";
 
 describe("DEFAULT_RETRIEVAL_CONFIG", () => {
   test("holds the documented illustrative values and is valid", () => {
-    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v3");
+    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v4");
     expect(DEFAULT_RETRIEVAL_CONFIG.weights).toEqual({
       symbol: 0.3,
       lexical: 0.2,
@@ -19,13 +19,14 @@ describe("DEFAULT_RETRIEVAL_CONFIG", () => {
       proximity: 0.05,
     });
     expect(Object.values(DEFAULT_RETRIEVAL_CONFIG.weights).reduce((sum, weight) => sum + weight, 0)).toBeCloseTo(1, 10);
+    expect(DEFAULT_RETRIEVAL_CONFIG.testDemotion).toBe(0.2);
     expect(DEFAULT_RETRIEVAL_CONFIG.weakShortlistTotal).toBe(0.1);
     expect(DEFAULT_RETRIEVAL_CONFIG.expansion).toEqual({ seedCount: 5, maxNeighborsPerSeed: 4, maxExpanded: 10 });
     expect(resolveRetrievalConfig()).toEqual(DEFAULT_RETRIEVAL_CONFIG);
   });
 
   test("the shortlist size is the single source of the candidate cap", () => {
-    expect(DEFAULT_RETRIEVAL_CONFIG.shortlistSize).toBe(30);
+    expect(DEFAULT_RETRIEVAL_CONFIG.shortlistSize).toBe(40);
     expect(MAX_CANDIDATES).toBe(DEFAULT_RETRIEVAL_CONFIG.shortlistSize);
   });
 
@@ -83,6 +84,9 @@ describe("resolveRetrievalConfig", () => {
       { shortlistSize: 3, expansion: { maxExpanded: 3, seedCount: 4 } },
       "expansion.seedCount",
     ],
+    ["zero test demotion", { testDemotion: 0 }, "testDemotion"],
+    ["test demotion above 1", { testDemotion: 1.5 }, "testDemotion"],
+    ["NaN test demotion", { testDemotion: Number.NaN }, "testDemotion"],
     ["blank version", { version: "  " }, "version"],
     ["weak threshold above 1", { weakShortlistTotal: 1.5 }, "weakShortlistTotal"],
     ["negative weak threshold", { weakShortlistTotal: -0.1 }, "weakShortlistTotal"],

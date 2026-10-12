@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { buildIndexes } from "../src/retrieval/indexes.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "../src/retrieval/config.ts";
-import { scoreChunks, type ChunkScore, type ScoringWeights } from "../src/retrieval/score.ts";
+import { mentionsTests, scoreChunks, type ChunkScore, type ScoringWeights } from "../src/retrieval/score.ts";
 import { extractTaskTerms } from "../src/retrieval/terms.ts";
 import { loadChunks } from "../src/scope.ts";
 import type { CodeChunk } from "../src/types.ts";
@@ -152,6 +152,14 @@ describe("scoreChunks signal formulas", () => {
     expect(path).toBeCloseTo(0.9, 10);
   });
 
+  test("related words let a chunk be found by the code's wording rather than the task's", () => {
+    const list = [make("src/a.ts", "f", "const parsed = argv.slice(2);"), make("src/b.ts", "g", "const total = 1;")];
+    const scores = score("Add a flag to the export", list);
+    expect(scores.get("src/a.ts::f")?.signals.lexical).toBe(1);
+    expect(scores.has("src/b.ts::g")).toBe(false);
+    expect(score("Add a switch to the export", list).has("src/a.ts::f")).toBe(false);
+  });
+
   test("a file name in the task matches the path ending with it", () => {
     const scores = score("`app.toml` and lots of other unrelated words here", [make("config/app.toml", "f")]);
     expect(scores.get("config/app.toml::f")?.signals.path).toBe(1);
@@ -162,5 +170,61 @@ describe("scoreChunks signal formulas", () => {
     const ranked = scoreChunks(extractTaskTerms("`reminder`"), buildIndexes(list), { symbol: 1, lexical: 0, path: 1 });
     expect(ranked.map((s) => s.chunkId)).toEqual(["src/reminder.ts::alpha", "src/zeta.ts::reminder"]);
     expect(ranked[0]?.total).toBe(ranked[1]?.total);
+  });
+});
+
+describe("mentionsTests", () => {
+  test.each([
+    "Fix the retry tests",
+    "Add a spec for retry",
+    "Mock the clock",
+    "testing the parser",
+    "Fix `retry.test.ts`",
+  ])("is true for %p", (task) => {
+    expect(mentionsTests(extractTaskTerms(task))).toBe(true);
+  });
+
+  test.each(["Change the retry delay", "Add a --max-items flag", "Latest contest results"])(
+    "is false for %p",
+    (task) => {
+      expect(mentionsTests(extractTaskTerms(task))).toBe(false);
+    },
+  );
+});
+
+describe("scoreChunks test demotion", () => {
+  const make = (file: string): CodeChunk => ({
+    id: `${file}::retryDelay`,
+    file,
+    language: "typescript",
+    kind: "function",
+    name: "retryDelay",
+    startLine: 1,
+    endLine: 1,
+    content: "retry delay",
+    references: [],
+  });
+  const list = [make("src/retry.ts"), make("tests/retry.test.ts")];
+  const run = (task: string, demotion?: number) =>
+    new Map(
+      scoreChunks(extractTaskTerms(task), buildIndexes(list), DEFAULT_RETRIEVAL_CONFIG.weights, demotion).map((s) => [
+        s.chunkId,
+        s,
+      ]),
+    );
+
+  test("lexical signals of test-file chunks are scaled by the demotion factor", () => {
+    const scores = run("Change the retry delay", 0.5);
+    const [source, test] = [scores.get("src/retry.ts::retryDelay")!, scores.get("tests/retry.test.ts::retryDelay")!];
+    expect(test.signals.symbol).toBeCloseTo(source.signals.symbol * 0.5, 10);
+    expect(test.signals.lexical).toBeCloseTo(source.signals.lexical * 0.5, 10);
+    expect(test.signals.path).toBeCloseTo(source.signals.path * 0.5, 10);
+    expect(test.total).toBeLessThan(source.total);
+  });
+
+  test("a factor of 1 (the default argument) turns the demotion off", () => {
+    expect(run("Change the retry delay").get("tests/retry.test.ts::retryDelay")?.signals.symbol).toBe(
+      run("Change the retry delay").get("src/retry.ts::retryDelay")?.signals.symbol,
+    );
   });
 });

@@ -3,6 +3,7 @@
 // and its origin says whether it matched directly or came in through a seed.
 
 import type { NeighborConfidence, RepositoryGraph } from "../graph/types.ts";
+import { isTestFile } from "../graph/tests.ts";
 import type { RetrievalConfig } from "./config.ts";
 import { expandNeighbors, relatedTestFiles, selectSeeds } from "./expand.ts";
 import type { RetrievalIndexes } from "./indexes.ts";
@@ -32,12 +33,16 @@ const topLevelOf = (file: string): string => file.split("/")[0] ?? "";
  * - test: 1.0 for a chunk in a test file linked to a seed's file, or in a source file linked to a test seed.
  * - proximity: relative to the best-ranked seed's file, 1.0 for the same directory, 0.5 for the same first path
  *   segment but another directory, 0 otherwise.
+ *
+ * `testDemotion` (default 1, no change) multiplies all three graph signals of chunks in test files: otherwise a seed's
+ * linked tests, which import it and share its name, would all outscore weak lexical matches in the source.
  */
 export function rankCandidates(
   lexical: readonly ChunkScore[],
   graph: RepositoryGraph,
   indexes: RetrievalIndexes,
   config: RetrievalConfig,
+  testDemotion = 1,
 ): Candidate[] {
   const seeds = selectSeeds(lexical, config.expansion);
   const seedIds = new Set(seeds.map((seed) => seed.chunkId));
@@ -62,11 +67,12 @@ export function rankCandidates(
   const withGraphSignals = (score: ChunkScore, origin: Candidate["origin"]): Candidate => {
     if (seedIds.has(score.chunkId)) return { ...score, origin };
     const file = indexes.byId.get(score.chunkId)?.file ?? "";
+    const factor = isTestFile(file) ? testDemotion : 1;
     const signals: Record<Signal, number> = {
       ...score.signals,
-      dependency: dependency.get(score.chunkId) ?? 0,
-      test: testFiles.has(file) ? 1 : 0,
-      proximity: proximity(file),
+      dependency: (dependency.get(score.chunkId) ?? 0) * factor,
+      test: (testFiles.has(file) ? 1 : 0) * factor,
+      proximity: proximity(file) * factor,
     };
     return { ...weighSignals(score.chunkId, signals, config.weights), origin };
   };

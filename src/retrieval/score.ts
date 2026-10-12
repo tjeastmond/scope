@@ -2,6 +2,7 @@
 // separate so a score can be explained. A ChunkScore has a slot for every signal; the graph signals (dependency,
 // test, proximity) are 0 here and filled in by `rankCandidates`.
 
+import { isTestFile } from "../graph/tests.ts";
 import { DEFAULT_RETRIEVAL_CONFIG, type RetrievalConfig } from "./config.ts";
 import {
   lookupBasename,
@@ -89,7 +90,7 @@ function symbolSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
 
 /** Lexical signal: BM25 over the task's content words, divided by the best score so the top chunk is 1. */
 function lexicalSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
-  const scores = scoreText(indexes, terms.words);
+  const scores = scoreText(indexes, [...terms.words, ...terms.related]);
   let max = 0;
   for (const score of scores.values()) max = Math.max(max, score);
   return new Map(max > 0 ? [...scores].map(([id, score]) => [id, score / max]) : []);
@@ -125,14 +126,24 @@ function pathSignals(terms: TaskTerms, indexes: RetrievalIndexes): Signals {
   return signals;
 }
 
+/** Stemmed task words that say the task is about tests (`tests`, `testing`, `specs`, `mocks` all stem to these). */
+const TEST_INTENT_WORDS: ReadonlySet<string> = new Set(["test", "spec", "mock"]);
+
+/** Whether the task asks about tests, in which case test chunks are not demoted. */
+export function mentionsTests(terms: TaskTerms): boolean {
+  return terms.words.some((word) => TEST_INTENT_WORDS.has(word));
+}
+
 /**
- * Scores every chunk that any signal matches. Sorted by total descending, then file, start line and id, so equal
+ * Scores every chunk that any signal matches. The lexical signals of chunks in test files are multiplied by `testDemotion`
+ * (1 leaves them alone; the caller decides whether the task warrants a demotion, see {@link mentionsTests}). Sorted by total descending, then file, start line and id, so equal
  * scores never depend on input order.
  */
 export function scoreChunks(
   terms: TaskTerms,
   indexes: RetrievalIndexes,
   weights: ScoringWeights = DEFAULT_RETRIEVAL_CONFIG.weights,
+  testDemotion = 1,
 ): ChunkScore[] {
   const all = {
     symbol: symbolSignals(terms, indexes),
@@ -142,10 +153,11 @@ export function scoreChunks(
   const ids = new Set([...all.symbol.keys(), ...all.lexical.keys(), ...all.path.keys()]);
   const scores: ChunkScore[] = [];
   for (const chunkId of ids) {
+    const factor = isTestFile(indexes.byId.get(chunkId)?.file ?? "") ? testDemotion : 1;
     const signals = {
-      symbol: all.symbol.get(chunkId) ?? 0,
-      lexical: all.lexical.get(chunkId) ?? 0,
-      path: all.path.get(chunkId) ?? 0,
+      symbol: (all.symbol.get(chunkId) ?? 0) * factor,
+      lexical: (all.lexical.get(chunkId) ?? 0) * factor,
+      path: (all.path.get(chunkId) ?? 0) * factor,
       dependency: 0,
       test: 0,
       proximity: 0,
