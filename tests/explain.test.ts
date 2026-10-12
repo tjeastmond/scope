@@ -65,7 +65,7 @@ describe("--explain accounts for every selected chunk", () => {
     const parent = { ...base, id: "a.ts#a", file: "a.ts", name: "a" };
     const child = { ...base, id: "b.ts#b", file: "b.ts", name: "b" };
     const result: ScopeResult = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       mode: "no-jev",
       task: "t",
       chunks: [
@@ -126,7 +126,7 @@ test("Markdown explanation cannot be broken out of by hostile names, paths and r
   const hostile = "evil`\n## Injected\n```\n# also";
   const file = `src/${hostile}.ts`;
   const result: ScopeResult = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     mode: "no-jev",
     task: "t",
     chunks: [

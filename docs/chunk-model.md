@@ -264,7 +264,7 @@ function is on that function (and a nested import in a Python function on that f
 `export ... from` statements lie outside every chunk range, so a reference whose line is in no chunk of the file is
 file-level context and is attached to every chunk of that file (a file with only imports has no chunks and so no
 references). That costs one copy per chunk, bounded by the scan limits. `references` are not sent to Jev and not
-printed in the output; they are chunk data for M3's graph and the M6 cache.
+printed in the output; they are chunk data for M3's graph.
 
 ## JavaScript and TypeScript
 

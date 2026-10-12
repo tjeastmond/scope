@@ -27,8 +27,8 @@ export const JEV_CONCURRENCY = 4;
 export const JEV_CANDIDATE_MAX_CHARS = 6_000;
 
 /**
- * Identifies the exact question text and criteria sent to Jev. Change it whenever either changes, because cached
- * decisions (M6) are only reusable under the same version.
+ * Identifies the exact question text and criteria sent to Jev. Change it whenever either changes, so results
+ * from different question versions stay distinguishable.
  */
 export const JEV_QUESTION_VERSION = "relevance-v1";
 

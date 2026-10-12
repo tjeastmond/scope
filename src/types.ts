@@ -156,52 +156,9 @@ export interface JevMetrics {
 /** Implemented by the real Jev adapter and by the fake provider used in tests. */
 export interface DecisionProvider {
   decide(request: DecisionRequest): Promise<DecisionResult>;
-  /**
-   * Material that fully identifies the request payload and configuration this provider would use for these
-   * candidates, or undefined to opt out. A provider without this method (or returning undefined) never reads or
-   * writes the decision cache.
-   */
-  decisionCacheKey?(task: string, candidates: readonly CodeChunk[]): unknown;
 }
 
 export type ScopeMode = "jev" | "no-jev";
-
-/** Why retrieval memory (#74) added a chunk to the shortlist; only for chunks whose origin starts with `memory:`. */
-export interface MemoryReason {
-  /** `missing`: reported missing in a similar run; `useful`: confirmed useful there; `selected`: Jev chose it there. */
-  source: "missing" | "useful" | "selected";
-  /** The similar earlier run that offered the chunk. */
-  runId: string;
-  /** Jaccard similarity of that run's task terms with this task's, in (0, 1]. */
-  similarity: number;
-  /** External feedback on this chunk from the similar runs (counts, and the distinct sources, at most 10). */
-  feedback?: { useful: number; irrelevant: number; missing: number; sources: string[] };
-}
-
-/** What the cache did for one run (#79); present only when the cache was on. Never holds source, tasks or the key. */
-export interface CacheReport {
-  /** The version keys the store is partitioned by; a change of any one starts a cold store. */
-  versions: Record<string, string>;
-  /** True when this run started from an empty or reset store. */
-  cold: boolean;
-  files: {
-    /** Analysis read from the cache instead of reparsed. */
-    reused: number;
-    /** New or changed files parsed this run. */
-    refreshed: number;
-    /** Cache entries dropped because the file is gone or excluded now. */
-    removed: number;
-    /** Repository-relative paths refreshed, sorted, at most 50. */
-    refreshedPaths: string[];
-    refreshedTruncated?: true;
-  };
-  /** Jev runs only. `expiresAt` (ISO 8601 UTC) is when the reused decision stops being reusable. */
-  decision?: { reused: boolean; expiresAt?: string };
-  /** Jev runs only. */
-  memory?: { candidates: number; disabled?: "env" | "no-history" };
-  /** Jev runs only: the active adaptive weight set's version, or `baseline`. */
-  weights?: { version: string };
-}
 
 export interface SelectedChunk {
   chunk: CodeChunk;
@@ -209,8 +166,6 @@ export interface SelectedChunk {
   signals: Record<string, number>;
   /** How retrieval found the chunk: `direct` (matched the task) or `expanded-from:<chunk id>` (a graph neighbour). */
   origin?: string;
-  /** Why memory offered the chunk; present exactly for chunks with a `memory:` origin. */
-  memory?: MemoryReason;
   /** Jev relevance, absent in `no-jev` mode. */
   relevance?: number;
   /** Ranking score used for selection; not a probability. */
@@ -248,7 +203,7 @@ export interface ScopeRegion {
 }
 
 export interface ScopeResult {
-  schemaVersion: 2;
+  schemaVersion: 3;
   mode: ScopeMode;
   task: string;
   /** Per-chunk selection provenance. */
@@ -264,16 +219,6 @@ export interface ScopeResult {
   jevQuestionVersion?: string;
   /** Jev's latency and token usage; absent in `no-jev` mode and when Jev was not called. */
   jev?: JevMetrics;
-  /** ISO 8601 UTC time of the stored Jev decision this run reused (identical task, candidates and versions); absent on a fresh decision. */
-  decisionsReusedFrom?: string;
-  /**
-   * Id of the run's history record (#73), the handle for `scope feedback` (#76). On a reused decision it is the id of
-   * the run that made the decision, only while that run's history record still exists. Absent for `--no-jev`, with the
-   * cache off, with no candidates, and when no record was committed.
-   */
-  runId?: string;
-  /** What the cache did for this run (#79); absent with the cache off or unavailable. */
-  cache?: CacheReport;
   /** Set by `--explain`: renderers add the selection evidence. */
   explain?: true;
 }
