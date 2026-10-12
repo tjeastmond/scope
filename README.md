@@ -73,6 +73,9 @@ scope "Add retry handling to Stripe webhook processing"
 **Offline.** `--no-jev` needs no key and makes no network calls. It scores every candidate equally, so it is a
 diagnostic baseline, not a replacement for Jev's relevance judgment.
 
+**Warnings.** Per-file scan warnings (syntax errors, files with no extracted chunks, JSONC, text fallbacks) print as a
+single line on stderr with a count per kind; `--explain` lists each one. The artifact always carries every warning.
+
 **Failures.** If Jev cannot complete, Scope fails; it never falls back to offline results. Stdout stays empty, the error
 goes to stderr, and the exit code says what failed. A Jev failure prints two lines: the labelled message, then one line of
 setup or retry guidance that also names `--no-jev` as the offline baseline you can choose instead (Scope never switches
