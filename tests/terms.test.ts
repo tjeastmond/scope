@@ -25,6 +25,12 @@ describe("splitIdentifier", () => {
     expect(splitIdentifier("ΟΔΟΣ_ΑΣ")).toEqual(["οδος", "ας"]);
   });
 
+  test("splits a run with more words than a call accepts arguments", () => {
+    const words = splitIdentifier("a1".repeat(400_000));
+    expect(words.length).toBe(800_000);
+    expect(words.slice(0, 4)).toEqual(["a", "1", "a", "1"]);
+  });
+
   test("returns a fresh array, so a caller's changes never leak into later calls", () => {
     const words = splitIdentifier("fooBar");
     words.push("leaked");

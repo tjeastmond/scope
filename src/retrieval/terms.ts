@@ -10,7 +10,8 @@ export function splitIdentifier(text: string): string[] {
   // it is split whole.
   if (text.includes("Σ")) return splitWords(text);
   const words: string[] = [];
-  for (const run of text.match(WORD_RUN) ?? []) words.push(...splitRun(run));
+  // A loop, not a spread: one run can hold more words than a call accepts arguments.
+  for (const run of text.match(WORD_RUN) ?? []) for (const word of splitRun(run)) words.push(word);
   return words;
 }
 
