@@ -56,6 +56,13 @@ Defined in `package.json`:
 - Never delete a branch with uncommitted changes or while an active agent still needs that branch.
 - Do not attribute work to any AI agent or coding tool. Commits, PR titles and bodies, issue and review comments, and code must not include `Co-Authored-By` trailers, "Generated with" footers, or mentions of Claude, Codex, Cursor, or any other agent or model as an author.
 
+## Dogfooding Scope
+
+Agents working on this repository use Scope on their own tasks, and every miss becomes evaluation data.
+
+- Before non-trivial work, build (`bun run build`) and run `node dist/cli.js "<task>" --format json` (or `scope` if it is linked; see README) from the repository root, then read the selected regions before searching by hand. It needs `TYPESAFE_API_KEY` from the environment; `--no-jev` is the offline baseline, not a substitute.
+- When Scope misses code you needed or selects code you did not, open a bug issue with the task text, the expected chunks (`path::symbol`), the actual selection, and the Jev usage line from stderr. Such cases become labeled evaluation tasks under `tasks/`.
+
 ## Implementation expectations
 
 - Supported platforms are macOS (primary) and other Unix systems. Windows is not supported; do not add Windows-specific code paths or review findings.

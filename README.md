@@ -110,3 +110,13 @@ bun test
 ```
 
 Jev calls need `TYPESAFE_API_KEY` in the environment.
+
+To run your working copy as `scope` on your PATH, build it and link it once (the link points at this checkout, so a
+later `bun run build` updates it):
+
+```bash
+bun run build
+npm link
+```
+
+`npm unlink -g scope` removes the link. Without linking, run `node dist/cli.js "<task>"` from the checkout.
