@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "mode": "jev",
   "task": "Validate invoice totals",
   "regions": [
@@ -8,6 +8,7 @@
       "language": "typescript",
       "startLine": 3,
       "endLine": 9,
+      "relevance": 0.91,
       "content": "function total(a: number, b: number) {\n  return a + b;\n}\n\nfunction due(day: string) {\n  return day;\n}",
       "chunks": [
         {
@@ -16,107 +17,20 @@
           "kind": "function",
           "startLine": 3,
           "endLine": 5,
-          "relevance": 0.91,
-          "score": 0.91,
-          "reason": "golden"
+          "relevance": 0.91
         },
         {
           "id": "src/invoices.ts#due",
           "name": "due",
           "kind": "function",
           "startLine": 7,
-          "endLine": 9,
-          "score": 0.4,
-          "reason": "golden"
+          "endLine": 9
         }
       ]
     }
   ],
   "warnings": [
     "src/legacy.ts: 2 syntax errors; text fallback used."
-  ],
-  "skipped": [
-    {
-      "chunkId": "src/big.ts#big1",
-      "file": "src/big.ts",
-      "startLine": 10,
-      "endLine": 15,
-      "name": "big1",
-      "relevance": 0.44,
-      "score": 0.44
-    },
-    {
-      "chunkId": "src/big.ts#big2",
-      "file": "src/big.ts",
-      "startLine": 20,
-      "endLine": 25,
-      "name": "big2",
-      "relevance": 0.43,
-      "score": 0.43
-    },
-    {
-      "chunkId": "src/big.ts#big3",
-      "file": "src/big.ts",
-      "startLine": 30,
-      "endLine": 35,
-      "name": "big3",
-      "relevance": 0.42000000000000004,
-      "score": 0.42000000000000004
-    },
-    {
-      "chunkId": "src/big.ts#big4",
-      "file": "src/big.ts",
-      "startLine": 40,
-      "endLine": 45,
-      "name": "big4",
-      "relevance": 0.41000000000000003,
-      "score": 0.41000000000000003
-    },
-    {
-      "chunkId": "src/big.ts#big5",
-      "file": "src/big.ts",
-      "startLine": 50,
-      "endLine": 55,
-      "name": "big5",
-      "relevance": 0.4,
-      "score": 0.4
-    },
-    {
-      "chunkId": "src/big.ts#big6",
-      "file": "src/big.ts",
-      "startLine": 60,
-      "endLine": 65,
-      "name": "big6",
-      "relevance": 0.39,
-      "score": 0.39
-    },
-    {
-      "chunkId": "src/big.ts#big7",
-      "file": "src/big.ts",
-      "startLine": 70,
-      "endLine": 75,
-      "name": "big7",
-      "relevance": 0.38,
-      "score": 0.38
-    },
-    {
-      "chunkId": "src/big.ts#big8",
-      "file": "src/big.ts",
-      "startLine": 80,
-      "endLine": 85,
-      "name": "big8",
-      "relevance": 0.37,
-      "score": 0.37
-    },
-    {
-      "chunkId": "src/big.ts#big9",
-      "file": "src/big.ts",
-      "startLine": 90,
-      "endLine": 95,
-      "name": "big9",
-      "relevance": 0.36,
-      "score": 0.36
-    }
   ],
   "retrievalConfigVersion": "golden-1",
   "jevQuestionVersion": "golden-q1"

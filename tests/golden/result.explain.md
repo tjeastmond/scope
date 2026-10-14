@@ -15,15 +15,6 @@ Validate invoice totals
 
 - ` src/legacy.ts: 2 syntax errors; text fallback used. `
 
-## ` src/invoices.ts:1-1 `
-
-- Language: typescript
-- ` Money `, function, lines 1-1: supporting declaration
-
-```typescript
-type Money = number;
-```
-
 ## ` src/invoices.ts:3-5 `
 
 - Language: typescript
@@ -44,6 +35,15 @@ function total(a: number, b: number) {
 function due(day: string) {
   return day;
 }
+```
+
+## ` src/invoices.ts:1-1 `
+
+- Language: typescript
+- ` Money `, function, lines 1-1: supporting declaration
+
+```typescript
+type Money = number;
 ```
 
 ## Explanation
