@@ -7,7 +7,7 @@
 
 | Field | Value |
 | --- | --- |
-| Scope version | 0.0.0 |
+| Scope version | 1.0.0 |
 | Retrieval config version | retrieval-v5 |
 | Jev question version | relevance-v1 |
 | `@typesafe-ai/sdk` version | 0.6.0 |

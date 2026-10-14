@@ -1,17 +1,40 @@
 {
-  "name": "scope",
-  "version": "0.0.0",
+  "name": "@tjeastmond/scope",
+  "version": "1.0.0",
   "description": "Scope selects the smallest useful code context for a software task, using Jev to judge relevance.",
+  "keywords": [
+    "code-context",
+    "retrieval",
+    "tree-sitter",
+    "coding-agent",
+    "cli",
+    "jev"
+  ],
+  "author": "TJ Eastmond",
+  "homepage": "https://github.com/tjeastmond/scope#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tjeastmond/scope.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tjeastmond/scope/issues"
+  },
   "type": "module",
   "private": true,
   "license": "Apache-2.0",
   "files": [
     "dist",
     "!dist/**/*.map",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "bun scripts/build.ts",
@@ -45,10 +68,8 @@
     "ajv": "^8.20.0",
     "eslint": "^10.12.0",
     "prettier": "^3.9.9",
+    "typescript": "^5",
     "typescript-eslint": "^8.71.1"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
   },
   "bin": {
     "scope": "dist/cli.js"
