@@ -9,7 +9,7 @@ import { fakeProvider } from "./helpers/fake-provider.ts";
 
 describe("DEFAULT_RETRIEVAL_CONFIG", () => {
   test("holds the documented illustrative values and is valid", () => {
-    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v5");
+    expect(DEFAULT_RETRIEVAL_CONFIG.version).toBe("retrieval-v6");
     expect(DEFAULT_RETRIEVAL_CONFIG.weights).toEqual({
       symbol: 0.3,
       lexical: 0.2,

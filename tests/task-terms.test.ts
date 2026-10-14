@@ -118,6 +118,10 @@ describe("extractTaskTerms related words", () => {
     ]);
   });
 
+  test("sidenav wording brings in the sidebar and navigation vocabulary", () => {
+    expect(extractTaskTerms("add theme toggle link to sidenav").related).toEqual(["sidebar", "nav", "navigation"]);
+  });
+
   test("a task without such wording has none, and a related word the task already uses is not repeated", () => {
     expect(extractTaskTerms("Show the due date in the invoice list").related).toEqual([]);
     const { related } = extractTaskTerms("Add an option parser flag");

@@ -34,7 +34,7 @@ export interface RetrievalConfig {
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 export const DEFAULT_RETRIEVAL_CONFIG: Readonly<RetrievalConfig> = Object.freeze({
-  version: "retrieval-v5",
+  version: "retrieval-v6",
   weights: Object.freeze({ symbol: 0.3, lexical: 0.2, path: 0.15, dependency: 0.2, test: 0.1, proximity: 0.05 }),
   testDemotion: 0.2,
   shortlistSize: 40,
