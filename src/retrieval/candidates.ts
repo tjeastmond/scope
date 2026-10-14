@@ -1,6 +1,7 @@
 import type { CodeChunk } from "../types.ts";
 import { DEFAULT_RETRIEVAL_CONFIG, type RetrievalConfig } from "./config.ts";
 import { generateCandidates } from "./generate.ts";
+import type { PathPriorContribution, PathPriorInput } from "./path-prior.ts";
 import type { Candidate } from "./rank.ts";
 
 function compareStrings(a: string, b: string): number {
@@ -18,6 +19,8 @@ export interface CandidateSelection {
   ranking: ReadonlyMap<string, Candidate>;
   /** Set when the shortlist is weak or empty, so the task is unlikely to be served well. */
   warning?: string;
+  /** Present only when a path prior was given: what it changed in the shortlist. */
+  pathPrior?: PathPriorContribution;
 }
 
 /**
@@ -29,20 +32,31 @@ export function selectCandidates(
   task: string,
   chunks: readonly CodeChunk[],
   config: RetrievalConfig = DEFAULT_RETRIEVAL_CONFIG,
+  pathPrior?: PathPriorInput,
 ): CandidateSelection {
-  const ranked = generateCandidates(task, chunks, config);
+  const ranked = generateCandidates(task, chunks, config, pathPrior);
   const ranking = new Map(ranked.map((candidate) => [candidate.chunkId, candidate]));
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]));
-  const shortlisted = ranked.slice(0, config.shortlistSize).map((candidate) => byId.get(candidate.chunkId)!);
+  const top = ranked.slice(0, config.shortlistSize);
+  const shortlisted = top.map((candidate) => byId.get(candidate.chunkId)!);
+  const contribution: { pathPrior?: PathPriorContribution } = pathPrior
+    ? {
+        pathPrior: {
+          boosted: top.filter((c) => c.origin !== "path-prior" && (c.pathPrior ?? 0) > 0).length,
+          added: top.filter((c) => c.origin === "path-prior").map((c) => byId.get(c.chunkId)!.file),
+        },
+      }
+    : {};
   if (chunks.length <= config.shortlistSize) {
     const rest = chunks.filter((chunk) => !ranking.has(chunk.id)).sort(compareChunks);
-    return { candidates: [...shortlisted, ...rest], ranking };
+    return { candidates: [...shortlisted, ...rest], ranking, ...contribution };
   }
   const best = ranked[0]?.total ?? 0;
   const weak = best < config.weakShortlistTotal;
   return {
     candidates: shortlisted,
     ranking,
+    ...contribution,
     ...(weak && {
       warning:
         shortlisted.length === 0

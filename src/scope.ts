@@ -5,6 +5,7 @@ import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.t
 import { CancelledError, UsageError } from "./errors.ts";
 import { JEV_QUESTION_VERSION } from "./config.ts";
 import { selectByRelevance } from "./context/select.ts";
+import { JevPathPriorProvider, type PathPriorLimits, type PathPriorProvider } from "./jev/path-prior.ts";
 import { JevDecisionProvider, planJevRequests, type JevRequest } from "./jev/provider.ts";
 import { validateJudgments } from "./jev/validate.ts";
 import { scanRepository } from "./repository/files.ts";
@@ -13,6 +14,7 @@ import { redactSecrets } from "./repository/redact.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { selectCandidates } from "./retrieval/candidates.ts";
 import { DEFAULT_RETRIEVAL_CONFIG } from "./retrieval/config.ts";
+import type { PathPriorContribution, PathPriorConfig } from "./retrieval/path-prior.ts";
 import type { CodeChunk, DecisionProvider, DecisionResult, JevMetrics, ScopeResult, SelectedChunk } from "./types.ts";
 
 export interface ScopeOptions {
@@ -27,6 +29,22 @@ export interface ScopeOptions {
   explain?: boolean;
   /** Aborted when the user cancels: stops the scan and the Jev request with a CancelledError or JevCancelledError. */
   signal?: AbortSignal;
+  /**
+   * EXPERIMENTAL (issue #166), not exposed in the CLI. Ranks file and directory names with Jev before candidate
+   * selection and merges the result into the shortlist. Only the task and the names of files that passed the scan
+   * exclusions are sent. Cannot be combined with `noJev`.
+   */
+  pathPrior?: true | { provider?: PathPriorProvider; limits?: PathPriorLimits; config?: Partial<PathPriorConfig> };
+}
+
+/** What the experimental path prior did in a run. */
+export interface PathPriorRun {
+  contribution: PathPriorContribution;
+  requestCount: number;
+  questionCount: number;
+  latencyMs: number;
+  /** Kept apart from `decision.usage`, which covers only the relevance judgments. */
+  usage: { inputTokens: number; outputTokens: number };
 }
 
 export interface ScopeRun {
@@ -35,6 +53,10 @@ export interface ScopeRun {
   decision?: DecisionResult;
   /** The per-file scan warnings, also present in `result.warnings`; the CLI summarizes them unless `--explain`. */
   fileWarnings: FileWarning[];
+  /** The shortlist Jev was asked to judge, best first. */
+  candidates: CodeChunk[];
+  /** Present only when the experimental `pathPrior` option was set. */
+  pathPrior?: PathPriorRun;
 }
 
 export { UsageError };
@@ -51,11 +73,12 @@ const HEAD_CHARS = 1024;
 export async function loadChunks(
   repo: string,
   { detailed = false, signal }: { detailed?: boolean; signal?: AbortSignal } = {},
-): Promise<{ chunks: CodeChunk[]; warnings: string[]; fileWarnings: FileWarning[] }> {
+): Promise<{ chunks: CodeChunk[]; warnings: string[]; fileWarnings: FileWarning[]; files: string[] }> {
   const { root } = resolveRepository(repo);
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
   const fileWarnings: FileWarning[] = [];
+  const textFiles: string[] = [];
   const warnFile = (file: string, message: string) => {
     warnings.push(message);
     fileWarnings.push(classifyFileWarning(file, message));
@@ -70,6 +93,7 @@ export async function loadChunks(
       warnFile(file, binaryWarning(file));
       continue;
     }
+    textFiles.push(file);
     const text = bytes.toString("utf8");
     const { language } = classifyFile(file, text.slice(0, HEAD_CHARS));
     if (!language) continue;
@@ -85,16 +109,55 @@ export async function loadChunks(
     // One message covers all these files; the CLI counts them as a kind of its own in the stderr summary.
     for (const file of textOnly) fileWarnings.push({ file, kind: "plain-text", message: summary });
   }
-  return { chunks, warnings, fileWarnings };
+  return { chunks, warnings, fileWarnings, files: textFiles };
 }
 
 /** Scans the repository and shortlists candidates; shared by the real run and the payload preview. */
-async function prepareCandidates(task: string, repo: string, detailed: boolean, signal: AbortSignal | undefined) {
+async function prepareCandidates(
+  task: string,
+  repo: string,
+  detailed: boolean,
+  signal: AbortSignal | undefined,
+  pathPrior?: ScopeOptions["pathPrior"],
+) {
   if (!task.trim()) throw new UsageError("A task description is required.");
-  const { chunks, warnings, fileWarnings } = await loadChunks(repo, { detailed, signal });
+  const { chunks, warnings, fileWarnings, files } = await loadChunks(repo, { detailed, signal });
   // Checked here too so a Ctrl-C during the scan stops the offline path, which never reaches the Jev provider.
   if (signal?.aborted) throw new CancelledError();
-  return { chunks, scanWarnings: warnings, fileWarnings, ...selectCandidates(task, chunks) };
+  let prior: Awaited<ReturnType<PathPriorProvider["rank"]>> | undefined;
+  if (pathPrior) {
+    const options = pathPrior === true ? {} : pathPrior;
+    // `files` already passed the scan's ignore, binary and secret exclusions: nothing excluded can reach Jev.
+    prior = await (options.provider ?? new JevPathPriorProvider({ limits: options.limits })).rank({
+      task,
+      files,
+      signal,
+    });
+  }
+  const selection = selectCandidates(
+    task,
+    chunks,
+    DEFAULT_RETRIEVAL_CONFIG,
+    prior && { scores: prior.scores, config: pathPrior === true ? undefined : pathPrior?.config },
+  );
+  const { pathPrior: contribution, ...rest } = selection;
+  return {
+    chunks,
+    scanWarnings: warnings,
+    fileWarnings,
+    ...rest,
+    ...(prior && contribution
+      ? {
+          pathPriorRun: {
+            contribution,
+            requestCount: prior.requestCount,
+            questionCount: prior.questionCount,
+            latencyMs: prior.latencyMs,
+            usage: prior.usage,
+          } satisfies PathPriorRun,
+        }
+      : {}),
+  };
 }
 
 /**
@@ -137,6 +200,7 @@ function jevMetrics(decision: DecisionResult | undefined, explain: boolean): { j
 /** Orchestrates a Scope run. Callable without argument parsing; the CLI only parses args and calls this. */
 export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
   const { task, repo = ".", noJev = false, explain = false, signal } = options;
+  if (options.pathPrior && noJev) throw new UsageError("The path prior needs Jev and cannot be combined with noJev.");
   const {
     chunks,
     scanWarnings,
@@ -144,7 +208,8 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     candidates,
     ranking,
     warning: retrievalWarning,
-  } = await prepareCandidates(task, repo, explain, signal);
+    pathPriorRun,
+  } = await prepareCandidates(task, repo, explain, signal, options.pathPrior);
   const mode = noJev ? "no-jev" : "jev";
   // The Jev provider (and so the SDK client and its credential check) is only built on the Jev path.
   // With nothing to judge Jev is skipped; selection then returns an empty artifact carrying retrieval's guidance.
@@ -180,5 +245,11 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
     ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
-  return { result: { ...result, ...jevMetrics(decision, explain) }, decision, fileWarnings };
+  return {
+    result: { ...result, ...jevMetrics(decision, explain) },
+    decision,
+    fileWarnings,
+    candidates,
+    ...(pathPriorRun ? { pathPrior: pathPriorRun } : {}),
+  };
 }

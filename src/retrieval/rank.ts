@@ -11,7 +11,9 @@ import { compareScores, weighSignals, type ChunkScore, type Signal } from "./sco
 
 export interface Candidate extends ChunkScore {
   /** `direct` when lexical signals matched it; otherwise the seed that brought it in. */
-  origin: "direct" | `expanded-from:${string}`;
+  origin: "direct" | `expanded-from:${string}` | "path-prior";
+  /** Experimental path prior (#166): the amount added to `total`, or the whole total of a candidate it introduced. */
+  pathPrior?: number;
 }
 
 /** Dependency signal by edge confidence: an exact edge is full strength, a heuristic one a bit weaker. */

@@ -7,6 +7,7 @@ import type { CodeChunk } from "../types.ts";
 import { DEFAULT_RETRIEVAL_CONFIG, type RetrievalConfig } from "./config.ts";
 import { buildIndexes, type RetrievalIndexes } from "./indexes.ts";
 import { rankCandidates, type Candidate } from "./rank.ts";
+import { applyPathPrior, type PathPriorInput } from "./path-prior.ts";
 import { mentionsTests, scoreChunks } from "./score.ts";
 import { extractTaskTerms } from "./terms.ts";
 
@@ -36,10 +37,12 @@ export function generateCandidates(
   task: string,
   chunks: readonly CodeChunk[],
   config: RetrievalConfig = DEFAULT_RETRIEVAL_CONFIG,
+  pathPrior?: PathPriorInput,
 ): Candidate[] {
   const indexes = buildIndexes(chunks);
   const terms = extractTaskTerms(task);
   const testDemotion = mentionsTests(terms) ? 1 : config.testDemotion;
   const lexical = scoreChunks(terms, indexes, config.weights, testDemotion);
-  return dedupeCandidates(rankCandidates(lexical, buildGraph(chunks), indexes, config, testDemotion), indexes);
+  const ranked = dedupeCandidates(rankCandidates(lexical, buildGraph(chunks), indexes, config, testDemotion), indexes);
+  return pathPrior ? applyPathPrior(ranked, indexes, pathPrior, testDemotion) : ranked;
 }

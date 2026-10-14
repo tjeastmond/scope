@@ -55,7 +55,13 @@ export interface PathPriorLimits {
   minDescend?: number;
 }
 
-export const PATH_PRIOR_DEFAULTS = { maxDepth: 4, maxFanout: 24, maxFrontier: 6, maxRequests: 6, minDescend: 0.05 } as const;
+export const PATH_PRIOR_DEFAULTS = {
+  maxDepth: 4,
+  maxFanout: 24,
+  maxFrontier: 6,
+  maxRequests: 6,
+  minDescend: 0.05,
+} as const;
 
 /** One directory to ask about: its display path ("" is the root) and its entries, sorted, subdirectories ending in `/`. */
 export interface LevelDirectory {
@@ -160,7 +166,13 @@ export function planPathPriorLevel(
     for (let g = 0; g < groups; g++) {
       const start = g * maxFanout;
       const size = Math.min(maxFanout, total - start);
-      all.push({ key: groups === 1 ? `d${directory}` : `d${directory}g${g}`, directory, start, size, scale: size / total });
+      all.push({
+        key: groups === 1 ? `d${directory}` : `d${directory}g${g}`,
+        directory,
+        start,
+        size,
+        scale: size / total,
+      });
     }
   });
 
@@ -376,7 +388,7 @@ export class JevPathPriorProvider implements PathPriorProvider {
         if (firstFailure !== undefined) return;
 
         // A directory counts as asked only when every one of its questions was answered.
-        for (const question of plan) {
+        for (const question of plan.flatMap((planned) => planned.questions)) {
           const probs = answered.get(question.key);
           if (!probs) continue;
           const target = asked[question.directory]!;
@@ -388,8 +400,7 @@ export class JevPathPriorProvider implements PathPriorProvider {
         const candidates: { node: DirNode; cum: number }[] = [];
         for (const { node, cum } of frontier) {
           const found = probabilities.get(node);
-          if (!found || found.probs.length !== found.entries.length || found.probs.some((p) => p === undefined))
-            continue;
+          if (!found || found.entries.some((_entry, i) => found.probs[i] === undefined)) continue;
           found.entries.forEach((entry, i) => {
             const own = cum * found.probs[i]!;
             if (entry.file !== undefined) filePrior.set(entry.file, own);
