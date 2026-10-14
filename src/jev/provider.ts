@@ -157,7 +157,7 @@ function buildBatch(task: string, chunks: CodeChunk[], first: number, cap: numbe
 
 const requestChars = (batch: Batch) => JSON.stringify(batch.request).length;
 
-function requirePositiveInteger(name: string, value: number): number {
+export function requirePositiveInteger(name: string, value: number): number {
   if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be a positive integer.`);
   return value;
 }
@@ -227,7 +227,7 @@ const isTooLarge = (error: BadRequestError) => {
  * timeout, so a Ctrl-C is told apart from a deadline. Deliberately omits the SDK message, body, headers and `cause`
  * (they can echo request content and credentials); only the error kind, HTTP status and request id are used.
  */
-function failure(error: unknown, caller: AbortSignal | undefined, deadline: AbortSignal): JevError {
+export function failure(error: unknown, caller: AbortSignal | undefined, deadline: AbortSignal): JevError {
   if (caller?.aborted) return new JevCancelledError("Jev request cancelled.");
   if (deadline.aborted) return new JevTimeoutError("Jev did not respond before Scope's overall deadline; try again.");
   if (error instanceof APIUserAbortError) return new JevCancelledError("Jev request cancelled.");
@@ -249,7 +249,7 @@ function failure(error: unknown, caller: AbortSignal | undefined, deadline: Abor
 const isCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
 
 /** Token counts from an untrusted response: non-negative integers, or a JevResponseError. */
-function validateUsage(usage: unknown): { input: number; output: number } {
+export function validateUsage(usage: unknown): { input: number; output: number } {
   const { input_tokens: input, output_tokens: output } = (usage ?? {}) as Record<string, unknown>;
   if (!isCount(input) || !isCount(output)) throw new JevResponseError("Jev returned invalid token usage.");
   return { input, output };
@@ -259,7 +259,7 @@ function validateUsage(usage: unknown): { input: number; output: number } {
  * Runs `run` over every item with at most `concurrency` in flight. Items start in order; once `stopped()` is true no
  * further item starts. `run` must not reject (callers record failures themselves), so no rejection can go unhandled.
  */
-async function runPool<T>(
+export async function runPool<T>(
   items: readonly T[],
   concurrency: number,
   stopped: () => boolean,

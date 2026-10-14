@@ -33,6 +33,12 @@ export const JEV_CANDIDATE_MAX_CHARS = 6_000;
 export const JEV_QUESTION_VERSION = "relevance-v1";
 
 /**
+ * Identifies the question text of the experimental path prior (issue #166), which ranks file and directory names.
+ * Change it whenever that text or its criteria change.
+ */
+export const JEV_PATH_PRIOR_QUESTION_VERSION = "path-prior-v1";
+
+/**
  * Overall deadline for judging all candidates: the Jev phase of a run never takes longer, even if a request ignores
  * cancellation. The SDK bounds only each attempt and has no total retry budget. Without this deadline the worst case
  * would be ceil(batches / JEV_CONCURRENCY) rounds of one batch's worst case, which is (JEV_MAX_RETRIES + 1) attempts x
