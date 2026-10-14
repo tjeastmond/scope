@@ -105,7 +105,7 @@ bun run eval [--mode lexical|no-jev|jev ...] [--split tuning|heldout|all] [--fix
 bun run eval:freeze
 ```
 
-The harness is dev tooling under `scripts/eval/`; nothing in it ships in `src/`. It is not part of `bun run validate`;
+The harness is dev tooling under `scripts/eval/`; nothing in it ships in `src/`. The live harness (`bun run eval`) is not part of `bun run validate`, but the offline release gate (`eval:gate`) is, and
 its unit tests (`tests/eval-*.test.ts`) run in `bun test` and need no network or key.
 
 - **Modes.** The default is `lexical` and `no-jev` (offline). `lexical` is the baseline: BM25 over every eligible chunk
@@ -215,3 +215,24 @@ Rationale:
   budget (token budgets were removed), so this gate is a measure, not a limit on output.
 
 Thresholds change only with a written reason in the same pull request, normally alongside a regenerated report.
+
+## Experimental: Jev path prior (#166)
+
+An experiment to raise candidate recall: before candidate selection, Jev ranks the _names_ of files and directories for
+the task, and the result is merged into the shortlist. It is off by default and not reachable from the CLI; only the
+library option `runScope({ pathPrior: true })` (or `{ provider, limits, config }`) turns it on, and it throws a
+`UsageError` together with `noJev`.
+
+- **What it does.** `src/jev/path-prior.ts` descends the directory tree level by level, asking one Jev `choice` question
+  per directory over its immediate entries (bounded by `maxDepth`, `maxFanout`, `maxFrontier`, `maxRequests` and
+  `minDescend`). An entry's cumulative probability becomes the prior of the files under it, normalized so the best file
+  is 1. `src/retrieval/path-prior.ts` then adds `weight * prior` (default 0.2, the same units as the existing totals, so
+  a best-ranked file counts as much as a perfect lexical match) to each candidate's total and adds up to `maxAdded`
+  (10) chunks of non-test files with a prior of at least 0.5 that had no candidate, with origin `path-prior`.
+- **What it sends.** The task and the names of files that passed the scan exclusions (ignored, binary and secret files
+  are never listed), only in request state. Source code is not sent by the prior.
+- **Cost.** Extra Jev requests and tokens, reported in `ScopeRun.pathPrior` and kept apart from the judgment usage.
+- **Compare it.** With `TYPESAFE_API_KEY` set:
+  `bun scripts/eval/path-prior-cli.ts --split tuning` (or `--split heldout` after `bun run eval:freeze`). It runs each
+  labeled task with and without the prior and prints candidate recall, selection recall, latency and tokens per task
+  with means. It is not part of `package.json` or `validate`.
