@@ -12,7 +12,7 @@
 | Jev question version | relevance-v1 |
 | `@typesafe-ai/sdk` version | 0.6.0 |
 | Model | jev-latest (recorded) |
-| Labels checksum | cb15a242d1143d34acd72233359edd4447fdee9f6df68abbd6b4d329c73b0a75 |
+| Labels checksum | 711e095864d151d9e9bc4d5d690c9d796b40c9ad44c0a21d98470fc064e49042 |
 | Modes | lexical, no-jev, jev |
 | Split | all |
 | Fixtures | mixed-app, py-ingest, react-dashboard, scope-snapshot, webhook-service |
@@ -64,6 +64,7 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 | react-dashboard/plain-number-format | heldout | 0.0% (0/1) | 10.0% (1/10) | 0.0% | 86.2% | 3,328 | 84.6% |
 | react-dashboard/poll-interval-from-config | tuning | 100.0% (2/2) | 60.0% (6/10) | 0.0% | 45.9% | 2,837 | 86.9% |
 | react-dashboard/remember-time-range | heldout | 50.0% (1/2) | 30.0% (3/10) | 0.0% | 67.0% | 2,278 | 89.5% |
+| react-dashboard/sidenav-theme-toggle | tuning | 100.0% (1/1) | 40.0% (2/5) | 36.0% | 3.1% | 1,850 | 91.5% |
 | scope-snapshot/jev-timeout-message | tuning | 100.0% (2/2) | 40.0% (4/10) | 0.0% | 57.3% | 14,717 | 94.2% |
 | scope-snapshot/max-candidates-flag | tuning | 0.0% (0/4) | 0.0% (0/10) | 0.0% | 100.0% | 9,399 | 96.3% |
 | scope-snapshot/min-relevance-flag | tuning | 0.0% (0/4) | 0.0% (0/10) | 0.0% | 100.0% | 3,993 | 98.4% |
@@ -80,9 +81,9 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 
 | Split | Tasks | Recall (mean of tasks) | Recall (pooled) | Precision (mean of tasks) | Irrelevant rate | Unlabeled share | Selected chars (total) | Selected chars (mean) | Size reduction (mean) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tuning | 15 | 57.8% | 48.5% (16/33) | 27.5% (15 tasks) | 4.8% | 67.5% | 65,274 | 4,352 | 84.9% |
+| tuning | 16 | 60.4% | 50.0% (17/34) | 28.3% (16 tasks) | 6.8% | 63.5% | 67,124 | 4,195 | 85.4% |
 | heldout | 11 | 59.8% | 55.0% (11/20) | 24.0% (11 tasks) | 3.6% | 69.0% | 44,798 | 4,073 | 85.5% |
-| overall | 26 | 58.7% | 50.9% (27/53) | 26.0% (26 tasks) | 4.3% | 68.1% | 110,072 | 4,234 | 85.2% |
+| overall | 27 | 60.2% | 51.9% (28/54) | 26.5% (27 tasks) | 5.5% | 65.7% | 111,922 | 4,145 | 85.4% |
 
 ## Scope without Jev (`--no-jev`)
 
@@ -105,6 +106,7 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 | react-dashboard/plain-number-format | heldout | 0.0% (0/1) | 11.8% (2/17) | 0.0% | 84.9% | 4,823 | 77.7% |
 | react-dashboard/poll-interval-from-config | tuning | 100.0% (2/2) | 15.0% (6/40) | 8.0% | 76.5% | 9,899 | 54.3% |
 | react-dashboard/remember-time-range | heldout | 50.0% (1/2) | 14.3% (4/28) | 0.0% | 89.5% | 7,787 | 64.1% |
+| react-dashboard/sidenav-theme-toggle | tuning | 100.0% (1/1) | 20.0% (3/15) | 14.9% | 45.8% | 4,464 | 79.4% |
 | scope-snapshot/jev-timeout-message | tuning | 100.0% (2/2) | 15.0% (6/40) | 0.0% | 73.5% | 25,205 | 90.0% |
 | scope-snapshot/max-candidates-flag | tuning | 100.0% (4/4) | 17.5% (7/40) | 0.0% | 64.4% | 20,268 | 91.9% |
 | scope-snapshot/min-relevance-flag | tuning | 100.0% (4/4) | 19.5% (8/41) | 9.7% | 61.3% | 31,171 | 87.6% |
@@ -121,9 +123,9 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 
 | Split | Tasks | Recall (mean of tasks) | Recall (pooled) | Precision (mean of tasks) | Irrelevant rate | Unlabeled share | Selected chars (total) | Selected chars (mean) | Size reduction (mean) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tuning | 15 | 100.0% | 100.0% (33/33) | 14.8% (15 tasks) | 6.3% | 74.2% | 196,742 | 13,116 | 55.5% |
+| tuning | 16 | 100.0% | 100.0% (34/34) | 15.1% (16 tasks) | 6.8% | 72.4% | 201,206 | 12,575 | 57.0% |
 | heldout | 11 | 80.3% | 80.0% (16/20) | 11.9% (11 tasks) | 6.1% | 79.6% | 123,750 | 11,250 | 59.3% |
-| overall | 26 | 91.7% | 92.5% (49/53) | 13.6% (26 tasks) | 6.2% | 76.5% | 320,492 | 12,327 | 57.1% |
+| overall | 27 | 92.0% | 92.6% (50/54) | 13.8% (27 tasks) | 6.5% | 75.4% | 324,956 | 12,035 | 57.9% |
 
 ## Scope with Jev
 
@@ -146,6 +148,7 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 | react-dashboard/plain-number-format | heldout | 0.0% (0/1) | 100.0% (2/2) | 0.0% | 0.0% | 728 | 96.6% |
 | react-dashboard/poll-interval-from-config | tuning | 100.0% (2/2) | 100.0% (6/6) | 0.0% | 0.0% | 1,534 | 92.9% |
 | react-dashboard/remember-time-range | heldout | 50.0% (1/2) | 60.0% (3/5) | 0.0% | 22.9% | 975 | 95.5% |
+| react-dashboard/sidenav-theme-toggle | tuning | 100.0% (1/1) | 50.0% (3/6) | 0.0% | 15.8% | 2,083 | 90.4% |
 | scope-snapshot/jev-timeout-message | tuning | 100.0% (2/2) | 71.4% (5/7) | 0.0% | 18.0% | 7,326 | 97.1% |
 | scope-snapshot/max-candidates-flag | tuning | 75.0% (3/4) | 35.7% (5/14) | 0.0% | 46.5% | 11,083 | 95.6% |
 | scope-snapshot/min-relevance-flag | tuning | 75.0% (3/4) | 58.3% (7/12) | 0.0% | 45.8% | 14,433 | 94.3% |
@@ -162,9 +165,9 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 
 | Split | Tasks | Recall (mean of tasks) | Recall (pooled) | Precision (mean of tasks) | Irrelevant rate | Unlabeled share | Selected chars (total) | Selected chars (mean) | Size reduction (mean) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tuning | 15 | 94.4% | 90.9% (30/33) | 63.1% (15 tasks) | 0.4% | 36.1% | 54,692 | 3,646 | 90.1% |
+| tuning | 16 | 94.8% | 91.2% (31/34) | 62.3% (16 tasks) | 0.4% | 34.8% | 56,775 | 3,548 | 90.2% |
 | heldout | 11 | 75.8% | 75.0% (15/20) | 54.6% (11 tasks) | 1.7% | 33.6% | 29,346 | 2,668 | 90.6% |
-| overall | 26 | 86.5% | 84.9% (45/53) | 59.5% (26 tasks) | 1.0% | 35.0% | 84,038 | 3,232 | 90.4% |
+| overall | 27 | 87.0% | 85.2% (46/54) | 59.2% (27 tasks) | 1.0% | 34.3% | 86,121 | 3,190 | 90.4% |
 
 ## Jev impact (paired, Jev minus no-Jev)
 
@@ -187,6 +190,7 @@ Each difference is the `jev` result minus the `no-jev` result on the same task a
 | react-dashboard/plain-number-format | heldout | +0.0 pts | +88.2 pts | -4,095 |
 | react-dashboard/poll-interval-from-config | tuning | +0.0 pts | +85.0 pts | -8,365 |
 | react-dashboard/remember-time-range | heldout | +0.0 pts | +45.7 pts | -6,812 |
+| react-dashboard/sidenav-theme-toggle | tuning | +0.0 pts | +30.0 pts | -2,381 |
 | scope-snapshot/jev-timeout-message | tuning | +0.0 pts | +56.4 pts | -17,879 |
 | scope-snapshot/max-candidates-flag | tuning | -25.0 pts | +18.2 pts | -9,185 |
 | scope-snapshot/min-relevance-flag | tuning | -25.0 pts | +38.8 pts | -16,738 |
@@ -201,9 +205,9 @@ Each difference is the `jev` result minus the `no-jev` result on the same task a
 
 | Split | Tasks | Mean recall | Mean precision | Mean selected chars | Recall by task |
 | --- | --- | --- | --- | --- | --- |
-| tuning | 15 | -5.6 pts | +48.3 pts | -9,470 | 0 better / 12 same / 3 worse |
+| tuning | 16 | -5.2 pts | +47.2 pts | -9,027 | 0 better / 13 same / 3 worse |
 | heldout | 11 | -4.5 pts | +42.7 pts | -8,582 | 0 better / 10 same / 1 worse |
-| overall | 26 | -5.1 pts | +45.9 pts | -9,094 | 0 better / 22 same / 4 worse |
+| overall | 27 | -4.9 pts | +45.4 pts | -8,846 | 0 better / 23 same / 4 worse |
 
 ## Jev overhead
 
@@ -226,6 +230,7 @@ Latency is the wall clock of the whole Jev decision for the task, in millisecond
 | react-dashboard/plain-number-format | heldout | 210 | 4,751 | 304 | 5,055 |
 | react-dashboard/poll-interval-from-config | tuning | 204 | 9,960 | 722 | 10,682 |
 | react-dashboard/remember-time-range | heldout | 175 | 7,205 | 502 | 7,707 |
+| react-dashboard/sidenav-theme-toggle | tuning | 224 | 3,854 | 264 | 4,118 |
 | scope-snapshot/jev-timeout-message | tuning | 168 | 13,792 | 722 | 14,514 |
 | scope-snapshot/max-candidates-flag | tuning | 218 | 12,763 | 722 | 13,485 |
 | scope-snapshot/min-relevance-flag | tuning | 201 | 15,189 | 722 | 15,911 |
@@ -240,9 +245,9 @@ Latency is the wall clock of the whole Jev decision for the task, in millisecond
 
 | Split | Tasks | Total latency (ms) | Mean latency (ms) | Input tokens | Output tokens | Combined tokens |
 | --- | --- | --- | --- | --- | --- | --- |
-| tuning | 15 | 2,900 | 193 | 152,457 | 10,098 | 162,555 |
+| tuning | 16 | 3,124 | 195 | 156,311 | 10,362 | 166,673 |
 | heldout | 11 | 2,031 | 185 | 92,420 | 6,006 | 98,426 |
-| overall | 26 | 4,931 | 190 | 244,877 | 16,104 | 260,981 |
+| overall | 27 | 5,155 | 191 | 248,731 | 16,368 | 265,099 |
 
 ## Regressions and no-improvement cases
 

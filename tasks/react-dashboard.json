@@ -55,6 +55,19 @@
     ]
   },
   {
+    "id": "sidenav-theme-toggle",
+    "split": "tuning",
+    "task": "Add a theme toggle link to the sidenav that switches between light and dark.",
+    "required": ["src/components/Layout.tsx::Layout"],
+    "useful": ["src/pages/SettingsPage.tsx::SettingsPage", "src/hooks/useLocalStorage.ts::useLocalStorage"],
+    "irrelevant": [
+      "src/lib/format.ts::formatValue",
+      "src/lib/dates.ts::formatDuration",
+      "src/store/store.ts::createStore",
+      "src/api/metrics.ts::fetchMetrics"
+    ]
+  },
+  {
     "id": "bearer-token",
     "split": "heldout",
     "task": "Send the signed-in user's bearer token along with every request we make to the backend.",

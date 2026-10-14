@@ -4791,6 +4791,100 @@
         }
       ]
     },
+    "sidenav-theme-toggle": {
+      "candidateIds": [
+        "2f7d34e8fe62",
+        "fed530ef9434",
+        "960c85cf8ae9",
+        "27bf0c3ebcdb",
+        "f83c3794f996",
+        "e74bcbce4e63",
+        "de7681543184",
+        "13d5596d0d21",
+        "1da7aeef00d5",
+        "c6ec0bc57e5d",
+        "f464bd1446a0",
+        "f8b0823e0603",
+        "4743b2805bec",
+        "6ce139f1c10a",
+        "c0a1705151c1"
+      ],
+      "fingerprint": "2ad00442ab211f6dc5ebe19cd200b3abc12e1775f29af172f40c9e8f4288a0b8",
+      "judgments": [
+        {
+          "chunkId": "2f7d34e8fe62",
+          "relevance": 0.38
+        },
+        {
+          "chunkId": "fed530ef9434",
+          "relevance": 0.18
+        },
+        {
+          "chunkId": "960c85cf8ae9",
+          "relevance": 0.04
+        },
+        {
+          "chunkId": "27bf0c3ebcdb",
+          "relevance": 0.26
+        },
+        {
+          "chunkId": "f83c3794f996",
+          "relevance": 0.81
+        },
+        {
+          "chunkId": "e74bcbce4e63",
+          "relevance": 0.61
+        },
+        {
+          "chunkId": "de7681543184",
+          "relevance": 0.12
+        },
+        {
+          "chunkId": "13d5596d0d21",
+          "relevance": 0.07
+        },
+        {
+          "chunkId": "1da7aeef00d5",
+          "relevance": 0.67
+        },
+        {
+          "chunkId": "c6ec0bc57e5d",
+          "relevance": 0.68
+        },
+        {
+          "chunkId": "f464bd1446a0",
+          "relevance": 0.94
+        },
+        {
+          "chunkId": "f8b0823e0603",
+          "relevance": 0.09
+        },
+        {
+          "chunkId": "4743b2805bec",
+          "relevance": 0.67
+        },
+        {
+          "chunkId": "6ce139f1c10a",
+          "relevance": 0.03
+        },
+        {
+          "chunkId": "c0a1705151c1",
+          "relevance": 0.03
+        }
+      ],
+      "usage": {
+        "inputTokens": 3854,
+        "outputTokens": 264
+      },
+      "latencyMs": 224,
+      "requests": [
+        {
+          "latencyMs": 224,
+          "inputTokens": 3854,
+          "outputTokens": 264
+        }
+      ]
+    },
     "skip-generated-folders": {
       "candidateIds": [
         "12602c9aa635",
