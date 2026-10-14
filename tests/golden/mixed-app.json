@@ -504,7 +504,7 @@
       "score": 0.1
     }
   ],
-  "retrievalConfigVersion": "retrieval-v4",
+  "retrievalConfigVersion": "retrieval-v5",
   "jevQuestionVersion": "relevance-v1",
   "jev": {
     "requestCount": 1,

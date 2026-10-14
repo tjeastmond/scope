@@ -95,6 +95,8 @@ const RELATED_WORDS: readonly { triggers: readonly string[]; related: readonly s
   },
   // Hiding sensitive values: tasks say "mask" or "scrub", code says `redact`.
   { triggers: ["mask", "scrub", "sanitize", "obfuscate"], related: ["redact"] },
+  // Measuring quality: tasks say "benchmark", code and docs say `eval`, `evaluation` or `harness`.
+  { triggers: ["benchmark"], related: ["eval", "evaluation", "harness"] },
 ];
 
 function relatedWords(words: readonly string[], variants: readonly string[]): string[] {

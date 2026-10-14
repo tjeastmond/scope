@@ -8,7 +8,7 @@
 | Field | Value |
 | --- | --- |
 | Scope version | 0.0.0 |
-| Retrieval config version | retrieval-v4 |
+| Retrieval config version | retrieval-v5 |
 | Jev question version | relevance-v1 |
 | `@typesafe-ai/sdk` version | 0.6.0 |
 | Model | jev-latest (recorded) |

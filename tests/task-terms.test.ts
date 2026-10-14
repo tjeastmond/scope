@@ -110,6 +110,14 @@ describe("extractTaskTerms related words", () => {
     expect(extractTaskTerms("Secrets should be masked in the output").related).toEqual(["redact"]);
   });
 
+  test("benchmark wording brings in the evaluation vocabulary", () => {
+    expect(extractTaskTerms("Document how to reproduce the benchmarks").related).toEqual([
+      "eval",
+      "evaluation",
+      "harness",
+    ]);
+  });
+
   test("a task without such wording has none, and a related word the task already uses is not repeated", () => {
     expect(extractTaskTerms("Show the due date in the invoice list").related).toEqual([]);
     const { related } = extractTaskTerms("Add an option parser flag");
