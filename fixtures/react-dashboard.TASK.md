@@ -19,6 +19,7 @@ changes the content revision in `tasks/fixtures.lock.json`; see `docs/evaluation
 | `poll-interval-from-config` | tuning  | Poll at the interval in the dashboard config, not a hardcoded value.  |
 | `hide-acknowledged-alerts`  | tuning  | Hide handled alerts by default, with a toggle.                        |
 | `alert-age-over-a-day`      | tuning  | Show days for alert ages beyond 24 hours.                             |
+| `sidenav-theme-toggle`      | tuning  | Add a theme toggle link to the sidenav.                               |
 | `bearer-token`              | heldout | Send a bearer token with every backend request.                       |
 | `plain-number-format`       | heldout | Format request rates with a thousands separator instead of `1.2k`.    |
 | `remember-time-range`       | heldout | Persist the selected time range across reloads.                       |
