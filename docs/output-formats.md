@@ -67,7 +67,7 @@ Text and Markdown share one set of facts (`src/output/report.ts`):
   relevant first, with location and `relevance` or `score`. Without it they are only counted, never listed.
 - Empty sections are omitted. `relevance` is Jev's judgment; `score` is a ranking signal. Neither is a probability or
   a confidence.
-- JSON keeps its structure and lists every skip in full.
+- JSON lists every skip in full, but only under `--explain` (see JSON below).
 
 Golden files for all three formats live in `tests/golden/`; regenerate with
 `UPDATE_GOLDEN=1 bun test tests/golden.test.ts` and review the diff.
@@ -75,6 +75,7 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
 ## Markdown
 
 - `# Scope context`, the task in a fenced `text` block, then a summary list (mode, region count) and a `## Warnings` list when there are warnings.
+- Regions are ordered strongest first (highest chunk relevance, ties by path then start line); text uses the same order.
 - One section per region, headed with the `path:start-end` location as a code span: language, one line per chunk
   (name, kind, lines, and `relevance 0.87`, `score 1.00` or `supporting declaration`), then the source in a fenced
   block tagged with the language. Scores are ranking signals, not probabilities.
@@ -91,31 +92,35 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
 [`scope-result.schema.json`](scope-result.schema.json) (JSON Schema 2020-12, `additionalProperties: false` everywhere).
 
 ```
-{ schemaVersion: 3, mode, task,
-  regions: [{ file, language, startLine, endLine, content,
-              chunks: [{ id, name?, kind, startLine, endLine, relevance?, score, reason, supportFor?,
-                         signals?, origin? }] }],
-  warnings, skipped: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
+{ schemaVersion: 4, mode, task,
+  regions: [{ file, language, startLine, endLine, relevance?, content,
+              chunks: [{ id, name?, kind, startLine, endLine, relevance?, supportFor?,
+                         score?, reason?, signals?, origin? }] }],
+  warnings, skipped?: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
   retrievalConfigVersion?, jevQuestionVersion?,
   jev?: { requestCount?, latencyMs, usage: { inputTokens, outputTokens },
           requests?: [{ latencyMs, inputTokens, outputTokens }] },
   explain? }
 ```
 
-Source content appears once, on the region; chunk entries carry provenance only. `relevance` is absent in `no-jev`
-mode, and so is `jevQuestionVersion` (an additive field; `schemaVersion` stays 3). `signals` and `origin` on a chunk,
-and the top-level `explain`, appear only with `--explain`.
+Source content appears once, on the region; chunk entries carry provenance only. `regions` are ordered strongest first:
+a region's `relevance` is the highest `relevance` among its chunks, ties are broken by file path then `startLine`. A
+region always keeps its `chunks` array (one code path for consumers, even when a single chunk spans the whole region),
+but each entry is trimmed to `id`, `name`, `kind`, `startLine`, `endLine`, `relevance` and `supportFor`. `score`,
+`reason`, `signals` and `origin` on a chunk, the top-level `skipped` list (most relevant first) and the top-level
+`explain` appear only with `--explain`; without it `skipped` is omitted entirely. `relevance` (on regions and chunks)
+is absent in `no-jev` mode, where regions are ordered by their highest `score`; `jevQuestionVersion` is absent too.
 
 `jev` reports Jev's external-service overhead, separately from the selected context. It is present only when Jev was
 called and reported usage (absent with `--no-jev` and when there were no candidates to judge). `latencyMs` is the wall
 clock of the whole Jev decision in milliseconds; requests run concurrently, so it is not the sum of the per-request
 latencies. `usage` is the input and output token counts as reported by Jev, summed over every request. `requestCount`
 is the number of requests sent, and `requests` (`--explain` only) lists each request's own latency and tokens in
-request order. No monetary cost is reported because pricing is not verified. Additive; `schemaVersion` stays 3.
+request order. No monetary cost is reported because pricing is not verified. Additive.
 
 ### schemaVersion
 
-`schemaVersion` is `3`. Version 3 removes the run id and the cache, reuse, memory, feedback and weights fields that the removed M6 layer (issue #192) had added as optional keys. Version 2 removed the token budget and every size field of version 1 (`budget`, `estimator`,
+`schemaVersion` is `4`. Version 4 orders regions by relevance and adds a region `relevance`, drops `score` and `reason` from chunk entries unless `--explain` is set, and omits `skipped` unless `--explain` is set (issue #222). Version 3 removes the run id and the cache, reuse, memory, feedback and weights fields that the removed M6 layer (issue #192) had added as optional keys. Version 2 removed the token budget and every size field of version 1 (`budget`, `estimator`,
 `estimatedTokens`, `characters`, `lines`, per-chunk and per-skip `estimatedTokens`, `unmetCoherence`, and the skip
 `reason` and `minimumBudget`). It is bumped on any breaking change: removing or renaming a key, changing a key's type or
 meaning, or narrowing an enum. Adding an optional key is not breaking but must be added to the schema in the same

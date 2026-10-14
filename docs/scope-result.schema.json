@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tjeastmond/scope/docs/scope-result.schema.json",
-  "title": "Scope result (schemaVersion 3)",
+  "title": "Scope result (schemaVersion 4)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "mode", "task", "regions", "warnings", "skipped"],
+  "required": ["schemaVersion", "mode", "task", "regions", "warnings"],
   "properties": {
-    "schemaVersion": { "const": 3 },
+    "schemaVersion": { "const": 4 },
     "mode": { "enum": ["jev", "no-jev"] },
     "task": { "type": "string" },
     "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
@@ -98,6 +98,7 @@
         "language": { "$ref": "#/$defs/language" },
         "startLine": { "$ref": "#/$defs/line" },
         "endLine": { "$ref": "#/$defs/line" },
+        "relevance": { "$ref": "#/$defs/relevance" },
         "content": { "type": "string" },
         "chunks": { "type": "array", "items": { "$ref": "#/$defs/chunk" } }
       }
@@ -105,7 +106,7 @@
     "chunk": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "kind", "startLine", "endLine", "score", "reason"],
+      "required": ["id", "kind", "startLine", "endLine"],
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },

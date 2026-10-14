@@ -1,5 +1,14 @@
-import { signalPairs } from "./report.ts";
-import type { ChunkKind, JevMetrics, Language, ScopeMode, ScopeResult, SelectedChunk, SkippedChunk } from "../types.ts";
+import { mostRelevantFirst, rankRegions, regionRelevance, signalPairs } from "./report.ts";
+import type {
+  ChunkKind,
+  JevMetrics,
+  Language,
+  ScopeMode,
+  ScopeRegion,
+  ScopeResult,
+  SelectedChunk,
+  SkippedChunk,
+} from "../types.ts";
 
 /** Provenance of one chunk inside a region. `relevance` is absent in `no-jev` mode; `score` is not a probability. */
 export interface JsonChunk {
@@ -9,10 +18,10 @@ export interface JsonChunk {
   startLine: number;
   endLine: number;
   relevance?: number;
-  score: number;
-  reason: string;
   supportFor?: string[];
-  /** `--explain` only: the retrieval signals (keys sorted) and how the chunk was found. */
+  /** `--explain` only: the ranking score, the inclusion reason, the retrieval signals (keys sorted) and the origin. */
+  score?: number;
+  reason?: string;
   signals?: Record<string, number>;
   origin?: string;
 }
@@ -23,6 +32,8 @@ export interface JsonRegion {
   language: Language;
   startLine: number;
   endLine: number;
+  /** Highest chunk `relevance` in the region; absent when none of its chunks was judged (`no-jev`). */
+  relevance?: number;
   content: string;
   chunks: JsonChunk[];
 }
@@ -32,12 +43,13 @@ export interface JsonRegion {
  * type); additive fields are declared here and in `docs/scope-result.schema.json`. See docs/output-formats.md.
  */
 export interface JsonPayload {
-  schemaVersion: 3;
+  schemaVersion: 4;
   mode: ScopeMode;
   task: string;
   regions: JsonRegion[];
   warnings: string[];
-  skipped: SkippedChunk[];
+  /** Present only under `--explain`; most relevant first. */
+  skipped?: SkippedChunk[];
   retrievalConfigVersion?: string;
   /** Version of the Jev question text and criteria; absent in `no-jev` mode. */
   jevQuestionVersion?: string;
@@ -60,11 +72,11 @@ const toJsonChunk = (
   startLine: chunk.startLine,
   endLine: chunk.endLine,
   ...(relevance === undefined ? {} : { relevance }),
-  score,
-  reason,
   ...(supportFor === undefined ? {} : { supportFor }),
   ...(explain
     ? {
+        score,
+        reason,
         signals: Object.fromEntries(signalPairs(signals)),
         ...(origin === undefined ? {} : { origin }),
       }
@@ -100,24 +112,31 @@ const toJsonJev = ({ requestCount, latencyMs, usage, requests }: JevMetrics): Je
 
 export function toJsonPayload(result: ScopeResult): JsonPayload {
   const byId = new Map(result.chunks.map((item) => [item.chunk.id, item]));
+  const chunksOf = (region: ScopeRegion): SelectedChunk[] =>
+    region.chunkIds.map((id) => {
+      const found = byId.get(id);
+      if (!found) throw new Error(`Region ${region.file}:${region.startLine} names unknown chunk ${id}`);
+      return found;
+    });
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     mode: result.mode,
     task: result.task,
-    regions: result.regions.map((region) => ({
-      file: region.file,
-      language: region.language,
-      startLine: region.startLine,
-      endLine: region.endLine,
-      content: region.content,
-      chunks: region.chunkIds.map((id) => {
-        const found = byId.get(id);
-        if (!found) throw new Error(`Region ${region.file}:${region.startLine} names unknown chunk ${id}`);
-        return toJsonChunk(found, result.explain === true);
-      }),
-    })),
+    regions: rankRegions(result.regions, chunksOf).map((region) => {
+      const chunks = chunksOf(region);
+      const relevance = regionRelevance(chunks);
+      return {
+        file: region.file,
+        language: region.language,
+        startLine: region.startLine,
+        endLine: region.endLine,
+        ...(relevance === undefined ? {} : { relevance }),
+        content: region.content,
+        chunks: chunks.map((item) => toJsonChunk(item, result.explain === true)),
+      };
+    }),
     warnings: result.warnings,
-    skipped: result.skipped.map(toJsonSkipped),
+    ...(result.explain ? { skipped: mostRelevantFirst(result.skipped).map(toJsonSkipped) } : {}),
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
     ...(result.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: result.jevQuestionVersion }),
     ...(result.jev === undefined ? {} : { jev: toJsonJev(result.jev) }),

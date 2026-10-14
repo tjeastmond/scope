@@ -1,35 +1,14 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "mode": "jev",
   "task": "Validate invoice totals",
   "regions": [
     {
       "file": "src/invoices.ts",
       "language": "typescript",
-      "startLine": 1,
-      "endLine": 1,
-      "content": "type Money = number;",
-      "chunks": [
-        {
-          "id": "src/invoices.ts#Money",
-          "name": "Money",
-          "kind": "function",
-          "startLine": 1,
-          "endLine": 1,
-          "score": 0,
-          "reason": "Supporting declaration for total",
-          "supportFor": [
-            "src/invoices.ts#total"
-          ],
-          "signals": {}
-        }
-      ]
-    },
-    {
-      "file": "src/invoices.ts",
-      "language": "typescript",
       "startLine": 3,
       "endLine": 5,
+      "relevance": 0.91,
       "content": "function total(a: number, b: number) {\n  return a + b;\n}",
       "chunks": [
         {
@@ -55,6 +34,7 @@
       "language": "typescript",
       "startLine": 7,
       "endLine": 9,
+      "relevance": 0.6,
       "content": "function due(day: string) {\n  return day;\n}",
       "chunks": [
         {
@@ -70,6 +50,28 @@
             "dependency": 1
           },
           "origin": "expanded-from:src/invoices.ts#total"
+        }
+      ]
+    },
+    {
+      "file": "src/invoices.ts",
+      "language": "typescript",
+      "startLine": 1,
+      "endLine": 1,
+      "content": "type Money = number;",
+      "chunks": [
+        {
+          "id": "src/invoices.ts#Money",
+          "name": "Money",
+          "kind": "function",
+          "startLine": 1,
+          "endLine": 1,
+          "supportFor": [
+            "src/invoices.ts#total"
+          ],
+          "score": 0,
+          "reason": "Supporting declaration for total",
+          "signals": {}
         }
       ]
     }

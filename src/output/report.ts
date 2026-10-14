@@ -1,4 +1,4 @@
-import type { ScopeResult, SkippedChunk } from "../types.ts";
+import type { ScopeResult, SelectedChunk, SkippedChunk } from "../types.ts";
 
 /**
  * Report facts shared by the text and Markdown formats, so the two never drift apart. Each helper returns plain lines
@@ -40,8 +40,33 @@ export const location = (
   quote: Quote,
 ): string => quote(`${entry.file}:${entry.startLine}-${entry.endLine}${entry.name ? ` ${entry.name}` : ""}`);
 
+/**
+ * A region's relevance: the highest Jev relevance among its chunks. A region none of whose chunks was judged (`no-jev`
+ * mode, or only supporting declarations) has none; it then ranks by its highest score.
+ */
+export function regionRelevance(chunks: readonly SelectedChunk[]): number | undefined {
+  const judged = chunks.flatMap((item) => (item.relevance === undefined ? [] : [item.relevance]));
+  return judged.length === 0 ? undefined : Math.max(...judged);
+}
+
+const rankKey = (chunks: readonly SelectedChunk[]): number =>
+  regionRelevance(chunks) ?? Math.max(...chunks.map((item) => item.score));
+
+/** Regions strongest first; ties by file path, then start line. Every format uses this one order. */
+export function rankRegions<T extends { file: string; startLine: number }>(
+  regions: readonly T[],
+  chunksOf: (region: T) => readonly SelectedChunk[],
+): T[] {
+  return regions
+    .map((region) => ({ region, key: rankKey(chunksOf(region)) }))
+    .sort(
+      (a, b) => b.key - a.key || a.region.file.localeCompare(b.region.file) || a.region.startLine - b.region.startLine,
+    )
+    .map(({ region }) => region);
+}
+
 /** Most relevant first, ties by location. */
-const mostRelevantFirst = (entries: SkippedChunk[]): SkippedChunk[] =>
+export const mostRelevantFirst = (entries: SkippedChunk[]): SkippedChunk[] =>
   [...entries].sort(
     (a, b) =>
       (b.relevance ?? b.score) - (a.relevance ?? a.score) ||

@@ -1,5 +1,5 @@
 import type { ScopeRegion, ScopeResult, SelectedChunk } from "../types.ts";
-import { belowThresholdLines, explainBlocks, sanitizeInline, summaryLines } from "./report.ts";
+import { belowThresholdLines, explainBlocks, rankRegions, sanitizeInline, summaryLines } from "./report.ts";
 import { labelOf } from "./text.ts";
 
 /** Longest run of consecutive backticks anywhere in `text` (0 when there are none). */
@@ -43,7 +43,7 @@ function renderRegion(region: ScopeRegion, byId: ReadonlyMap<string, SelectedChu
 }
 
 /**
- * Markdown artifact: a `# Scope context` heading, the task and a summary, then each region under a
+ * Markdown artifact: a `# Scope context` heading, the task and a summary, then each region, strongest first, under a
  * `## path:start-end` heading with its provenance and the source in a backtick fence longer than any backtick run
  * in that source. Text from the repository (paths, symbol names) appears only inside code spans or fences.
  */
@@ -61,7 +61,12 @@ export function renderMarkdown(result: ScopeResult): string {
   if (result.warnings.length > 0) {
     out.push("", "## Warnings", "", ...result.warnings.map((warning) => `- ${codeSpan(warning)}`));
   }
-  for (const region of result.regions) out.push("", renderRegion(region, byId));
+  const chunksOf = (region: ScopeRegion): SelectedChunk[] =>
+    region.chunkIds.flatMap((id) => {
+      const item = byId.get(id);
+      return item ? [item] : [];
+    });
+  for (const region of rankRegions(result.regions, chunksOf)) out.push("", renderRegion(region, byId));
   if (result.explain) {
     out.push("", "## Explanation");
     for (const { title, lines } of explainBlocks(result, codeSpan)) {

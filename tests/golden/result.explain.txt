@@ -5,9 +5,6 @@ Regions: 3
 Retrieval config: golden-1
 Jev questions: golden-q1
 
-== src/invoices.ts:1-1 Money (supporting declaration) ==
-type Money = number;
-
 == src/invoices.ts:3-5 total (relevance 0.91) ==
 function total(a: number, b: number) {
   return a + b;
@@ -17,6 +14,9 @@ function total(a: number, b: number) {
 function due(day: string) {
   return day;
 }
+
+== src/invoices.ts:1-1 Money (supporting declaration) ==
+type Money = number;
 
 -- Explanation --
 src/invoices.ts:3-5 total

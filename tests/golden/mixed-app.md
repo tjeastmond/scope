@@ -18,13 +18,35 @@ Show each invoice's due date in the invoice list: render it in the frontend row 
 - ` web/src/main.tsx: analyzer extracted no chunks; text fallback produced 1 line window(s) `
 - ` 1 file(s) have no analyzer and were read as plain text windows (for example worker/requirements.txt) `
 
-## ` api/src/models/invoice.ts:1-1 `
+## ` web/src/components/InvoiceRow.tsx:5-13 `
 
 - Language: typescript
-- ` Billing `, section, lines 1-1: supporting declaration
+- ` InvoiceRow `, component, lines 5-13: relevance 0.95
 
 ```typescript
-export namespace Billing {
+export function InvoiceRow({ invoice }: { invoice: InvoiceDto }) {
+  const overdue = invoice.status === "overdue";
+  return (
+    <li className={overdue ? styles.overdue : styles.row}>
+      <span>{invoice.number}</span>
+      <span>{format(invoice.totalCents, "EUR")}</span>
+    </li>
+  );
+}
+```
+
+## ` web/src/hooks/useInvoices.ts:3-8 `
+
+- Language: typescript
+- ` InvoiceDto `, interface, lines 3-8: relevance 0.95
+
+```typescript
+export interface InvoiceDto {
+  id: string;
+  number: string;
+  status: "open" | "paid" | "overdue";
+  totalCents: number;
+}
 ```
 
 ## ` api/src/models/invoice.ts:10-14 `
@@ -50,17 +72,6 @@ export async function listInvoices(status: Billing.Status, res: Response): Promi
   const invoices = await service.listByStatus(status);
   res.end(JSON.stringify(invoices.map((invoice) => ({ ...invoice, total: format(invoice.totalCents) }))));
 }
-```
-
-## ` api/src/services/invoiceService.ts:3-5 `
-
-- Language: typescript
-- ` InvoiceService `, class, lines 3-5: supporting declaration
-
-```typescript
-export class InvoiceService {
-  private readonly store = new Map<string, Billing.Invoice>();
-  private sequence = 0;
 ```
 
 ## ` api/src/services/invoiceService.ts:14-16 `
@@ -122,37 +133,6 @@ export function InvoiceList({ invoices }: InvoiceListProps) {
 }
 ```
 
-## ` web/src/components/InvoiceRow.tsx:5-13 `
-
-- Language: typescript
-- ` InvoiceRow `, component, lines 5-13: relevance 0.95
-
-```typescript
-export function InvoiceRow({ invoice }: { invoice: InvoiceDto }) {
-  const overdue = invoice.status === "overdue";
-  return (
-    <li className={overdue ? styles.overdue : styles.row}>
-      <span>{invoice.number}</span>
-      <span>{format(invoice.totalCents, "EUR")}</span>
-    </li>
-  );
-}
-```
-
-## ` web/src/hooks/useInvoices.ts:3-8 `
-
-- Language: typescript
-- ` InvoiceDto `, interface, lines 3-8: relevance 0.95
-
-```typescript
-export interface InvoiceDto {
-  id: string;
-  number: string;
-  status: "open" | "paid" | "overdue";
-  totalCents: number;
-}
-```
-
 ## ` web/src/lib/format.ts:1-3 `
 
 - Language: typescript
@@ -175,6 +155,26 @@ export function format(cents: number, currency: string): string {
   justify-content: space-between;
   padding: 0.5rem 0;
 }
+```
+
+## ` api/src/models/invoice.ts:1-1 `
+
+- Language: typescript
+- ` Billing `, section, lines 1-1: supporting declaration
+
+```typescript
+export namespace Billing {
+```
+
+## ` api/src/services/invoiceService.ts:3-5 `
+
+- Language: typescript
+- ` InvoiceService `, class, lines 3-5: supporting declaration
+
+```typescript
+export class InvoiceService {
+  private readonly store = new Map<string, Billing.Invoice>();
+  private sequence = 0;
 ```
 
 ## Left out

@@ -83,14 +83,15 @@ function hostileResult(overrides: Partial<ScopeResult> = {}): ScopeResult {
         references: [],
       },
       signals: {},
-      relevance: 0.5,
+      // Strictly descending so the ranked order equals the listed order.
+      relevance: 0.9 - i * 0.01,
       score: 0.5,
       reason: "test",
     });
     return { file: `src/f${i}.ts`, language: "typescript", startLine: 1, endLine: 1, content, chunkIds: [id] };
   });
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     mode: "no-jev",
     task: "hostile ``` task\nwith `ticks` and\r\nnewlines\u0000",
     chunks,
@@ -172,6 +173,7 @@ describe("JSON contract", () => {
 
   test("hostile and skipped data validates", () => {
     const result = hostileResult({
+      explain: true,
       skipped: [{ chunkId: "s", file: "a.ts", startLine: 1, endLine: 2, score: 0.2 }],
       retrievalConfigVersion: "v1",
       jevQuestionVersion: "q1",
@@ -202,7 +204,7 @@ describe("JSON contract", () => {
 
   test("rejects an extra key on a skipped entry", () => {
     const base = { chunkId: "s", file: "a.ts", startLine: 1, endLine: 2, score: 0.2 };
-    const payload = JSON.parse(renderJson(hostileResult({ skipped: [base] })));
+    const payload = JSON.parse(renderJson(hostileResult({ explain: true, skipped: [base] })));
     expect(validate(payload)).toBe(true);
     payload.skipped[0].reason = "over-budget";
     expect(validate(payload)).toBe(false);
@@ -218,12 +220,15 @@ describe("JSON contract", () => {
       "task",
       "regions",
       "warnings",
-      "skipped",
       ...(result.retrievalConfigVersion === undefined ? [] : ["retrievalConfigVersion"]),
       ...(result.jevQuestionVersion === undefined ? [] : ["jevQuestionVersion"]),
       ...(result.jev === undefined ? [] : ["jev"]),
     ]);
-    expect(Object.keys(payload.regions[0])).toEqual(["file", "language", "startLine", "endLine", "content", "chunks"]);
+    expect(Object.keys(payload.regions[0])).toEqual(
+      ["file", "language", "startLine", "endLine", "relevance", "content", "chunks"].filter(
+        (key) => key !== "relevance" || key in payload.regions[0],
+      ),
+    );
     expect(Object.keys(payload.regions[0].chunks[0])).toEqual(
       ["id", "name", "kind", "startLine", "endLine", "relevance", "score", "reason", "supportFor"].filter(
         (key) => key in payload.regions[0].chunks[0],
@@ -403,7 +408,7 @@ describe("result reporting in text and Markdown", () => {
 
   test("JSON still carries every skip and keeps validating", () => {
     const many = Array.from({ length: 8 }, (_unused, i) => skipped({ chunkId: `a.ts#${i}`, startLine: i + 1 }));
-    const parsed = JSON.parse(renderFormat("json", hostileResult({ skipped: many })));
+    const parsed = JSON.parse(renderFormat("json", hostileResult({ explain: true, skipped: many })));
     expect(parsed.skipped).toHaveLength(8);
     expect(validate(parsed)).toBe(true);
   });

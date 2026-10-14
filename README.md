@@ -84,13 +84,14 @@ so piping is safe. There is no token budget: Scope returns everything Jev finds 
 # Plain text to read in the terminal (the default).
 scope "Add retry handling to Stripe webhook processing"
 
-# Markdown to paste into an issue, a PR or a chat with a coding agent.
+# Markdown: the recommended format for coding agents and for pasting into an issue, a PR or a chat. Each region is a
+# `path:start-end` heading followed by a fenced code block, strongest region first.
 scope "Add retry handling to Stripe webhook processing" --format markdown --output context.md
 
-# JSON for tools and agents: every region with file, line range, chunks and code.
+# JSON for tools and scripts: regions strongest first, each with file, line range, relevance, chunks and code.
 scope "Add retry handling to Stripe webhook processing" --format json | jq '.regions[] | .file'
 
-# Why was each chunk chosen? Adds retrieval signals, Jev's relevance, score, origin and inclusion reason.
+# Why was each chunk chosen? Adds retrieval signals, score, origin and inclusion reason (and, in JSON, the skipped list).
 scope "Add retry handling to Stripe webhook processing" --explain
 
 # Another repository, offline.

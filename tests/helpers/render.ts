@@ -6,7 +6,7 @@ import type { SelectedChunk } from "../../src/types.ts";
 export function renderText(task: string, chunks: readonly SelectedChunk[]): string {
   const sorted = [...chunks].sort(byLocation);
   return renderResult({
-    schemaVersion: 3,
+    schemaVersion: 4,
     mode: "jev",
     task,
     chunks: sorted,

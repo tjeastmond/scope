@@ -203,7 +203,7 @@ export interface ScopeRegion {
 }
 
 export interface ScopeResult {
-  schemaVersion: 3;
+  schemaVersion: 4;
   mode: ScopeMode;
   task: string;
   /** Per-chunk selection provenance. */
