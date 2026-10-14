@@ -1,6 +1,6 @@
 {
   "name": "@tjeastmond/scope",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Scope selects the smallest useful code context for a software task, using Jev to judge relevance.",
   "keywords": [
     "code-context",

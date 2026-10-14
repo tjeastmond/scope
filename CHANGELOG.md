@@ -4,9 +4,10 @@ All notable changes to Scope are recorded here. The format follows [Keep a Chang
 and the project uses [Semantic Versioning](https://semver.org/). The CLI contract (flags, output formats, the JSON schema
 version and exit codes) is the public API.
 
-## [1.0.0] - Unreleased
+## 0.1.0 - Unreleased
 
-The first public release, published to npm as `@tjeastmond/scope` with the `scope` command.
+The first release of the `scope` command. It is not on npm yet; install it from a checkout as the README describes. The
+package name `@tjeastmond/scope` is planned for a later npm release.
 
 ### Added
 
@@ -36,5 +37,3 @@ The first public release, published to npm as `@tjeastmond/scope` with the `scop
 - Node 24 or newer on macOS or another Unix. Windows is not supported.
 - `TYPESAFE_API_KEY` for the default Jev path. The task and the shortlisted source code are sent to TypeSafe/Jev; see
   the README's "Credentials and data transmission".
-
-[1.0.0]: https://github.com/tjeastmond/scope/releases/tag/v1.0.0
