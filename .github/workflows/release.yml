@@ -1,0 +1,52 @@
+name: Release
+
+# Publishes the package to npm with provenance. Run it by hand from main, only after TJ approves the release in #97.
+# It needs the NPM_TOKEN secret (an npm automation or granular token that can publish @tjeastmond/scope).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish; must equal package.json's version"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Check the requested version and branch
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "Release only from main (got $GITHUB_REF)"; exit 1; }
+          ACTUAL="$(node -p 'require("./package.json").version')"
+          test "$REQUESTED" = "$ACTUAL" || { echo "Requested $REQUESTED but package.json has $ACTUAL"; exit 1; }
+          test "$(node -p 'require("./package.json").private === true')" = "false" || {
+            echo "package.json is still private; remove it in the approved release PR first"; exit 1; }
+      - run: bun install --frozen-lockfile
+      - run: bun run validate
+      - name: Packaged-CLI smoke on real Node
+        run: |
+          SCOPE_NODE="$(command -v node)"
+          export SCOPE_NODE
+          bun run smoke:node
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
