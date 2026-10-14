@@ -33,7 +33,7 @@ npm link
 ```
 
 `npm link` puts `scope` on your PATH, pointing at this checkout, so a later `bun run build` updates it. `npm unlink -g
-scope` removes it. Without linking, run `node dist/cli.js "<task>"` from the checkout instead of `scope "<task>"`.
+@tjeastmond/scope` removes it. Without linking, run `node dist/cli.js "<task>"` from the checkout instead of `scope "<task>"`.
 
 Then set your TypeSafe key (see [Credentials and data transmission](#credentials-and-data-transmission)). To keep it
 across shells, add the `export` line to your shell profile (for example `~/.zshenv`), not to a file in a repository:
