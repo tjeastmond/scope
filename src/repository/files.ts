@@ -60,6 +60,20 @@ const SKIPPED_DIRECTORIES = new Set([
   ".venv",
   "__pycache__",
   ".scope",
+  // AI agent workspaces and worktrees: they hold checkouts of this or other repositories, not project source.
+  ".claude",
+  ".codex",
+  ".cursor",
+  ".windsurf",
+  ".gemini",
+  ".aider.tags.cache.v3",
+  ".cline",
+  ".roo",
+  ".kiro",
+  ".continue",
+  ".junie",
+  ".conductor",
+  ".worktrees",
 ]);
 
 const LOCKFILES = new Set([

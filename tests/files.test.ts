@@ -124,6 +124,20 @@ test("dependency and build directories are recorded once and never recursed into
   );
 });
 
+test("AI agent workspaces and worktrees are skipped as a whole, at any depth", async () => {
+  const agentDirs = [".claude", ".codex", ".cursor", ".windsurf", ".gemini", ".cline", ".roo", ".kiro", ".continue"];
+  const more = [".junie", ".conductor", ".worktrees", ".aider.tags.cache.v3"];
+  const tree: Record<string, string> = { "src/app.ts": "", "packages/a/.claude/worktrees/x/src/copy.ts": "" };
+  for (const dir of [...agentDirs, ...more]) tree[`${dir}/deep/file.ts`] = "";
+  const { files, skipped } = await scanRepository(await makeRepo(tree));
+  expect(files).toEqual(["src/app.ts"]);
+  expect(skipped).toEqual(
+    [...agentDirs, ...more, "packages/a/.claude"]
+      .map((dir) => ({ path: `${dir}/`, reason: "dependency-or-build-directory" as const }))
+      .sort(byPath),
+  );
+});
+
 test("a .gitignore negation cannot re-include secrets or dependency directories", async () => {
   const root = await makeRepo({
     ".gitignore": "!.env\n!node_modules\n!node_modules/**\n!dist/\n!*.pem\n",
