@@ -253,6 +253,25 @@ describe("Tailwind v4 at-rules", () => {
     expect(result.chunks[1]?.content).toBe("@custom-variant dark (&:is(.dark *));");
   });
 
+  test("a statement spanning lines keeps every line, so the following rule is still found", async () => {
+    const result = await extractStyleChunks("a.css", '@source\n  "../components";\n.card { color: red; }\n');
+    expect(result.warnings).toEqual([]);
+    expect(result.chunks.map((c) => [c.name, c.startLine, c.endLine])).toEqual([
+      ['@source "../components"', 1, 2],
+      [".card", 3, 3],
+    ]);
+  });
+
+  test("a semicolon inside a comment does not end the statement", async () => {
+    const result = await extractStyleChunks("a.css", '@source /* ; */ "../components";\n.card { color: red; }\n');
+    expect(result.warnings).toEqual([]);
+    expect(result.chunks.map((c) => [c.startLine, c.endLine])).toEqual([
+      [1, 1],
+      [2, 2],
+    ]);
+    expect(result.chunks[1]?.content).toBe(".card { color: red; }");
+  });
+
   test("the whole analysis reports no warning, so no text fallback is added", async () => {
     const result = await analyzeFile({ path: "styles.css", source: TAILWIND }, "css");
     expect(result.warnings).toEqual([]);

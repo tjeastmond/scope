@@ -53,11 +53,23 @@ export function neutralizeBodylessAtRules(source: string): string {
       const name = /^@([\w-]+)/.exec(source.slice(i, i + 64))?.[1]?.toLowerCase();
       let end = i + 1;
       while (end < length && source[end] !== ";" && source[end] !== "{" && source[end] !== "}") {
-        end = source[end] === '"' || source[end] === "'" ? skipString(source, end) : end + 1;
+        if (source[end] === '"' || source[end] === "'") end = skipString(source, end);
+        else if (source[end] === "/" && source[end + 1] === "*") {
+          const close = source.indexOf("*/", end + 2);
+          end = close === -1 ? length : close + 2;
+        } else end++;
       }
-      if (name && !KNOWN_BODYLESS_AT_RULES.has(name) && source[end] === ";" && end + 1 - i >= NEUTRAL_MIN_LENGTH) {
-        const statement = source.slice(i, end + 1);
-        const neutral = `@import ${statement.slice(8, -1).replace(/[^\n]/g, "x")};`;
+      const statement = source.slice(i, end + 1);
+      if (
+        name &&
+        !KNOWN_BODYLESS_AT_RULES.has(name) &&
+        source[end] === ";" &&
+        statement.length >= NEUTRAL_MIN_LENGTH &&
+        !statement.slice(0, 7).includes("\n")
+      ) {
+        // Everything after `@import` becomes x (newlines kept so lines hold), with one space so it reads as a url.
+        const rest = statement.slice(7, -1).replace(/[^\n]/g, "x");
+        const neutral = `@import${rest.startsWith("\n") ? "" : " "}${rest.startsWith("\n") ? rest : rest.slice(1)};`;
         out += source.slice(copied, i) + neutral;
         copied = end + 1;
       }
