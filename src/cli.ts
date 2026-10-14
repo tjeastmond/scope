@@ -6,6 +6,14 @@ const controller = new AbortController();
 const onInterrupt = () => controller.abort();
 process.once("SIGINT", onInterrupt);
 
+// A reader that stops early (`scope ... | head`) closes stdout. That is not a Scope failure: stop quietly with the exit
+// code the run already has. Any other stdout error is reported.
+process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EPIPE") process.exit();
+  process.stderr.write(`scope: could not write to stdout: ${error.message}\n`);
+  process.exit(1);
+});
+
 try {
   process.exitCode = await main(process.argv.slice(2), {
     stdout: (text) => process.stdout.write(text),

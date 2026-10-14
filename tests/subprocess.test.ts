@@ -73,6 +73,18 @@ suite("the compiled CLI as a subprocess", () => {
       });
     }
 
+    test("a reader that closes stdout early (`| head`) ends the run quietly, exit 0", async () => {
+      const child = spawn(NODE, [CLI, TASK, "--repo", MIXED, "--no-jev"], { cwd: ROOT, env });
+      // Closed before the artifact is written, so the write fails with EPIPE.
+      child.stdout.destroy();
+      let stderr = "";
+      child.stderr.on("data", (data: Buffer) => (stderr += data.toString("utf8")));
+      const code = await new Promise<number | null>((resolve) => child.on("close", resolve));
+      expect(stderr).not.toContain("EPIPE");
+      expectDiagnosticsOnly(stderr);
+      expect(code).toBe(0);
+    });
+
     test("--output writes the artifact to the file and leaves stdout empty", async () => {
       const directory = await mkdtemp(join(tmpdir(), "scope-sub-"));
       try {
