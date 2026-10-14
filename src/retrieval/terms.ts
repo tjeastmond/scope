@@ -95,6 +95,8 @@ const RELATED_WORDS: readonly { triggers: readonly string[]; related: readonly s
   },
   // Hiding sensitive values: tasks say "mask" or "scrub", code says `redact`.
   { triggers: ["mask", "scrub", "sanitize", "obfuscate"], related: ["redact"] },
+  // Side navigation: tasks say "sidenav" or "side menu", code says `Sidebar` or `nav`.
+  { triggers: ["sidenav", "sidemenu", "navbar"], related: ["sidebar", "nav", "navigation"] },
   // Measuring quality: tasks say "benchmark", code and docs say `eval`, `evaluation` or `harness`.
   { triggers: ["benchmark"], related: ["eval", "evaluation", "harness"] },
 ];
