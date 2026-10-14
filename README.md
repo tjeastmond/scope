@@ -120,9 +120,10 @@ Known limitations:
 - **A file with syntax errors is still analyzed:** chunks come from the parseable regions, with a warning. JSONC (JSON
   with comments) is parsed leniently, also with a warning.
 - **Skipped entirely:** gitignored paths, dependency and build directories, secret-looking files, binary files, and
-  lockfile, minified or oversized files. Each skip is reported as a warning with its reason.
-- **The shortlist is 40 candidates.** Code that retrieval does not shortlist cannot be selected, however relevant. On
-  the held-out benchmark tasks Scope finds 75% of the required chunks (see [Benchmarks](#benchmarks)).
+  lockfile, minified or oversized files. Binary files are listed as scan warnings; the other skips are silent.
+- **Jev judges only the 40 shortlisted candidates.** Code that retrieval does not shortlist is never judged; it can
+  appear in the output only as a supporting declaration of a selected chunk. On the held-out benchmark tasks Scope
+  finds 75% of the required chunks (see [Benchmarks](#benchmarks)).
 
 ## Credentials and data transmission
 
