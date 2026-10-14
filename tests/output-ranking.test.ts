@@ -28,7 +28,7 @@ function item(file: string, startLine: number, relevance: number | undefined, sc
 function build(chunks: SelectedChunk[], overrides: Partial<ScopeResult> = {}): ScopeResult {
   const sorted = [...chunks].sort(byLocation);
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     mode: "jev",
     task: "t",
     chunks: sorted,

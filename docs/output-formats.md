@@ -4,11 +4,15 @@
 blocks of source, no line repeated) and the same provenance. Only the artifact goes to stdout (or to the `--output`
 file); warnings and Jev usage go to stderr, so JSON on stdout is always parseable on its own.
 
-**Warnings on stderr.** Per-file scan warnings (syntax errors, "no chunks", JSONC with comments, text fallbacks, binary
-files, files read as plain text) print as one line, for example `scope: warning: 13 files had scan warnings (8 plain
-text, 3 no chunks, 1 syntax error, 1 JSONC); rerun with --explain to list them`. Warnings that are not about one file
-(a scan limit that truncated the scan) still print individually, and `--explain` prints every warning individually.
-The artifact is unaffected: `warnings` in JSON and the Warnings list in text and markdown always carry every warning.
+**Warnings.** A warning that points at a possible blind spot is listed; a benign one is only counted. Syntax errors
+(listed once per file, even when the analyzer and the text fallback both reported one) and warnings that are not about
+one file (a scan limit that truncated the scan, "no candidate chunks") are listed in `warnings` (JSON) and the Warnings
+list (markdown) and printed on stderr. Every other per-file kind (`no-chunks`, `text-fallback`, `plain-text`, `jsonc`,
+`binary`, `analyzer-failed`) is counted: JSON carries `warningSummary`, an object from kind to number of files, and
+markdown a one-line count; stderr prints one line such as `scope: warning: 13 more files had scan warnings (8 plain
+text, 3 no chunks, 1 JSONC, 1 binary file); rerun with --explain to list them`. The hint appears only when something
+was left out. `--explain` lists every warning individually in the artifact and on stderr, with no count line. The text
+format carries no warnings; they go to stderr.
 
 Selection is relevance-only and the same for every format; there is no size limit (see
 [selection-policy.md](selection-policy.md)). The entry point is `renderFormat(format, result)` in
@@ -19,7 +23,7 @@ Selection is relevance-only and the same for every format; there is no size limi
 - `--output <path>`: write the artifact to a file instead of stdout. The file holds exactly the bytes stdout would have
   received; stdout stays empty. Warnings, Jev usage and a final `scope: wrote <path>` line go to stderr.
 - `--explain`: add the selection evidence described under [Explanation](#explanation---explain), and list every scan
-  warning on stderr instead of one summary line. The evidence changes how a result is rendered, never which chunks it
+  warning (in the artifact and on stderr) instead of syntax errors and a count line. The evidence changes how a result is rendered, never which chunks it
   contains.
 
 ### Output file safety (`--output`)
@@ -92,11 +96,12 @@ Golden files for all three formats live in `tests/golden/`; regenerate with
 [`scope-result.schema.json`](scope-result.schema.json) (JSON Schema 2020-12, `additionalProperties: false` everywhere).
 
 ```
-{ schemaVersion: 4, mode, task,
+{ schemaVersion: 5, mode, task,
   regions: [{ file, language, startLine, endLine, relevance?, content,
               chunks: [{ id, name?, kind, startLine, endLine, relevance?, supportFor?,
                          score?, reason?, signals?, origin? }] }],
-  warnings, skipped?: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
+  warnings, warningSummary: { [kind]: files },
+  skipped?: [{ chunkId, file, startLine, endLine, name?, relevance?, score }],
   retrievalConfigVersion?, jevQuestionVersion?,
   jev?: { requestCount?, latencyMs, usage: { inputTokens, outputTokens },
           requests?: [{ latencyMs, inputTokens, outputTokens }] },
@@ -120,7 +125,7 @@ request order. No monetary cost is reported because pricing is not verified. Add
 
 ### schemaVersion
 
-`schemaVersion` is `4`. Version 4 orders regions by relevance and adds a region `relevance`, drops `score` and `reason` from chunk entries unless `--explain` is set, and omits `skipped` unless `--explain` is set (issue #222). Version 3 removes the run id and the cache, reuse, memory, feedback and weights fields that the removed M6 layer (issue #192) had added as optional keys. Version 2 removed the token budget and every size field of version 1 (`budget`, `estimator`,
+`schemaVersion` is `5`. Version 5 lists only syntax errors (once per file) and non-file warnings in `warnings` unless `--explain` is set, and adds `warningSummary`, the number of files per warning kind (issue #223). Version 4 orders regions by relevance and adds a region `relevance`, drops `score` and `reason` from chunk entries unless `--explain` is set, and omits `skipped` unless `--explain` is set (issue #222). Version 3 removes the run id and the cache, reuse, memory, feedback and weights fields that the removed M6 layer (issue #192) had added as optional keys. Version 2 removed the token budget and every size field of version 1 (`budget`, `estimator`,
 `estimatedTokens`, `characters`, `lines`, per-chunk and per-skip `estimatedTokens`, `unmetCoherence`, and the skip
 `reason` and `minimumBudget`). It is bumped on any breaking change: removing or renaming a key, changing a key's type or
 meaning, or narrowing an enum. Adding an optional key is not breaking but must be added to the schema in the same

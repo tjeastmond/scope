@@ -55,7 +55,7 @@ const skip = (n: number) => ({
 });
 
 const result: ScopeResult = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   mode: "jev",
   task: "Validate invoice totals",
   chunks: [pick(total, 0.91, 0.91), pick(due, undefined, 0.4)],
@@ -70,6 +70,7 @@ const result: ScopeResult = {
     },
   ],
   warnings: ["src/legacy.ts: 2 syntax errors; text fallback used."],
+  warningSummary: { "syntax-error": 1, "no-chunks": 2, "plain-text": 3 },
   skipped: [1, 2, 3, 4, 5, 6, 7, 8, 9].map(skip),
   retrievalConfigVersion: "golden-1",
   jevQuestionVersion: "golden-q1",

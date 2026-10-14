@@ -214,3 +214,75 @@ test("registered for css and scss and dispatched through the registry", async ()
   const result = await analyzeFile({ path: "a.scss", source }, "scss");
   expect(result.chunks.map((c) => c.language)).toEqual(["scss"]);
 });
+
+describe("Tailwind v4 at-rules", () => {
+  const TAILWIND = `@import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
+@source "../components";
+@plugin "@tailwindcss/typography";
+@theme inline {
+  --color-brand: var(--brand);
+}
+@utility tab-4 {
+  tab-size: 4;
+}
+.card {
+  @apply rounded-lg p-4;
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+}
+`;
+
+  test("parse without a syntax error, one chunk per statement, text from the original source", async () => {
+    const result = await extractStyleChunks("app/styles.css", TAILWIND);
+    expect(result.warnings).toEqual([]);
+    expect(result.partial).toBeUndefined();
+    expect(result.chunks.map((c) => [c.kind, c.name, c.startLine, c.endLine])).toEqual([
+      ["config", '@import "tailwindcss"', 1, 1],
+      ["config", "@custom-variant dark (&:is(.dark *))", 2, 2],
+      ["config", '@source "../components"', 3, 3],
+      ["config", '@plugin "@tailwindcss/typography"', 4, 4],
+      ["style", "@theme inline", 5, 7],
+      ["style", "@utility tab-4", 8, 10],
+      ["style", ".card", 11, 13],
+      ["style", "@layer base", 14, 18],
+    ]);
+    expect(result.chunks[1]?.content).toBe("@custom-variant dark (&:is(.dark *));");
+  });
+
+  test("a statement spanning lines keeps every line, so the following rule is still found", async () => {
+    const result = await extractStyleChunks("a.css", '@source\n  "../components";\n.card { color: red; }\n');
+    expect(result.warnings).toEqual([]);
+    expect(result.chunks.map((c) => [c.name, c.startLine, c.endLine])).toEqual([
+      ['@source "../components"', 1, 2],
+      [".card", 3, 3],
+    ]);
+  });
+
+  test("a semicolon inside a comment does not end the statement", async () => {
+    const result = await extractStyleChunks("a.css", '@source /* ; */ "../components";\n.card { color: red; }\n');
+    expect(result.warnings).toEqual([]);
+    expect(result.chunks.map((c) => [c.startLine, c.endLine])).toEqual([
+      [1, 1],
+      [2, 2],
+    ]);
+    expect(result.chunks[1]?.content).toBe(".card { color: red; }");
+  });
+
+  test("the whole analysis reports no warning, so no text fallback is added", async () => {
+    const result = await analyzeFile({ path: "styles.css", source: TAILWIND }, "css");
+    expect(result.warnings).toEqual([]);
+    expect(result.chunks.every((c) => c.kind !== "file")).toBe(true);
+  });
+
+  test("a genuinely broken stylesheet still reports a syntax error", async () => {
+    const result = await extractStyleChunks(
+      "bad.css",
+      ".a { color: red;\n@custom-variant dark (&:is(.dark *));\n}}}\n",
+    );
+    expect(result.partial).toBe(true);
+  });
+});

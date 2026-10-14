@@ -91,7 +91,7 @@ function hostileResult(overrides: Partial<ScopeResult> = {}): ScopeResult {
     return { file: `src/f${i}.ts`, language: "typescript", startLine: 1, endLine: 1, content, chunkIds: [id] };
   });
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     mode: "no-jev",
     task: "hostile ``` task\nwith `ticks` and\r\nnewlines\u0000",
     chunks,
@@ -220,6 +220,7 @@ describe("JSON contract", () => {
       "task",
       "regions",
       "warnings",
+      "warningSummary",
       ...(result.retrievalConfigVersion === undefined ? [] : ["retrievalConfigVersion"]),
       ...(result.jevQuestionVersion === undefined ? [] : ["jevQuestionVersion"]),
       ...(result.jev === undefined ? [] : ["jev"]),

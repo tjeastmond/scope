@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "mode": "jev",
   "task": "Validate invoice totals",
   "regions": [
@@ -32,6 +32,11 @@
   "warnings": [
     "src/legacy.ts: 2 syntax errors; text fallback used."
   ],
+  "warningSummary": {
+    "syntax-error": 1,
+    "no-chunks": 2,
+    "plain-text": 3
+  },
   "retrievalConfigVersion": "golden-1",
   "jevQuestionVersion": "golden-q1"
 }

@@ -14,6 +14,7 @@ Validate invoice totals
 ## Warnings
 
 - ` src/legacy.ts: 2 syntax errors; text fallback used. `
+- Files with other scan warnings (not listed; use `--explain`): 3 plain text, 2 no chunks
 
 ## ` src/invoices.ts:3-9 `
 

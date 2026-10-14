@@ -1,6 +1,8 @@
 // Shared contracts for Scope. Source records (CodeChunk) are kept separate from retrieval scores and selection
 // reasons (SelectedChunk, ScopeResult). Scores are ranking signals, not calibrated probabilities.
 
+import type { WarningSummary } from "./warnings.ts";
+
 export type Language =
   | "typescript"
   | "javascript"
@@ -203,14 +205,17 @@ export interface ScopeRegion {
 }
 
 export interface ScopeResult {
-  schemaVersion: 4;
+  schemaVersion: 5;
   mode: ScopeMode;
   task: string;
   /** Per-chunk selection provenance. */
   chunks: SelectedChunk[];
   /** What is printed: `chunks` merged so no line appears twice. */
   regions: ScopeRegion[];
+  /** Warnings listed one by one: scan and retrieval warnings, syntax errors per file, everything under `--explain`. */
   warnings: string[];
+  /** Files with a scan warning, per kind; the benign kinds appear only here unless `--explain`. */
+  warningSummary?: WarningSummary;
   /** Candidates that scored below the relevance minimum, sorted by file, start line, then id. */
   skipped: SkippedChunk[];
   /** Version of the retrieval weights and caps that prepared the candidates. */

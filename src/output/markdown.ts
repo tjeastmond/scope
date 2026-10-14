@@ -1,6 +1,7 @@
 import type { ScopeRegion, ScopeResult, SelectedChunk } from "../types.ts";
 import { belowThresholdLines, explainBlocks, rankRegions, sanitizeInline, summaryLines } from "./report.ts";
 import { labelOf } from "./text.ts";
+import { describeWarningSummary, type FileWarningKind, LISTED_BY_DEFAULT } from "../warnings.ts";
 
 /** Longest run of consecutive backticks anywhere in `text` (0 when there are none). */
 export function longestBacktickRun(text: string): number {
@@ -58,8 +59,19 @@ export function renderMarkdown(result: ScopeResult): string {
     "",
     ...summaryLines(result, codeSpan).map((line) => `- ${line}`),
   ];
-  if (result.warnings.length > 0) {
-    out.push("", "## Warnings", "", ...result.warnings.map((warning) => `- ${codeSpan(warning)}`));
+  // Per-file kinds the list omits (everything but syntax errors, unless --explain) are only counted.
+  const unlisted = Object.fromEntries(
+    Object.entries(result.warningSummary ?? {}).filter(([kind]) => !LISTED_BY_DEFAULT.has(kind as FileWarningKind)),
+  );
+  const counted = result.explain || Object.keys(unlisted).length === 0 ? [] : [describeWarningSummary(unlisted)];
+  if (result.warnings.length > 0 || counted.length > 0) {
+    out.push(
+      "",
+      "## Warnings",
+      "",
+      ...result.warnings.map((warning) => `- ${codeSpan(warning)}`),
+      ...counted.map((summary) => `- Files with other scan warnings (not listed; use \`--explain\`): ${summary}`),
+    );
   }
   const chunksOf = (region: ScopeRegion): SelectedChunk[] =>
     region.chunkIds.flatMap((id) => {

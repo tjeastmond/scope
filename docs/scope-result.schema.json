@@ -1,16 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tjeastmond/scope/docs/scope-result.schema.json",
-  "title": "Scope result (schemaVersion 4)",
+  "title": "Scope result (schemaVersion 5)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "mode", "task", "regions", "warnings"],
+  "required": ["schemaVersion", "mode", "task", "regions", "warnings", "warningSummary"],
   "properties": {
-    "schemaVersion": { "const": 4 },
+    "schemaVersion": { "const": 5 },
     "mode": { "enum": ["jev", "no-jev"] },
     "task": { "type": "string" },
     "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
     "warnings": { "type": "array", "items": { "type": "string" } },
+    "warningSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "syntax-error": { "type": "integer", "minimum": 1 },
+        "no-chunks": { "type": "integer", "minimum": 1 },
+        "analyzer-failed": { "type": "integer", "minimum": 1 },
+        "jsonc": { "type": "integer", "minimum": 1 },
+        "binary": { "type": "integer", "minimum": 1 },
+        "text-fallback": { "type": "integer", "minimum": 1 },
+        "plain-text": { "type": "integer", "minimum": 1 },
+        "other": { "type": "integer", "minimum": 1 }
+      }
+    },
     "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
     "retrievalConfigVersion": { "type": "string" },
     "jevQuestionVersion": { "type": "string" },

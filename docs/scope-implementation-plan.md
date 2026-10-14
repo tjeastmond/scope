@@ -98,7 +98,7 @@ interface CodeChunk {
 
 Define `Language` and `Reference` alongside the model. References should record relationship kind, source location, optional resolved target, and resolution evidence. Use stable chunk IDs for unchanged source; handle duplicate names using file and range identity.
 
-Keep retrieval scores and selection reasons separate from source records. A result should include schema version (4), task, merged regions ordered strongest first (each with its relevance and the provenance of its chunks), warnings, and mode. Skipped candidates and, per chunk, the deterministic signal breakdown, final score, and inclusion reason are emitted only under `--explain`; Jev relevance is always present when Jev judged the chunk. Scores are ranking signals; do not present combined scores as calibrated probabilities.
+Keep retrieval scores and selection reasons separate from source records. A result should include schema version (5), task, merged regions ordered strongest first (each with its relevance and the provenance of its chunks), warnings (non-file warnings and syntax errors once per file; every per-file warning under `--explain`), a `warningSummary` of files per warning kind, and mode. Skipped candidates and, per chunk, the deterministic signal breakdown, final score, and inclusion reason are emitted only under `--explain`; Jev relevance is always present when Jev judged the chunk. Scores are ranking signals; do not present combined scores as calibrated probabilities.
 
 ## Milestone 1 — Working Jev-powered vertical slice
 
