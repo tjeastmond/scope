@@ -105,8 +105,9 @@ bun run eval [--mode lexical|no-jev|jev ...] [--split tuning|heldout|all] [--fix
 bun run eval:freeze
 ```
 
-The harness is dev tooling under `scripts/eval/`; nothing in it ships in `src/`. It is not part of `bun run validate`;
-its unit tests (`tests/eval-*.test.ts`) run in `bun test` and need no network or key.
+The harness is dev tooling under `scripts/eval/`; nothing in it ships in `src/`. The live harness (`bun run eval`) is not
+part of `bun run validate`; the offline release gate (`bun run eval:gate`, see [Release gates](#release-gates)) is. Its
+unit tests (`tests/eval-*.test.ts`) run in `bun test` and need no network or key.
 
 - **Modes.** The default is `lexical` and `no-jev` (offline). `lexical` is the baseline: BM25 over every eligible chunk
   with the task's content words, best `LEXICAL_TOP_K = 10` chunks. `no-jev` is `runScope({ noJev: true })`. `jev` uses
