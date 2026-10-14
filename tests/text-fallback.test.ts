@@ -41,8 +41,11 @@ test("an unknown extension becomes one file chunk and a warning naming file and 
     ["notes.zzz", "file", 1, 2],
   ]);
   expect(result.chunks[0]!.chunk.content).toBe("first line\nsecond line");
-  expect(result.warnings).toEqual([
-    "1 file(s) have no analyzer and were read as plain text windows (for example notes.zzz)",
+  expect(result.warnings).toEqual([]);
+  expect(result.warningSummary).toEqual({ "plain-text": 1 });
+  const explained = await runScope({ task: "anything", repo, noJev: true, explain: true });
+  expect(explained.result.warnings).toEqual([
+    "1 file(s) have no analyzer and were read as plain text windows (notes.zzz)",
   ]);
 });
 
@@ -110,7 +113,8 @@ test("a binary-looking tail past the scanner's sniff window is skipped with a wa
   });
   const run = await runScope({ task: "anything", repo, noJev: true });
   expect(run.result.chunks.map((s) => s.chunk.file)).toEqual(["ok.py"]);
-  expect(run.result.warnings).toEqual(["blob.zzz: binary content (NUL byte); skipped"]);
+  expect(run.result.warnings).toEqual([]);
+  expect(run.result.warningSummary).toEqual({ binary: 1 });
 });
 
 test("a NUL inside a credential-like literal still marks the file binary", async () => {
@@ -118,7 +122,8 @@ test("a NUL inside a credential-like literal still marks the file binary", async
   const repo = await makeRepo({ "cfg.ts": Buffer.from(source), "ok.py": "def ok():\n    pass\n" });
   const run = await runScope({ task: "anything", repo, noJev: true });
   expect(run.result.chunks.map((s) => s.chunk.file)).toEqual(["ok.py"]);
-  expect(run.result.warnings).toEqual(["cfg.ts: binary content (NUL byte); skipped"]);
+  expect(run.result.warnings).toEqual([]);
+  expect(run.result.warningSummary).toEqual({ binary: 1 });
 });
 
 test("long files without blank lines split at exactly the target size and cover every line", async () => {

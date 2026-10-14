@@ -9,6 +9,7 @@ import type {
   SelectedChunk,
   SkippedChunk,
 } from "../types.ts";
+import type { WarningSummary } from "../warnings.ts";
 
 /** Provenance of one chunk inside a region. `relevance` is absent in `no-jev` mode; `score` is not a probability. */
 export interface JsonChunk {
@@ -43,11 +44,14 @@ export interface JsonRegion {
  * type); additive fields are declared here and in `docs/scope-result.schema.json`. See docs/output-formats.md.
  */
 export interface JsonPayload {
-  schemaVersion: 4;
+  schemaVersion: 5;
   mode: ScopeMode;
   task: string;
   regions: JsonRegion[];
+  /** Warnings listed one by one; the benign per-file kinds are only counted in `warningSummary` unless `--explain`. */
   warnings: string[];
+  /** Files with a scan warning, per kind (for example `{ "syntax-error": 1, "no-chunks": 3 }`); `{}` when none. */
+  warningSummary: WarningSummary;
   /** Present only under `--explain`; most relevant first. */
   skipped?: SkippedChunk[];
   retrievalConfigVersion?: string;
@@ -119,7 +123,7 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
       return found;
     });
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     mode: result.mode,
     task: result.task,
     regions: rankRegions(result.regions, chunksOf).map((region) => {
@@ -136,6 +140,7 @@ export function toJsonPayload(result: ScopeResult): JsonPayload {
       };
     }),
     warnings: result.warnings,
+    warningSummary: result.warningSummary ?? {},
     ...(result.explain ? { skipped: mostRelevantFirst(result.skipped).map(toJsonSkipped) } : {}),
     ...(result.retrievalConfigVersion === undefined ? {} : { retrievalConfigVersion: result.retrievalConfigVersion }),
     ...(result.jevQuestionVersion === undefined ? {} : { jevQuestionVersion: result.jevQuestionVersion }),

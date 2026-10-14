@@ -19,10 +19,68 @@ function classify(text: string, preludeLength: number | undefined): Pick<Region,
   return { kind: "config", name: VARIABLE.exec(statement)?.[1] ?? statement };
 }
 
+/** At-rules without a block that the CSS grammar knows; any other `@name ...;` at the top level is neutralized. */
+const KNOWN_BODYLESS_AT_RULES = new Set(["import", "charset", "namespace"]);
+
+/** The shortest `@import x;` the neutral form fits in. */
+const NEUTRAL_MIN_LENGTH = 10;
+
+/**
+ * Tailwind v4 adds block-less at-rules the CSS grammar cannot parse (`@custom-variant dark (&:is(.dark *));`,
+ * `@source "../x";`, `@plugin`, `@config`, `@reference`): they come out as ERROR nodes, or swallow the next rule. The
+ * parser gets a copy where each such top-level statement is a same-length `@import xxx;` (newlines kept), so offsets
+ * and lines are unchanged and the statement stays one `config` chunk; chunk text and names come from the original.
+ */
+export function neutralizeBodylessAtRules(source: string): string {
+  const length = source.length;
+  let out = "";
+  let copied = 0;
+  let depth = 0;
+  for (let i = 0; i < length;) {
+    const c = source[i];
+    if (c === '"' || c === "'") {
+      i = skipString(source, i);
+    } else if (c === "/" && source[i + 1] === "*") {
+      const close = source.indexOf("*/", i + 2);
+      i = close === -1 ? length : close + 2;
+    } else if (c === "{") {
+      depth++;
+      i++;
+    } else if (c === "}") {
+      depth = Math.max(0, depth - 1);
+      i++;
+    } else if (c === "@" && depth === 0) {
+      const name = /^@([\w-]+)/.exec(source.slice(i, i + 64))?.[1]?.toLowerCase();
+      let end = i + 1;
+      while (end < length && source[end] !== ";" && source[end] !== "{" && source[end] !== "}") {
+        end = source[end] === '"' || source[end] === "'" ? skipString(source, end) : end + 1;
+      }
+      if (name && !KNOWN_BODYLESS_AT_RULES.has(name) && source[end] === ";" && end + 1 - i >= NEUTRAL_MIN_LENGTH) {
+        const statement = source.slice(i, end + 1);
+        const neutral = `@import ${statement.slice(8, -1).replace(/[^\n]/g, "x")};`;
+        out += source.slice(copied, i) + neutral;
+        copied = end + 1;
+      }
+      i = Math.max(end, i + 1);
+    } else {
+      i++;
+    }
+  }
+  return copied === 0 ? source : out + source.slice(copied);
+}
+
+/** Index after the string literal starting at `start` (a line break ends an unterminated one). */
+function skipString(source: string, start: number): number {
+  const quote = source[start];
+  let i = start + 1;
+  while (i < source.length && source[i] !== quote && source[i] !== "\n") i += source[i] === "\\" ? 2 : 1;
+  return Math.min(i + 1, source.length);
+}
+
 /** Plain CSS through the Tree-sitter grammar: one region per top-level statement. */
 async function cssRegions(file: string, source: string): Promise<{ regions: Region[]; broken: boolean }> {
   const parser = await parserFor("css");
-  const tree = parser.parse(source);
+  const tree = parser.parse(neutralizeBodylessAtRules(source));
   if (!tree) throw new Error(`Tree-sitter could not parse ${file}`);
   try {
     const regions = tree.rootNode.namedChildren
@@ -35,7 +93,7 @@ async function cssRegions(file: string, source: string): Promise<{ regions: Regi
         return {
           startLine: node.startPosition.row + 1,
           endLine: node.endPosition.row + 1,
-          ...classify(node.text, prelude),
+          ...classify(source.slice(node.startIndex, node.endIndex), prelude),
         };
       });
     return { regions, broken: tree.rootNode.hasError };

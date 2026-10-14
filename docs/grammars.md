@@ -53,6 +53,18 @@ language's own issue:
 - SCSS: split on top-level brace blocks and at-rules, using a brace-depth scan that ignores strings and comments.
 - Markdown: split on ATX headings (`#`), ignoring fenced code blocks.
 
+### Grammar gaps handled by a same-length parse copy
+
+The CSS and TSX/JavaScript grammars fail on a few constructs that real projects use. Scope parses a copy of the source
+that is identical in length and line structure, and takes chunk text and names from the original (issue #223):
+
+- CSS: block-less Tailwind v4 at-rules (`@custom-variant ...;`, `@source "...";`, `@plugin`, `@config`, `@reference`)
+  produce ERROR nodes or swallow the next rule. At the top level they are replaced with `@import xxx;` before parsing.
+  Block at-rules (`@theme`, `@utility`, `@layer`) and `@apply` parse natively. `@plugin "x" { ... }` with a block is not
+  handled and may still be reported as a syntax error.
+- TSX/JavaScript: `&>` inside a JSX string attribute (`className="[&>svg]:size-3.5"`) is replaced with `__` before
+  parsing.
+
 ## Node verification
 
 `bun run build` followed by `node scripts/check-grammars.mjs` loads every grammar from `dist/` and parses a sample.

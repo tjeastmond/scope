@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { classifyFileWarning, type FileWarning } from "./warnings.ts";
+import { classifyFileWarning, countFileWarnings, LISTED_BY_DEFAULT, type FileWarning } from "./warnings.ts";
 import { analyzeFile, binaryWarning, textOnlySummary } from "./analyzers/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
 import { JEV_QUESTION_VERSION } from "./config.ts";
@@ -33,7 +33,7 @@ export interface ScopeRun {
   result: ScopeResult;
   /** Present only when Jev judged the candidates (usage, latency). */
   decision?: DecisionResult;
-  /** The per-file scan warnings, also present in `result.warnings`; the CLI summarizes them unless `--explain`. */
+  /** The per-file scan warnings, also present in `result.warnings`; the CLI summarizes the ones the artifact omits unless `--explain`. */
   fileWarnings: FileWarning[];
 }
 
@@ -45,8 +45,9 @@ const NO_CHUNKS_WARNING = "No candidate chunks were found in the repository.";
 const HEAD_CHARS = 1024;
 
 /**
- * Scans and analyzes the repository. Files read as plain text only because their language has no analyzer are expected,
- * so they get one summary warning (`detailed` lists more of them); every other fallback still warns per file.
+ * Scans and analyzes the repository. `warnings` lists scan-level warnings and, per file, only syntax errors (once per
+ * file); with `detailed` it lists every per-file warning, and the plain-text files in one summary line. `fileWarnings`
+ * always holds all of them, for counting.
  */
 export async function loadChunks(
   repo: string,
@@ -56,9 +57,17 @@ export async function loadChunks(
   const chunks: CodeChunk[] = [];
   const textOnly: string[] = [];
   const fileWarnings: FileWarning[] = [];
+  // Every per-file warning is kept in `fileWarnings`. The listed `warnings` get only the kinds that point at a real
+  // blind spot (once per file) unless `detailed`; the rest are counted in the artifact's `warningSummary`.
+  const listedSyntax = new Set<string>();
   const warnFile = (file: string, message: string) => {
-    warnings.push(message);
-    fileWarnings.push(classifyFileWarning(file, message));
+    const warning = classifyFileWarning(file, message);
+    fileWarnings.push(warning);
+    if (detailed) warnings.push(message);
+    else if (LISTED_BY_DEFAULT.has(warning.kind) && !listedSyntax.has(file)) {
+      listedSyntax.add(file);
+      warnings.push(message);
+    }
   };
   const { files, warnings } = await scanRepository(root, {}, signal);
   for (const file of files) {
@@ -81,8 +90,8 @@ export async function loadChunks(
   }
   const summary = textOnlySummary(textOnly, detailed);
   if (summary) {
-    warnings.push(summary);
-    // One message covers all these files; the CLI counts them as a kind of its own in the stderr summary.
+    if (detailed) warnings.push(summary);
+    // One message covers all these files; they count as a kind of their own in the summary.
     for (const file of textOnly) fileWarnings.push({ file, kind: "plain-text", message: summary });
   }
   return { chunks, warnings, fileWarnings };
@@ -180,5 +189,6 @@ export async function runScope(options: ScopeOptions): Promise<ScopeRun> {
     retrievalConfigVersion: DEFAULT_RETRIEVAL_CONFIG.version,
     ...(mode === "jev" ? { jevQuestionVersion: JEV_QUESTION_VERSION } : {}),
   });
-  return { result: { ...result, ...jevMetrics(decision, explain) }, decision, fileWarnings };
+  const warningSummary = countFileWarnings(fileWarnings);
+  return { result: { ...result, warningSummary, ...jevMetrics(decision, explain) }, decision, fileWarnings };
 }

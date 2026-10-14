@@ -14,7 +14,7 @@ import { FORMATS, renderFormat, type OutputFormat } from "./output/index.ts";
 import { CancelledError, UsageError } from "./errors.ts";
 import { resolveRepository } from "./repository/root.ts";
 import { previewJevPayload, runScope } from "./scope.ts";
-import { summarizeFileWarnings } from "./warnings.ts";
+import { isOmittedByDefault, summarizeFileWarnings } from "./warnings.ts";
 import type { DecisionProvider } from "./types.ts";
 
 const HELP = `Usage: scope "<task>" [--repo <path>] [--format text|markdown|json]
@@ -31,8 +31,8 @@ Options:
   -h, --help         Show this help
 
 Only the artifact goes to stdout (or to the --output file); warnings, Jev usage and the final "wrote" line go to
-stderr. Per-file scan warnings (syntax errors, empty analyses, ...) are summarized in one line; --explain lists each
-one. --output refuses to overwrite a source file of the repository and replaces other files atomically.
+stderr. Syntax errors are listed per file; other per-file scan warnings (empty analyses, JSONC, ...) are counted in
+one line; --explain lists each one. --output refuses to overwrite a source file of the repository and replaces other files atomically.
 
 By default Scope sends the task and candidate source code to Jev and needs TYPESAFE_API_KEY.
 SCOPE_JEV_PAYLOAD=print prints the exact Jev request bodies to stdout instead of sending them (no key needed).
@@ -203,11 +203,11 @@ async function run(options: CliOptions, io: Io, output: PreparedOutput | undefin
   });
   // A Ctrl-C that lands after Jev answered still cancels: nothing is printed or written.
   if (io.signal?.aborted) throw new CancelledError();
-  // Per-file scan warnings collapse into one line unless --explain; every other warning prints on its own.
-  const summary = options.explain ? undefined : summarizeFileWarnings(fileWarnings);
-  const summarized = new Set(summary === undefined ? [] : fileWarnings.map((w) => w.message));
+  // stderr prints the warnings the artifact lists, then one count line for the per-file ones it omits (only without
+  // --explain, which lists everything), so the --explain hint appears only when something was left out.
+  for (const warning of result.warnings) io.stderr(`scope: warning: ${warning}\n`);
+  const summary = options.explain ? undefined : summarizeFileWarnings(fileWarnings.filter(isOmittedByDefault));
   if (summary !== undefined) io.stderr(`scope: warning: ${summary}\n`);
-  for (const warning of result.warnings) if (!summarized.has(warning)) io.stderr(`scope: warning: ${warning}\n`);
   if (decision) {
     const { inputTokens, outputTokens } = decision.usage ?? {};
     const metrics = [

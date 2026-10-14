@@ -36,17 +36,45 @@ const LABELS: Record<FileWarningKind, [one: string, many: string]> = {
   other: ["other", "other"],
 };
 
+/** Warning kinds listed file by file in the artifact by default; every other kind is only counted (see `--explain`). */
+export const LISTED_BY_DEFAULT: ReadonlySet<FileWarningKind> = new Set(["syntax-error"]);
+
+/** Files with a scan warning, per kind; kinds without a warning are absent. The `warningSummary` of the artifact. */
+export type WarningSummary = Partial<Record<FileWarningKind, number>>;
+
+/** Counts files per kind (a file counts once per kind), in a fixed kind order so the output is deterministic. */
+export function countFileWarnings(warnings: readonly FileWarning[]): WarningSummary {
+  const perKind = new Map<FileWarningKind, Set<string>>();
+  for (const { file, kind } of warnings) perKind.set(kind, (perKind.get(kind) ?? new Set()).add(file));
+  const summary: WarningSummary = {};
+  for (const kind of Object.keys(LABELS) as FileWarningKind[]) {
+    const files = perKind.get(kind);
+    if (files) summary[kind] = files.size;
+  }
+  return summary;
+}
+
+/** The warnings the artifact lists file by file without `--explain`; the CLI summarizes the rest on stderr. */
+export const isOmittedByDefault = (warning: FileWarning): boolean => !LISTED_BY_DEFAULT.has(warning.kind);
+
 /**
- * One stderr line for all per-file scan warnings, with the number of files and a count per kind (a file counts once per
- * kind). Undefined when there are none.
+ * One stderr line for the per-file scan warnings the artifact does not list, with the number of files and a count per
+ * kind (a file counts once per kind). Undefined when there are none. The hint appears because the artifact omits them.
  */
 export function summarizeFileWarnings(warnings: readonly FileWarning[]): string | undefined {
   if (warnings.length === 0) return undefined;
-  const perKind = new Map<FileWarningKind, Set<string>>();
-  for (const { file, kind } of warnings) perKind.set(kind, (perKind.get(kind) ?? new Set()).add(file));
-  const kinds = [...perKind]
-    .sort((a, b) => b[1].size - a[1].size)
-    .map(([kind, files]) => `${files.size} ${LABELS[kind][files.size === 1 ? 0 : 1]}`);
+  const summary = countFileWarnings(warnings);
+  const kinds = (Object.entries(summary) as [FileWarningKind, number][])
+    .sort((a, b) => b[1] - a[1])
+    .map(([kind, count]) => `${count} ${LABELS[kind][count === 1 ? 0 : 1]}`);
   const count = new Set(warnings.map((w) => w.file)).size;
-  return `${count} ${count === 1 ? "file had a scan warning" : "files had scan warnings"} (${kinds.join(", ")}); rerun with --explain to list them`;
+  return `${count} ${count === 1 ? "more file had a scan warning" : "more files had scan warnings"} (${kinds.join(", ")}); rerun with --explain to list them`;
+}
+
+/** The same counts as a short phrase, for the markdown artifact. */
+export function describeWarningSummary(summary: WarningSummary): string {
+  return (Object.entries(summary) as [FileWarningKind, number][])
+    .sort((a, b) => b[1] - a[1])
+    .map(([kind, count]) => `${count} ${LABELS[kind][count === 1 ? 0 : 1]}`)
+    .join(", ");
 }

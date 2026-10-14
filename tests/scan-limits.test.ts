@@ -187,8 +187,9 @@ test("a truncation warning surfaces in the run result", async () => {
 test("an analyzer's syntax-error warning surfaces in the run result", async () => {
   const repo = await makeDir({ "broken.ts": "export const a = 1;\nfunction ( {\n", "ok.ts": code });
   const { result } = await runScope({ task: "anything", repo, noJev: true });
-  expect(result.warnings).toEqual([
-    expect.stringContaining("broken.ts: syntax errors; extracted 1 declarations"),
-    expect.stringContaining("broken.ts: syntax errors; text fallback"),
-  ]);
+  // One line per file, though the analyzer and the text fallback each warned; the count is per file too.
+  expect(result.warnings).toEqual([expect.stringContaining("broken.ts: syntax errors; extracted 1 declarations")]);
+  expect(result.warningSummary).toEqual({ "syntax-error": 1 });
+  const explained = await runScope({ task: "anything", repo, noJev: true, explain: true });
+  expect(explained.result.warnings).toHaveLength(2);
 });

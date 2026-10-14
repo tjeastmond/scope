@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { extractEcmascript } from "../src/analyzers/ecmascript.ts";
+import { extractEcmascript, neutralizeAttributeArrows } from "../src/analyzers/ecmascript.ts";
 import { scanRepository } from "../src/repository/files.ts";
 import { classifyFile } from "../src/repository/language.ts";
 import type { CodeChunk } from "../src/types.ts";
@@ -78,7 +78,7 @@ test.skipIf(!built)(
   "works from the compiled dist/ under Node, including concurrent first use of both grammars",
   async () => {
     const script = `
-    import { extractEcmascript } from "./dist/analyzers/ecmascript.js";
+    import { extractEcmascript, neutralizeAttributeArrows } from "./dist/analyzers/ecmascript.js";
     const est = { id: "t", count: (s) => s.length };
     // Concurrent first use of both grammars in a fresh process.
     const results = await Promise.all(
@@ -237,7 +237,13 @@ test("export default forms", async () => {
   expect(await inv("a.ts", "export default class {\n  m() {}\n}\n")).toEqual(["a.ts#class:default@1-3"]);
   expect(await inv("a.ts", "export default class Named {}\n")).toEqual(["a.ts#class:Named@1-1"]);
   expect(await inv("a.ts", "export default { a: 1 };\n")).toEqual(["a.ts#config:default@1-1"]);
-  expect(await inv("a.ts", "const x = 1;\nexport default x;\n")).toEqual([]);
+  // A default-exported binding is the whole file as one config chunk, so config files do not warn as empty.
+  expect(await inv("a.ts", "const x = 1;\nexport default x;\n")).toEqual(["a.ts#config:default@1-2"]);
+  expect(await inv("a.ts", "import a from 'a';\n\nconst x = {\n  a,\n};\n\nexport default x;\n")).toEqual([
+    "a.ts#config:default@3-7",
+  ]);
+  // Nothing exported by default and nothing declared stays empty (and warns).
+  expect(await inv("a.ts", "const x = 1;\n")).toEqual([]);
 });
 
 test("decorators are part of class and method ranges", async () => {
@@ -424,4 +430,49 @@ test("identical same-line declarations yield one chunk", async () => {
   expect(await names("a.test.ts", "it('works', () => {}); it('works', () => {});")).toEqual(["test: works"]);
   expect(await names("a.ts", "class A { m() {} m() {} }")).toEqual(["A"]);
   expect(await names("a.ts", "const a = () => 1, a = () => 2;")).toEqual(["a"]);
+});
+
+test("a config file that only default-exports a binding is one whole-file chunk, not an empty analysis", async () => {
+  const source =
+    "/** @type {import('postcss-load-config').Config} */\nconst config = {\n  plugins: { tailwindcss: {} },\n};\n\nexport default config;\n";
+  const result = await extractEcmascript("postcss.config.mjs", source);
+  expect(result.warnings).toEqual([]);
+  expect(inventory(result.chunks)).toEqual(["postcss.config.mjs#config:default@2-6"]);
+  expect(result.chunks[0]?.content).toBe(
+    "const config = {\n  plugins: { tailwindcss: {} },\n};\n\nexport default config;",
+  );
+  const called = await extractEcmascript(
+    "next.config.ts",
+    "import { defineConfig } from 'x';\nexport default defineConfig({ a: 1 });\n",
+  );
+  expect(inventory(called.chunks)).toEqual(["next.config.ts#config:default@2-2"]);
+});
+
+test("a file with neither declarations nor a default export still reports an empty analysis", async () => {
+  const { analyzeFile } = await import("../src/analyzers/index.ts");
+  const result = await analyzeFile({ path: "side-effect.mjs", source: "console.log(1);\n" }, "javascript");
+  expect(result.warnings).toEqual([expect.stringContaining("analyzer extracted no chunks")]);
+});
+
+test("Tailwind arbitrary variants (`&>`) in JSX string attributes parse cleanly and keep original offsets", async () => {
+  const source = [
+    "export function Icon() {",
+    "  return <div className=\"[&>svg]:size-3.5 [&>*]:p-1\" data-x='a&>b' />;",
+    "}",
+    'export const B = () => <span className="[&>svg]:size-3.5">ok</span>;',
+    "",
+  ].join("\n");
+  for (const path of ["icon.tsx", "icon.jsx"]) {
+    const result = await extractEcmascript(path, source, path.endsWith("jsx") ? "javascript" : "typescript");
+    expect(result.warnings).toEqual([]);
+    expect(result.partial).toBeUndefined();
+    expect(result.chunks.map((c) => [c.name, c.startLine, c.endLine])).toEqual([
+      ["Icon", 1, 3],
+      ["B", 4, 4],
+    ]);
+    expect(result.chunks[0]?.content).toBe(source.split("\n").slice(0, 3).join("\n"));
+    expect(result.chunks[0]?.content).toContain('"[&>svg]:size-3.5 [&>*]:p-1"');
+  }
+  expect(neutralizeAttributeArrows(source)).toHaveLength(source.length);
+  expect(neutralizeAttributeArrows("a && b > c")).toBe("a && b > c");
 });

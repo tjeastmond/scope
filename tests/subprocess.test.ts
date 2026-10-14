@@ -62,8 +62,8 @@ suite("the compiled CLI as a subprocess", () => {
           const parsed = JSON.parse(text(run));
           expect(validate(parsed)).toBe(true);
           expect(parsed.mode).toBe("no-jev");
-          // The artifact lists every warning; stderr lists each one only under --explain, else one summary line.
-          expect(run.stderr).toContain("files had scan warnings");
+          // The artifact lists syntax errors and counts the rest; stderr says so in one line unless --explain lists all.
+          expect(run.stderr).toMatch(/more files? had scans? warnings?/);
           const explained = scope(TASK, "--repo", MIXED, "--no-jev", "--format", format, "--explain");
           for (const warning of JSON.parse(text(explained)).warnings)
             expect(explained.stderr).toContain(`scope: warning: ${warning}\n`);

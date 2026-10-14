@@ -225,6 +225,31 @@ function statementEntries(statement: Node): (Found | undefined)[] {
   return [];
 }
 
+const ATTRIBUTE_STRING = /=\s*(?:"[^"]*"|'[^']*')/g;
+
+/**
+ * The tree-sitter TSX/JavaScript grammars fail on `&>` inside a JSX string attribute, which is how Tailwind arbitrary
+ * variants are written (`className="[&>svg]:size-3.5"`). The parser gets a copy where those two characters are `__`, so
+ * every offset and line is unchanged; chunk text still comes from the original source. Only the text of a string
+ * literal changes, never the structure the analyzer reads.
+ */
+export function neutralizeAttributeArrows(source: string): string {
+  return source.includes("&>") ? source.replace(ATTRIBUTE_STRING, (match) => match.replaceAll("&>", "__")) : source;
+}
+
+/**
+ * A file that declares nothing a chunk could name but default-exports a binding (`const config = {...}; export default
+ * config;`, as in `postcss.config.mjs`) is one `config` chunk from its first statement after the imports to its last.
+ */
+function defaultExportedBinding(statements: readonly Node[]): Found | undefined {
+  const isDefaultExport = (s: Node) => s.type === "export_statement" && s.children.some((c) => c?.type === "default");
+  if (!statements.some(isDefaultExport)) return undefined;
+  const body = statements.filter((statement) => statement.type !== "import_statement");
+  const first = body[0];
+  const last = body[body.length - 1];
+  return first && last ? { start: first, end: last, kind: "config", name: "default" } : undefined;
+}
+
 /**
  * Merges runs of same-name signatures into the implementation that directly follows them (or into one chunk when no
  * implementation follows). `undefined` entries break adjacency.
@@ -267,7 +292,7 @@ export async function extractEcmascript(
 ): Promise<AnalysisResult> {
   const grammar = grammarFor(path, language);
   const parser = await parserFor(grammar);
-  const tree = parser.parse(source);
+  const tree = parser.parse(neutralizeAttributeArrows(source));
   if (!tree) throw new Error(`Tree-sitter could not parse ${path}`);
   try {
     const entries = namedChildren(tree.rootNode).flatMap((statement) => {
@@ -275,6 +300,10 @@ export async function extractEcmascript(
       return found.length > 0 ? found : [undefined];
     });
     const found = mergeOverloads(entries);
+    if (found.length === 0 && !tree.rootNode.hasError) {
+      const whole = defaultExportedBinding(namedChildren(tree.rootNode));
+      if (whole) found.push(whole);
+    }
     const byFound = new Map<Found, Region>();
     const regions = found.map((entry): Region => {
       const region: Region = {
