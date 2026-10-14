@@ -19,7 +19,7 @@
 | Repeat | 1 |
 | Lexical top-k | 10 |
 | Coverage threshold | 0.8 |
-| Replayed from | eval-recordings/jev-baseline.json (recorded 2026-10-12T19:42:11.037Z at 676e65b7a59d60c321d08147501b5ba9b2d1b571 with SDK 0.6.0) |
+| Replayed from | eval-recordings/jev-baseline.json (recorded 2026-10-14T22:11:33.733Z at a4eb97aef4a4e9bf5d9a4b7bee2107d6266e0079 with SDK 0.6.0) |
 
 Fixture revisions (`tasks/fixtures.lock.json`):
 
@@ -133,31 +133,31 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 
 | Task | Split | Required recall | Precision | Irrelevant rate | Unlabeled share | Selected chars | Size reduction |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| mixed-app/configurable-reminder-retries | tuning | 100.0% (4/4) | 100.0% (6/6) | 0.0% | 0.0% | 865 | 95.2% |
+| mixed-app/configurable-reminder-retries | tuning | 100.0% (4/4) | 100.0% (7/7) | 0.0% | 12.6% | 990 | 94.5% |
 | mixed-app/due-date-column | tuning | 100.0% (2/2) | 66.7% (4/6) | 0.0% | 44.8% | 1,193 | 93.4% |
 | mixed-app/localized-csv-export | heldout | 33.3% (1/3) | 50.0% (3/6) | 0.0% | 39.7% | 915 | 94.9% |
 | py-ingest/atom-updated-fallback | heldout | 100.0% (1/1) | 40.0% (2/5) | 0.0% | 24.3% | 1,393 | 94.6% |
 | py-ingest/ignore-tracking-params | heldout | 100.0% (1/1) | 15.4% (2/13) | 12.6% | 75.6% | 4,508 | 82.4% |
-| py-ingest/longer-summaries | tuning | 100.0% (2/2) | 35.7% (5/14) | 0.0% | 70.4% | 4,099 | 84.0% |
-| py-ingest/pause-failing-sources | tuning | 100.0% (2/2) | 42.9% (3/7) | 0.0% | 43.4% | 1,834 | 92.8% |
-| py-ingest/prune-old-items | heldout | 100.0% (4/4) | 42.9% (6/14) | 0.0% | 54.5% | 4,316 | 83.1% |
+| py-ingest/longer-summaries | tuning | 100.0% (2/2) | 33.3% (5/15) | 0.0% | 69.9% | 4,026 | 84.3% |
+| py-ingest/pause-failing-sources | tuning | 100.0% (2/2) | 50.0% (3/6) | 0.0% | 37.9% | 1,672 | 93.5% |
+| py-ingest/prune-old-items | heldout | 100.0% (4/4) | 46.2% (6/13) | 0.0% | 51.8% | 4,070 | 84.1% |
 | py-ingest/retry-after-header | tuning | 100.0% (2/2) | 22.2% (2/9) | 6.5% | 60.8% | 3,235 | 87.4% |
 | react-dashboard/alert-age-over-a-day | tuning | 100.0% (1/1) | 100.0% (2/2) | 0.0% | 0.0% | 888 | 95.9% |
-| react-dashboard/bearer-token | heldout | 100.0% (2/2) | 40.0% (2/5) | 0.0% | 29.7% | 1,116 | 94.8% |
-| react-dashboard/hide-acknowledged-alerts | tuning | 66.7% (2/3) | 30.8% (4/13) | 0.0% | 67.8% | 2,593 | 88.0% |
+| react-dashboard/bearer-token | heldout | 100.0% (2/2) | 66.7% (2/3) | 0.0% | 13.6% | 907 | 95.8% |
+| react-dashboard/hide-acknowledged-alerts | tuning | 66.7% (2/3) | 28.6% (4/14) | 0.0% | 70.3% | 2,819 | 87.0% |
 | react-dashboard/plain-number-format | heldout | 0.0% (0/1) | 100.0% (2/2) | 0.0% | 0.0% | 728 | 96.6% |
 | react-dashboard/poll-interval-from-config | tuning | 100.0% (2/2) | 100.0% (6/6) | 0.0% | 0.0% | 1,534 | 92.9% |
 | react-dashboard/remember-time-range | heldout | 50.0% (1/2) | 60.0% (3/5) | 0.0% | 22.9% | 975 | 95.5% |
 | react-dashboard/sidenav-theme-toggle | tuning | 100.0% (1/1) | 50.0% (3/6) | 0.0% | 15.8% | 2,083 | 90.4% |
-| scope-snapshot/jev-timeout-message | tuning | 100.0% (2/2) | 71.4% (5/7) | 0.0% | 18.0% | 7,326 | 97.1% |
+| scope-snapshot/jev-timeout-message | tuning | 100.0% (2/2) | 66.7% (4/6) | 0.0% | 18.7% | 7,080 | 97.2% |
 | scope-snapshot/max-candidates-flag | tuning | 75.0% (3/4) | 35.7% (5/14) | 0.0% | 46.5% | 11,083 | 95.6% |
 | scope-snapshot/min-relevance-flag | tuning | 75.0% (3/4) | 58.3% (7/12) | 0.0% | 45.8% | 14,433 | 94.3% |
 | scope-snapshot/redact-more-secrets | tuning | 100.0% (1/1) | 50.0% (1/2) | 0.0% | 86.3% | 1,572 | 99.4% |
 | scope-snapshot/score-in-markdown | heldout | 100.0% (2/2) | 30.8% (4/13) | 6.7% | 66.5% | 7,939 | 96.8% |
-| scope-snapshot/skip-generated-folders | heldout | 100.0% (1/1) | 80.0% (4/5) | 0.0% | 2.3% | 4,940 | 98.0% |
+| scope-snapshot/skip-generated-folders | heldout | 100.0% (1/1) | 66.7% (4/6) | 0.0% | 5.5% | 5,110 | 98.0% |
 | webhook-service/billing-calls-retry | tuning | 100.0% (2/2) | 66.7% (4/6) | 0.0% | 47.5% | 2,094 | 66.9% |
 | webhook-service/duplicate-events | tuning | 100.0% (1/1) | 100.0% (3/3) | 0.0% | 0.0% | 1,121 | 82.3% |
-| webhook-service/handle-refunds | heldout | 100.0% (1/1) | 75.0% (3/4) | 0.0% | 42.2% | 1,395 | 77.9% |
+| webhook-service/handle-refunds | heldout | 100.0% (1/1) | 60.0% (3/5) | 0.0% | 55.0% | 1,793 | 71.6% |
 | webhook-service/log-accepted-events | heldout | 50.0% (1/2) | 66.7% (2/3) | 0.0% | 11.3% | 1,121 | 82.3% |
 | webhook-service/tighten-replay-window | tuning | 100.0% (1/1) | 66.7% (2/3) | 0.0% | 10.0% | 822 | 87.0% |
 
@@ -165,9 +165,9 @@ Eligible characters are the decoded text of every file Scope's own scan keeps (i
 
 | Split | Tasks | Recall (mean of tasks) | Recall (pooled) | Precision (mean of tasks) | Irrelevant rate | Unlabeled share | Selected chars (total) | Selected chars (mean) | Size reduction (mean) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tuning | 16 | 94.8% | 91.2% (31/34) | 62.3% (16 tasks) | 0.4% | 34.8% | 56,775 | 3,548 | 90.2% |
-| heldout | 11 | 75.8% | 75.0% (15/20) | 54.6% (11 tasks) | 1.7% | 33.6% | 29,346 | 2,668 | 90.6% |
-| overall | 27 | 87.0% | 85.2% (46/54) | 59.2% (27 tasks) | 1.0% | 34.3% | 86,121 | 3,190 | 90.4% |
+| tuning | 16 | 94.8% | 91.2% (31/34) | 62.2% (16 tasks) | 0.4% | 35.4% | 56,645 | 3,540 | 90.1% |
+| heldout | 11 | 75.8% | 75.0% (15/20) | 54.8% (11 tasks) | 1.7% | 33.3% | 29,459 | 2,678 | 90.2% |
+| overall | 27 | 87.0% | 85.2% (46/54) | 59.2% (27 tasks) | 1.0% | 34.6% | 86,104 | 3,189 | 90.2% |
 
 ## Jev impact (paired, Jev minus no-Jev)
 
@@ -175,39 +175,39 @@ Each difference is the `jev` result minus the `no-jev` result on the same task a
 
 | Task | Split | Recall | Precision | Selected chars |
 | --- | --- | --- | --- | --- |
-| mixed-app/configurable-reminder-retries | tuning | +0.0 pts | +67.5 pts | -3,792 |
+| mixed-app/configurable-reminder-retries | tuning | +0.0 pts | +67.5 pts | -3,667 |
 | mixed-app/due-date-column | tuning | +0.0 pts | +39.8 pts | -5,873 |
 | mixed-app/localized-csv-export | heldout | +0.0 pts | +42.5 pts | -5,582 |
 | py-ingest/atom-updated-fallback | heldout | +0.0 pts | +35.6 pts | -11,088 |
 | py-ingest/ignore-tracking-params | heldout | +0.0 pts | +8.5 pts | -4,392 |
-| py-ingest/longer-summaries | tuning | +0.0 pts | +24.8 pts | -8,969 |
-| py-ingest/pause-failing-sources | tuning | +0.0 pts | +34.0 pts | -12,109 |
-| py-ingest/prune-old-items | heldout | +0.0 pts | +28.9 pts | -7,770 |
+| py-ingest/longer-summaries | tuning | +0.0 pts | +22.5 pts | -9,042 |
+| py-ingest/pause-failing-sources | tuning | +0.0 pts | +41.1 pts | -12,271 |
+| py-ingest/prune-old-items | heldout | +0.0 pts | +32.2 pts | -8,016 |
 | py-ingest/retry-after-header | tuning | +0.0 pts | +15.7 pts | -11,151 |
 | react-dashboard/alert-age-over-a-day | tuning | +0.0 pts | +94.9 pts | -7,631 |
-| react-dashboard/bearer-token | heldout | +0.0 pts | +20.0 pts | -1,838 |
-| react-dashboard/hide-acknowledged-alerts | tuning | -33.3 pts | +15.8 pts | -5,376 |
+| react-dashboard/bearer-token | heldout | +0.0 pts | +46.7 pts | -2,047 |
+| react-dashboard/hide-acknowledged-alerts | tuning | -33.3 pts | +13.6 pts | -5,150 |
 | react-dashboard/plain-number-format | heldout | +0.0 pts | +88.2 pts | -4,095 |
 | react-dashboard/poll-interval-from-config | tuning | +0.0 pts | +85.0 pts | -8,365 |
 | react-dashboard/remember-time-range | heldout | +0.0 pts | +45.7 pts | -6,812 |
 | react-dashboard/sidenav-theme-toggle | tuning | +0.0 pts | +30.0 pts | -2,381 |
-| scope-snapshot/jev-timeout-message | tuning | +0.0 pts | +56.4 pts | -17,879 |
+| scope-snapshot/jev-timeout-message | tuning | +0.0 pts | +51.7 pts | -18,125 |
 | scope-snapshot/max-candidates-flag | tuning | -25.0 pts | +18.2 pts | -9,185 |
 | scope-snapshot/min-relevance-flag | tuning | -25.0 pts | +38.8 pts | -16,738 |
 | scope-snapshot/redact-more-secrets | tuning | +0.0 pts | +45.0 pts | -21,304 |
 | scope-snapshot/score-in-markdown | heldout | +0.0 pts | +20.8 pts | -25,252 |
-| scope-snapshot/skip-generated-folders | heldout | +0.0 pts | +67.5 pts | -18,281 |
+| scope-snapshot/skip-generated-folders | heldout | +0.0 pts | +54.2 pts | -18,111 |
 | webhook-service/billing-calls-retry | tuning | +0.0 pts | +48.1 pts | -3,811 |
 | webhook-service/duplicate-events | tuning | +0.0 pts | +85.2 pts | -4,784 |
-| webhook-service/handle-refunds | heldout | +0.0 pts | +60.2 pts | -4,510 |
+| webhook-service/handle-refunds | heldout | +0.0 pts | +45.2 pts | -4,112 |
 | webhook-service/log-accepted-events | heldout | -50.0 pts | +51.9 pts | -4,784 |
 | webhook-service/tighten-replay-window | tuning | +0.0 pts | +55.6 pts | -5,083 |
 
 | Split | Tasks | Mean recall | Mean precision | Mean selected chars | Recall by task |
 | --- | --- | --- | --- | --- | --- |
-| tuning | 16 | -5.2 pts | +47.2 pts | -9,027 | 0 better / 13 same / 3 worse |
-| heldout | 11 | -4.5 pts | +42.7 pts | -8,582 | 0 better / 10 same / 1 worse |
-| overall | 27 | -4.9 pts | +45.4 pts | -8,846 | 0 better / 23 same / 4 worse |
+| tuning | 16 | -5.2 pts | +47.0 pts | -9,035 | 0 better / 13 same / 3 worse |
+| heldout | 11 | -4.5 pts | +42.8 pts | -8,572 | 0 better / 10 same / 1 worse |
+| overall | 27 | -4.9 pts | +45.3 pts | -8,846 | 0 better / 23 same / 4 worse |
 
 ## Jev overhead
 
@@ -215,39 +215,39 @@ Latency is the wall clock of the whole Jev decision for the task, in millisecond
 
 | Task | Split | Latency (ms) | Input tokens | Output tokens | Combined tokens |
 | --- | --- | --- | --- | --- | --- |
-| mixed-app/configurable-reminder-retries | tuning | 237 | 8,467 | 722 | 9,189 |
-| mixed-app/due-date-column | tuning | 174 | 9,263 | 722 | 9,985 |
-| mixed-app/localized-csv-export | heldout | 164 | 8,918 | 722 | 9,640 |
-| py-ingest/atom-updated-fallback | heldout | 174 | 10,212 | 722 | 10,934 |
-| py-ingest/ignore-tracking-params | heldout | 176 | 6,620 | 448 | 7,068 |
-| py-ingest/longer-summaries | tuning | 164 | 10,295 | 722 | 11,017 |
-| py-ingest/pause-failing-sources | tuning | 209 | 10,542 | 722 | 11,264 |
-| py-ingest/prune-old-items | heldout | 190 | 10,083 | 722 | 10,805 |
-| py-ingest/retry-after-header | tuning | 176 | 10,696 | 722 | 11,418 |
-| react-dashboard/alert-age-over-a-day | tuning | 159 | 9,592 | 704 | 10,296 |
-| react-dashboard/bearer-token | heldout | 230 | 2,641 | 174 | 2,815 |
-| react-dashboard/hide-acknowledged-alerts | tuning | 217 | 9,464 | 722 | 10,186 |
-| react-dashboard/plain-number-format | heldout | 210 | 4,751 | 304 | 5,055 |
-| react-dashboard/poll-interval-from-config | tuning | 204 | 9,960 | 722 | 10,682 |
-| react-dashboard/remember-time-range | heldout | 175 | 7,205 | 502 | 7,707 |
-| react-dashboard/sidenav-theme-toggle | tuning | 224 | 3,854 | 264 | 4,118 |
-| scope-snapshot/jev-timeout-message | tuning | 168 | 13,792 | 722 | 14,514 |
-| scope-snapshot/max-candidates-flag | tuning | 218 | 12,763 | 722 | 13,485 |
+| mixed-app/configurable-reminder-retries | tuning | 369 | 8,467 | 722 | 9,189 |
+| mixed-app/due-date-column | tuning | 266 | 9,263 | 722 | 9,985 |
+| mixed-app/localized-csv-export | heldout | 378 | 8,918 | 722 | 9,640 |
+| py-ingest/atom-updated-fallback | heldout | 368 | 10,212 | 722 | 10,934 |
+| py-ingest/ignore-tracking-params | heldout | 304 | 6,620 | 448 | 7,068 |
+| py-ingest/longer-summaries | tuning | 221 | 10,295 | 722 | 11,017 |
+| py-ingest/pause-failing-sources | tuning | 199 | 10,542 | 722 | 11,264 |
+| py-ingest/prune-old-items | heldout | 224 | 10,083 | 722 | 10,805 |
+| py-ingest/retry-after-header | tuning | 317 | 10,696 | 722 | 11,418 |
+| react-dashboard/alert-age-over-a-day | tuning | 209 | 9,592 | 704 | 10,296 |
+| react-dashboard/bearer-token | heldout | 137 | 2,641 | 174 | 2,815 |
+| react-dashboard/hide-acknowledged-alerts | tuning | 184 | 9,464 | 722 | 10,186 |
+| react-dashboard/plain-number-format | heldout | 225 | 4,751 | 304 | 5,055 |
+| react-dashboard/poll-interval-from-config | tuning | 288 | 9,960 | 722 | 10,682 |
+| react-dashboard/remember-time-range | heldout | 203 | 7,205 | 502 | 7,707 |
+| react-dashboard/sidenav-theme-toggle | tuning | 138 | 3,854 | 264 | 4,118 |
+| scope-snapshot/jev-timeout-message | tuning | 211 | 13,792 | 722 | 14,514 |
+| scope-snapshot/max-candidates-flag | tuning | 180 | 12,763 | 722 | 13,485 |
 | scope-snapshot/min-relevance-flag | tuning | 201 | 15,189 | 722 | 15,911 |
-| scope-snapshot/redact-more-secrets | tuning | 186 | 13,529 | 722 | 14,251 |
-| scope-snapshot/score-in-markdown | heldout | 191 | 16,095 | 722 | 16,817 |
-| scope-snapshot/skip-generated-folders | heldout | 177 | 13,335 | 722 | 14,057 |
-| webhook-service/billing-calls-retry | tuning | 216 | 6,309 | 484 | 6,793 |
-| webhook-service/duplicate-events | tuning | 194 | 6,299 | 484 | 6,783 |
-| webhook-service/handle-refunds | heldout | 187 | 6,283 | 484 | 6,767 |
-| webhook-service/log-accepted-events | heldout | 157 | 6,277 | 484 | 6,761 |
-| webhook-service/tighten-replay-window | tuning | 177 | 6,297 | 484 | 6,781 |
+| scope-snapshot/redact-more-secrets | tuning | 211 | 13,529 | 722 | 14,251 |
+| scope-snapshot/score-in-markdown | heldout | 194 | 16,095 | 722 | 16,817 |
+| scope-snapshot/skip-generated-folders | heldout | 211 | 13,335 | 722 | 14,057 |
+| webhook-service/billing-calls-retry | tuning | 229 | 6,309 | 484 | 6,793 |
+| webhook-service/duplicate-events | tuning | 235 | 6,299 | 484 | 6,783 |
+| webhook-service/handle-refunds | heldout | 278 | 6,283 | 484 | 6,767 |
+| webhook-service/log-accepted-events | heldout | 211 | 6,277 | 484 | 6,761 |
+| webhook-service/tighten-replay-window | tuning | 310 | 6,297 | 484 | 6,781 |
 
 | Split | Tasks | Total latency (ms) | Mean latency (ms) | Input tokens | Output tokens | Combined tokens |
 | --- | --- | --- | --- | --- | --- | --- |
-| tuning | 16 | 3,124 | 195 | 156,311 | 10,362 | 166,673 |
-| heldout | 11 | 2,031 | 185 | 92,420 | 6,006 | 98,426 |
-| overall | 27 | 5,155 | 191 | 248,731 | 16,368 | 265,099 |
+| tuning | 16 | 3,768 | 236 | 156,311 | 10,362 | 166,673 |
+| heldout | 11 | 2,733 | 248 | 92,420 | 6,006 | 98,426 |
+| overall | 27 | 6,501 | 241 | 248,731 | 16,368 | 265,099 |
 
 ## Regressions and no-improvement cases
 
